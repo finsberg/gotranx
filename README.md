@@ -1,1 +1,3 @@
-# SOME LIBRARY
+# gotran Parser
+
+Parser for gotran `.ode` files

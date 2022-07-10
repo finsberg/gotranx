@@ -1,0 +1,35 @@
+?start: ode
+
+?ode: (parameters | states | assignment)*
+
+pair: NAME "=" SIGNED_NUMBER
+
+parameters : "parameters" "(" pair ("," pair)*  ")"
+states : "states" "(" pair ("," pair)* ")"
+
+?expression: product
+    | expression "+" product   -> add
+    | expression "-" product   -> sub
+
+?product: atom
+    | product "*" atom  -> mul
+    | product "/" atom  -> div
+
+
+?atom: NUMBER   -> number
+    | "-" atom         -> neg
+    | NAME             -> name
+    | "(" expression ")"
+
+
+assignment : NAME "=" expression
+
+%ignore WS
+%ignore WS_INLINE
+
+%import common.CNAME -> NAME
+%import common.NUMBER
+%import common.SIGNED_NUMBER
+%import common.WS
+%import common.WS_INLINE
+%import common.SH_COMMENT -> COMMENT
