@@ -7,10 +7,16 @@ from . import atoms
 
 class TreeToODE(lark.Transformer):
     def states(self, s):
-        return [atoms.State(name=str(p[0]), ic=float(p[1])) for p in s]
+        return [
+            atoms.State(name=str(p[0]), ic=float(p[1]), component=s[0], info=s[1])
+            for p in s[2:]
+        ]
 
     def parameters(self, s) -> list[atoms.Parameter]:
-        return [atoms.Parameter(name=str(p[0]), value=float(p[1])) for p in s]
+        return [
+            atoms.Parameter(name=str(p[0]), value=float(p[1]), component=s[0])
+            for p in s[1:]
+        ]
 
     def pair(self, s):
         name, value = s

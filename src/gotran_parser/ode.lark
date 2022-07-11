@@ -4,8 +4,8 @@
 
 pair: NAME "=" SIGNED_NUMBER
 
-parameters : "parameters" "(" pair ("," pair)*  ")"
-states : "states" "(" pair ("," pair)* ")"
+parameters : "parameters" "(" ["\"" COMPONENT_NAME "\""] pair ("," pair)*  ")"
+states : "states" "(" ["\"" COMPONENT_NAME "\""] ["\"" INFO "\""] pair ("," pair)* ")"
 
 ?expression: product
     | expression "+" product   -> add
@@ -23,6 +23,8 @@ states : "states" "(" pair ("," pair)* ")"
 
 
 assignment : NAME "=" expression
+COMPONENT_NAME: NAME
+INFO: NAME
 
 %ignore WS
 %ignore WS_INLINE

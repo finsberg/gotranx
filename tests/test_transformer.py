@@ -1,18 +1,6 @@
 import lark
 import pytest
 from gotran_parser import atoms
-from gotran_parser import Parser
-from gotran_parser import TreeToODE
-
-
-@pytest.fixture(scope="module")
-def parser() -> Parser:
-    return Parser(parser="lalr", debug=True)
-
-
-@pytest.fixture(scope="module")
-def trans() -> TreeToODE:
-    return TreeToODE()
 
 
 def test_parameters_single(parser, trans):
@@ -71,6 +59,7 @@ def test_states_double(expr, parser, trans):
     tree = parser.parse(expr)
     result = trans.transform(tree)
     assert len(result) == 2
+
     assert result[0] == atoms.State(name="x", ic=1)
     assert result[1] == atoms.State(name="y", ic=2)
 
@@ -189,6 +178,39 @@ def test_assignment_single5(expr, parser, trans):
                 [
                     lark.Tree("number", [lark.Token("NUMBER", "4")]),
                     lark.Tree("number", [lark.Token("NUMBER", "5")]),
+                ],
+            ),
+        ],
+    )
+
+
+def test_assignment_single_with_names(parser, trans):
+
+    expr = "x = (1 * y) + rho - (z / sigma)"
+    tree = parser.parse(expr)
+    result = trans.transform(tree)
+    assert result.lhs == "x"
+    assert result.rhs.tree == lark.Tree(
+        "sub",
+        [
+            lark.Tree(
+                "add",
+                [
+                    lark.Tree(
+                        "mul",
+                        [
+                            lark.Tree("number", [lark.Token("NUMBER", "1")]),
+                            lark.Tree("name", [lark.Token("NAME", "y")]),
+                        ],
+                    ),
+                    lark.Tree("name", [lark.Token("NAME", "rho")]),
+                ],
+            ),
+            lark.Tree(
+                "div",
+                [
+                    lark.Tree("name", [lark.Token("NAME", "z")]),
+                    lark.Tree("name", [lark.Token("NAME", "sigma")]),
                 ],
             ),
         ],
