@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from functools import cached_property
 from typing import Optional
+from typing import Union
 
 import lark
 
@@ -53,9 +54,9 @@ class Assignment:
 @dataclass(frozen=True)
 class Component:
     name: str
-    states: set[State]
-    parameters: set[Parameter]
-    assignments: set[Assignment]
+    states: frozenset[State]
+    parameters: frozenset[Parameter]
+    assignments: frozenset[Assignment]
 
     @property
     def intermediates(self):
@@ -64,3 +65,6 @@ class Component:
     @property
     def state_derivatives(self):
         pass
+
+
+Atoms = Union[State, Parameter, Assignment]

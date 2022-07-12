@@ -5,8 +5,8 @@
 ?pair: NAME "=" SIGNED_NUMBER
 ?assignment : NAME "=" expression
 
-parameters : "parameters" "(" [ COMPONENT_NAME ] pair ("," pair)*  ")"
-states : "states" "(" [ COMPONENT_NAME ] [ INFO ] pair ("," pair)* ")"
+parameters : "parameters" "(" [ COMPONENT_NAME "," ] pair ("," pair)*  ")"
+states : "states" "(" [ COMPONENT_NAME "," ] [ INFO ","] pair ("," pair)* ")"
 expressions: (assignment)+
     | "expressions" "(" COMPONENT_NAME ")" (assignment)+
     | "component" "(" COMPONENT_NAME ")" (assignment)+

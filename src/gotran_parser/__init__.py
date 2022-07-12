@@ -1,6 +1,7 @@
 from importlib.metadata import metadata
 
 from . import cli
+from . import exceptions
 from . import parser
 from . import transformer
 from .parser import Parser
@@ -14,4 +15,4 @@ __license__ = meta["License"]
 __email__ = meta["Author-email"]
 __program_name__ = meta["Name"]
 
-__all__ = ["cli", "parser", "Parser", "transformer", "TreeToODE"]
+__all__ = ["cli", "parser", "Parser", "transformer", "TreeToODE", "exceptions"]
