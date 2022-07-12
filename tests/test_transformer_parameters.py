@@ -54,7 +54,7 @@ def test_parameters_with_component(parser, trans):
     assert result[1] == atoms.Parameter(name="y", value=2, component="My Component")
 
 
-def test_three_sets_of_parameters_with_component(parser, trans):
+def test_different_sets_of_parameters(parser, trans):
     expr = 'parameters("First component", x=1, y=2)\nparameters("Second component", z=3)\nparameters(w=4)'
     tree = parser.parse(expr)
     result = trans.transform(tree)

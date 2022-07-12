@@ -34,9 +34,21 @@ def find_assignments(s, component: Optional[str] = None) -> list[atoms.Assignmen
 
 class TreeToODE(lark.Transformer):
     def states(self, s) -> tuple[atoms.State, ...]:
+        component = s[0]
+        if component is not None:
+            component = remove_quotes(str(component))
+
+        info = s[1]
+        if info is not None:
+            info = remove_quotes(str(info))
         return tuple(
             [
-                atoms.State(name=str(p[0]), ic=float(p[1]), component=s[0], info=s[1])
+                atoms.State(
+                    name=str(p[0]),
+                    ic=float(p[1]),
+                    component=component,
+                    info=info,
+                )
                 for p in s[2:]
             ],
         )
