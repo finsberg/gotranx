@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from dataclasses import field
 from functools import cached_property
 from typing import Optional
 
@@ -24,29 +23,11 @@ class Parameter:
 
 
 @dataclass(frozen=True)
-class ParameterComponent:
-    parameters: list[Parameter]
-    component: str = field(init=False)
-
-    def __post_init__(self):
-        pass
-
-
-@dataclass(frozen=True)
 class State:
     name: str
     ic: float
     component: Optional[str] = None
     info: Optional[str] = None
-
-
-@dataclass(frozen=True)
-class StateComponent:
-    states: list[State]
-    component: str = field(init=False)
-
-    def __post_init__(self):
-        pass
 
 
 @dataclass(frozen=True)
@@ -66,3 +47,20 @@ class Expression:
 class Assignment:
     lhs: str
     rhs: Expression
+    component: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class Component:
+    name: str
+    states: set[State]
+    parameters: set[Parameter]
+    assignments: set[Assignment]
+
+    @property
+    def intermediates(self):
+        pass
+
+    @property
+    def state_derivatives(self):
+        pass

@@ -13,4 +13,4 @@ def test_expression_dependencies(expr, deps, parser, trans):
 
     tree = parser.parse(expr)
     result = trans.transform(tree)
-    assert result.rhs.dependencies == deps
+    assert result[0].rhs.dependencies == deps
