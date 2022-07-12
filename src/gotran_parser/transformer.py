@@ -6,6 +6,7 @@ from typing import Optional
 import lark
 
 from . import atoms
+from . import ode
 
 
 def remove_quotes(s: str) -> str:
@@ -76,7 +77,7 @@ class TreeToODE(lark.Transformer):
 
         return tuple(assignments)
 
-    def ode(self, s) -> tuple[atoms.Component, ...]:
+    def ode(self, s) -> tuple[ode.Component, ...]:
 
         # FIXME: Could use Enum here
         mapping = {
@@ -104,7 +105,7 @@ class TreeToODE(lark.Transformer):
         # are actually of the correct type.
         return tuple(
             [
-                atoms.Component(name=key, **value)  # type: ignore
+                ode.Component(name=key, **value)  # type: ignore
                 for key, value in frozen_components.items()
             ],
         )

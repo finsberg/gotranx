@@ -51,20 +51,4 @@ class Assignment:
     component: Optional[str] = None
 
 
-@dataclass(frozen=True)
-class Component:
-    name: str
-    states: frozenset[State]
-    parameters: frozenset[Parameter]
-    assignments: frozenset[Assignment]
-
-    @property
-    def intermediates(self):
-        pass
-
-    @property
-    def state_derivatives(self):
-        pass
-
-
 Atoms = Union[State, Parameter, Assignment]

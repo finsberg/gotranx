@@ -2,8 +2,10 @@ from importlib.metadata import metadata
 
 from . import cli
 from . import exceptions
+from . import load
 from . import parser
 from . import transformer
+from .load import load_ode
 from .parser import Parser
 from .transformer import TreeToODE
 
@@ -15,4 +17,13 @@ __license__ = meta["License"]
 __email__ = meta["Author-email"]
 __program_name__ = meta["Name"]
 
-__all__ = ["cli", "parser", "Parser", "transformer", "TreeToODE", "exceptions"]
+__all__ = [
+    "cli",
+    "parser",
+    "Parser",
+    "transformer",
+    "TreeToODE",
+    "exceptions",
+    "load",
+    "load_ode",
+]
