@@ -3,9 +3,9 @@ import pytest
 
 
 @pytest.mark.parametrize("expr", ["x=1", "x = 1", "x= 1"])
-def test_assignment_single(expr, parser, trans):
+def test_assignment_single_1(expr, parser, trans):
 
-    tree = parser.parse("x = 1")
+    tree = parser.parse(expr)
     result = trans.transform(tree)
     assert len(result) == 1
     assert result[0].lhs == "x"
@@ -159,3 +159,33 @@ def test_assignment_single_with_names(parser, trans):
             ),
         ],
     )
+
+
+@pytest.mark.parametrize("expr", ["x=1\ny=2", "x = 1 \n y =2", "x= 1\n y = 2"])
+def test_assignment_double(expr, parser, trans):
+
+    tree = parser.parse(expr)
+    result = trans.transform(tree)
+    assert len(result) == 2
+    assert result[0].lhs == "x"
+    assert result[0].rhs.tree == lark.Tree("number", [lark.Token("NUMBER", "1")])
+    assert result[1].lhs == "y"
+    assert result[1].rhs.tree == lark.Tree("number", [lark.Token("NUMBER", "2")])
+
+
+def test_expressions_with_name(parser, trans):
+    expr = """
+    expressions("My Component")
+    x = 1
+    y = 2
+    """
+    tree = parser.parse(expr)
+    result = trans.transform(tree)
+
+    assert len(result) == 2
+    assert result[0].component == "My Component"
+    assert result[0].lhs == "x"
+    assert result[0].rhs.tree == lark.Tree("number", [lark.Token("NUMBER", "1")])
+    assert result[1].component == "My Component"
+    assert result[1].lhs == "y"
+    assert result[1].rhs.tree == lark.Tree("number", [lark.Token("NUMBER", "2")])

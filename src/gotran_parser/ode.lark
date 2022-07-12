@@ -1,11 +1,15 @@
 ?start: ode
 
-?ode: (parameters | states | assignment)*
+?ode: (parameters | states | expressions)*
 
-pair: NAME "=" SIGNED_NUMBER
+?pair: NAME "=" SIGNED_NUMBER
+?assignment : NAME "=" expression
 
-parameters : "parameters" "(" ["\"" COMPONENT_NAME "\""] pair ("," pair)*  ")"
-states : "states" "(" ["\"" COMPONENT_NAME "\""] ["\"" INFO "\""] pair ("," pair)* ")"
+parameters : "parameters" "(" [ COMPONENT_NAME ] pair ("," pair)*  ")"
+states : "states" "(" [ COMPONENT_NAME ] [ INFO ] pair ("," pair)* ")"
+expressions: (assignment)+
+    | "expressions" "(" COMPONENT_NAME ")" (assignment)+
+    | "component" "(" COMPONENT_NAME ")" (assignment)+
 
 ?expression: product
     | expression "+" product   -> add
@@ -15,16 +19,14 @@ states : "states" "(" ["\"" COMPONENT_NAME "\""] ["\"" INFO "\""] pair ("," pair
     | product "*" atom  -> mul
     | product "/" atom  -> div
 
-
 ?atom: NUMBER   -> number
     | "-" atom         -> neg
     | NAME             -> name
     | "(" expression ")"
 
 
-assignment : NAME "=" expression
-COMPONENT_NAME: NAME
-INFO: NAME
+COMPONENT_NAME: ESCAPED_STRING
+INFO: ESCAPED_STRING
 
 %ignore WS
 %ignore WS_INLINE
@@ -35,3 +37,4 @@ INFO: NAME
 %import common.WS
 %import common.WS_INLINE
 %import common.SH_COMMENT -> COMMENT
+%import common.ESCAPED_STRING
