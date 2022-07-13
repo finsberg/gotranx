@@ -9,6 +9,8 @@ import lark
 
 @attr.s(frozen=True, kw_only=True, slots=True)
 class Parameter:
+    """A Parameter is a constant scalar value"""
+
     name: str = attr.ib()
     value: float = attr.ib()
     component: Optional[str] = attr.ib(None)
@@ -16,6 +18,10 @@ class Parameter:
 
 @attr.s(frozen=True, kw_only=True, slots=True)
 class State:
+    """A State is a variable that also has a
+    corresponding state derivative.
+    """
+
     name: str = attr.ib()
     ic: float = attr.ib()
     component: Optional[str] = attr.ib(None)
@@ -24,6 +30,12 @@ class State:
 
 @attr.s(frozen=True, kw_only=True, slots=True)
 class Expression:
+    """An Expression is a group of variables (i.e
+    states, parameters or other expressions) combined
+    with binary operations (i.e +, -, * etc)
+    An Expression is typically a right hand side of
+    an assignment."""
+
     tree: lark.Tree = attr.ib()
     dependencies: frozenset[str] = attr.ib(init=False)
 
@@ -41,6 +53,8 @@ class Expression:
 
 @attr.s(frozen=True, kw_only=True, slots=True)
 class Assignment:
+    """Assignments are object of the form `lhs = rhs`."""
+
     lhs: str = attr.ib()
     rhs: Expression = attr.ib()
     component: Optional[str] = attr.ib(None)
@@ -59,6 +73,9 @@ class Assignment:
 
 @attr.s(frozen=True, kw_only=True, slots=True)
 class Intermediate:
+    """Intermediate is a type of Assignment that is not
+    a StateDerivative"""
+
     lhs: str = attr.ib()
     rhs: Expression = attr.ib()
     component: Optional[str] = attr.ib(None)
@@ -66,17 +83,14 @@ class Intermediate:
 
 @attr.s(frozen=True, kw_only=True, slots=True)
 class StateDerivative:
-    """Derivative of a state."""
+    """A StateDerivative is an Assignment of the form
+    `dX_dt = rhs` where X is a state. A StatedDerivative
+    also holds a pointer to the State"""
 
     lhs: str = attr.ib()
     rhs: Expression = attr.ib()
     state: State = attr.ib()
     component: Optional[str] = attr.ib(None)
-
-    def __attr_post_init__(self):
-        # Check that state derivative and state
-        # has the same component
-        pass
 
 
 Atoms = Union[State, Parameter, Assignment]

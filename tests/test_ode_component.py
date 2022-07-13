@@ -2,6 +2,7 @@ import lark
 import pytest
 from gotran_parser import atoms
 from gotran_parser import exceptions
+from gotran_parser.ode import STATE_DERIV_EXPR
 
 
 def test_component_None(parser, trans):
@@ -111,3 +112,28 @@ def test_StateNotFound(parser, trans):
         trans.transform(tree)
 
     assert str(e.value) == "State with name 'y' not found"
+
+
+@pytest.mark.parametrize(
+    "expr, is_match, state_name",
+    [
+        ("dx_dt", True, "x"),
+        ("dx_y_dt", True, "x_y"),
+        ("dAb_x_t_dt", True, "Ab_x_t"),
+        ("dx_dt_dt", True, "x_dt"),
+        ("dxdt", False, ""),
+        ("Dx_dt", False, ""),
+        ("a_dx_dt", False, ""),
+        ("adx_dt", False, ""),
+        ("x_dt", False, ""),
+        ("dx_dt_", False, ""),
+        ("_dx_dt", False, ""),
+        ("dx_dts", False, ""),
+    ],
+)
+def test_STATE_DERIV_EXPR(expr, is_match, state_name):
+    result = STATE_DERIV_EXPR.match(expr)
+    if is_match:
+        assert result.groupdict()["state"] == state_name
+    else:
+        assert result is None
