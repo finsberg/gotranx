@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
-from dataclasses import field
+
+from attrs import define
+from attrs import field
 
 from . import atoms
 from . import exceptions
@@ -10,7 +11,7 @@ from . import exceptions
 _STATE_DERIV_EXPR = re.compile(r"d([A-Z,a-z])\w*_dt")
 
 
-@dataclass(frozen=True)
+@define(frozen=True)
 class Component:
     name: str
     states: frozenset[atoms.State]
@@ -19,7 +20,7 @@ class Component:
     state_derivatives: frozenset[atoms.StateDerivative] = field(init=False)
     intermediates: frozenset[atoms.Intermediate] = field(init=False)
 
-    def __post_init__(self):
+    def __attrs_post_init__(self):
         self._handle_assignments()
 
     def _find_state(self, state_name: str) -> atoms.State:

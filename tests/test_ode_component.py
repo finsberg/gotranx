@@ -22,18 +22,19 @@ def test_component_None(parser, trans):
         atoms.State(name="b", ic=2),
         atoms.State(name="c", ic=3),
     }
+
     assert comp.assignments == {
         atoms.Assignment(
             lhs="da_dt",
-            rhs=atoms.Expression(lark.Tree("number", [lark.Token("NUMBER", "0")])),
+            rhs=atoms.Expression(tree=lark.Tree("number", [lark.Token("NUMBER", "0")])),
         ),
         atoms.Assignment(
             lhs="db_dt",
-            rhs=atoms.Expression(lark.Tree("number", [lark.Token("NUMBER", "1")])),
+            rhs=atoms.Expression(tree=lark.Tree("number", [lark.Token("NUMBER", "1")])),
         ),
         atoms.Assignment(
             lhs="dc_dt",
-            rhs=atoms.Expression(lark.Tree("number", [lark.Token("NUMBER", "2")])),
+            rhs=atoms.Expression(tree=lark.Tree("number", [lark.Token("NUMBER", "2")])),
         ),
     }
 

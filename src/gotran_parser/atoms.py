@@ -1,54 +1,49 @@
-from dataclasses import dataclass
-from functools import cached_property
+from __future__ import annotations
+
 from typing import Optional
 from typing import Union
 
+import attr
 import lark
 
 
-class default_factory:
-    def __init__(self, name):
-        self.name = name
-        self.value = 0
-
-    def __call__(self):
-        self.value += 1
-        return f"{self.name} {self.value}"
-
-
-@dataclass(frozen=True)
+@attr.s(frozen=True, kw_only=True, slots=True)
 class Parameter:
-    name: str
-    value: float
-    component: Optional[str] = None
+    name: str = attr.ib()
+    value: float = attr.ib()
+    component: Optional[str] = attr.ib(None)
 
 
-@dataclass(frozen=True)
+@attr.s(frozen=True, kw_only=True, slots=True)
 class State:
-    name: str
-    ic: float
-    component: Optional[str] = None
-    info: Optional[str] = None
+    name: str = attr.ib()
+    ic: float = attr.ib()
+    component: Optional[str] = attr.ib(None)
+    info: Optional[str] = attr.ib(None)
 
 
-@dataclass(frozen=True)
+@attr.s(frozen=True, kw_only=True, slots=True)
 class Expression:
-    tree: lark.Tree
+    tree: lark.Tree = attr.ib()
+    dependencies: frozenset[str] = attr.ib(init=False)
 
-    @cached_property
-    def dependencies(self):
+    def __attrs_post_init__(self):
+        self._find_dependencies()
+
+    def _find_dependencies(self):
         deps = set()
         for tree in self.tree.iter_subtrees():
             if tree.data == "name":
                 deps.add(str(tree.children[0]))
-        return deps
+
+        object.__setattr__(self, "dependencies", frozenset(deps))
 
 
-@dataclass(frozen=True, kw_only=True)
+@attr.s(frozen=True, kw_only=True, slots=True)
 class Assignment:
-    lhs: str
-    rhs: Expression
-    component: Optional[str] = None
+    lhs: str = attr.ib()
+    rhs: Expression = attr.ib()
+    component: Optional[str] = attr.ib(None)
 
     def to_intermediate(self) -> "Intermediate":
         return Intermediate(lhs=self.lhs, rhs=self.rhs, component=self.component)
@@ -62,22 +57,23 @@ class Assignment:
         )
 
 
-@dataclass(frozen=True)
-class Intermediate(Assignment):
-    pass
+@attr.s(frozen=True, kw_only=True, slots=True)
+class Intermediate:
+    lhs: str = attr.ib()
+    rhs: Expression = attr.ib()
+    component: Optional[str] = attr.ib(None)
 
 
-@dataclass(frozen=True, kw_only=True)
-class StateDerivative(Assignment):
-    """Derivative of a state.
+@attr.s(frozen=True, kw_only=True, slots=True)
+class StateDerivative:
+    """Derivative of a state."""
 
-    All StateDerivatives are also Assignments.
+    lhs: str = attr.ib()
+    rhs: Expression = attr.ib()
+    state: State = attr.ib()
+    component: Optional[str] = attr.ib(None)
 
-    """
-
-    state: State
-
-    def __post_init__(self):
+    def __attr_post_init__(self):
         # Check that state derivative and state
         # has the same component
         pass
