@@ -44,11 +44,43 @@ class Expression:
         return deps
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class Assignment:
     lhs: str
     rhs: Expression
     component: Optional[str] = None
+
+    def to_intermediate(self) -> "Intermediate":
+        return Intermediate(lhs=self.lhs, rhs=self.rhs, component=self.component)
+
+    def to_state_derivative(self, state: State) -> "StateDerivative":
+        return StateDerivative(
+            lhs=self.lhs,
+            rhs=self.rhs,
+            component=self.component,
+            state=state,
+        )
+
+
+@dataclass(frozen=True)
+class Intermediate(Assignment):
+    pass
+
+
+@dataclass(frozen=True, kw_only=True)
+class StateDerivative(Assignment):
+    """Derivative of a state.
+
+    All StateDerivatives are also Assignments.
+
+    """
+
+    state: State
+
+    def __post_init__(self):
+        # Check that state derivative and state
+        # has the same component
+        pass
 
 
 Atoms = Union[State, Parameter, Assignment]
