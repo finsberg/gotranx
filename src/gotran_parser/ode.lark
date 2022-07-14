@@ -3,9 +3,12 @@
 ?ode: (parameters | states | expressions)*
 
 ?pair: NAME "=" SIGNED_NUMBER
+?parameter: NAME "=" SIGNED_NUMBER  -> param
+    | NAME "=" "ScalarParam" "(" SIGNED_NUMBER ["," "unit" "=" UNIT_STR] ["," "description" "=" DESCRIPTION] ")" -> scalarparam
+
 ?assignment : NAME "=" expression [ unit ]
 ?unit: "#" UNIT
-parameters : "parameters" "(" [ COMPONENT_NAME "," ] pair ("," pair)*  ")"
+parameters : "parameters" "(" [ COMPONENT_NAME "," ] parameter ("," parameter)*  ")"
 states : "states" "(" [ COMPONENT_NAME "," ] [ INFO ","] pair ("," pair)* ")"
 expressions: (assignment)+
     | "expressions" "(" COMPONENT_NAME [ "," INFO ] ")" (assignment)+
@@ -27,6 +30,8 @@ expressions: (assignment)+
 
 COMPONENT_NAME: ESCAPED_STRING
 INFO: ESCAPED_STRING
+DESCRIPTION: ESCAPED_STRING
+UNIT_STR: ESCAPED_STRING
 UNIT: NAME
 
 %ignore WS

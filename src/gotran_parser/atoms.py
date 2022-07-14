@@ -21,11 +21,13 @@ class Parameter:
     name: str = attr.ib()
     value: float = attr.ib()
     component: Optional[str] = attr.ib(None)
-    unit: Optional[str] = attr.ib(None)
     description: Optional[str] = attr.ib(None)
     symbol: sp.Symbol = attr.ib(init=False)
+    unit_str: Optional[str] = attr.ib(None, repr=False)
+    unit: Optional[pint.Unit] = attr.ib(init=False)
 
     def __attrs_post_init__(self):
+        object.__setattr__(self, "unit", unit_from_string(self.unit_str))
         object.__setattr__(
             self,
             "symbol",

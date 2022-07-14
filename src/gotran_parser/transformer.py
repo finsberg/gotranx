@@ -6,6 +6,7 @@ from typing import Optional
 import lark
 
 from . import atoms
+from . import exceptions
 from . import ode
 
 
@@ -55,6 +56,33 @@ def find_assignments(
         ]
 
     return []
+
+
+def tree2parameter(s: lark.Tree, component) -> atoms.Parameter:
+    if s.data == "param":
+        return atoms.Parameter(
+            name=str(s.children[0]),
+            value=float(s.children[1]),
+            component=component,
+        )
+    elif s.data == "scalarparam":
+        unit = None
+        if s.children[2] is not None:
+            unit = remove_quotes(str(s.children[2]))
+
+        desc = None
+        if s.children[3] is not None:
+            desc = remove_quotes(str(s.children[3]))
+
+        return atoms.Parameter(
+            name=str(s.children[0]),
+            value=float(s.children[1]),
+            component=component,
+            unit_str=unit,
+            description=desc,
+        )
+    else:
+        raise exceptions.UnknownTreeTypeError(datatype=s.data, atom="Parameter")
 
 
 class TreeToODE(lark.Transformer):
@@ -107,15 +135,12 @@ class TreeToODE(lark.Transformer):
         )
 
     def parameters(self, s) -> tuple[atoms.Parameter, ...]:
+
         component = s[0]
         if component is not None:
             component = remove_quotes(str(component))
-        return tuple(
-            [
-                atoms.Parameter(name=str(p[0]), value=float(p[1]), component=component)
-                for p in s[1:]
-            ],
-        )
+
+        return tuple([tree2parameter(p, component=component) for p in s[1:]])
 
     def pair(self, s):
         return s

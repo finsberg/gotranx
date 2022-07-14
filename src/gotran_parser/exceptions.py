@@ -44,3 +44,12 @@ class DuplicateSymbolError(GotranParserError):
             "Please make sure to only define each variable once in order "
             "to avoid ambiguity. Equations should be reorderable."
         )
+
+
+@dataclass
+class UnknownTreeTypeError(GotranParserError):
+    datatype: str
+    atom: str
+
+    def __str__(self) -> str:
+        return f"Cannot prase tree data type {self.datatype} for atom {self.atom}"
