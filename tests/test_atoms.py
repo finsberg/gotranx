@@ -52,3 +52,58 @@ def test_parameter_arguments(parser, trans):
         description="Description of z",
         component="My component",
     )
+
+
+def test_states_arguments(parser, trans):
+
+    expr = """
+    states("My component",
+        y = 1.0,
+        x = ScalarParam(42.0)
+    )
+    states("My component", "Some info",
+        w = ScalarParam(10.2, unit="mM"),
+        v = ScalarParam(3.14, unit="mV", description="Description of v")
+    )
+    states("My other component", "other info",
+        z = ScalarParam(42.0, description="Description of z")
+    )
+    """
+
+    tree = parser.parse(expr)
+    result = trans.transform(tree)
+    assert len(result) == 2
+
+    comp1 = result[0]
+    assert comp1.name == "My component"
+    assert comp1.states == {
+        atoms.State(name="y", value=1.0, component="My component"),
+        atoms.State(name="x", value=42.0, component="My component"),
+        atoms.State(
+            name="w",
+            value=10.2,
+            component="My component",
+            unit_str="mM",
+            info="Some info",
+        ),
+        atoms.State(
+            name="v",
+            value=3.14,
+            description="Description of v",
+            component="My component",
+            info="Some info",
+            unit_str="mV",
+        ),
+    }
+
+    comp2 = result[1]
+    assert comp2.name == "My other component"
+    assert comp2.states == {
+        atoms.State(
+            name="z",
+            value=42.0,
+            description="Description of z",
+            component="My other component",
+            info="other info",
+        ),
+    }

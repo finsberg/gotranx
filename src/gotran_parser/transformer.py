@@ -2,12 +2,16 @@ from __future__ import annotations
 
 from collections import defaultdict
 from typing import Optional
+from typing import Type
+from typing import TypeVar
 
 import lark
 
 from . import atoms
 from . import exceptions
 from . import ode
+
+T = TypeVar("T", atoms.State, atoms.Parameter)
 
 
 def remove_quotes(s: str) -> str:
@@ -58,12 +62,21 @@ def find_assignments(
     return []
 
 
-def tree2parameter(s: lark.Tree, component) -> atoms.Parameter:
+def tree2parameter(
+    s: lark.Tree,
+    component: Optional[str],
+    cls: Type[T],
+    info: Optional[str] = None,
+) -> T:
+    kwargs = {}
+    if info is not None:
+        kwargs["info"] = info
     if s.data == "param":
-        return atoms.Parameter(
+        return cls(
             name=str(s.children[0]),
             value=float(s.children[1]),
             component=component,
+            **kwargs,
         )
     elif s.data == "scalarparam":
         unit = None
@@ -74,12 +87,13 @@ def tree2parameter(s: lark.Tree, component) -> atoms.Parameter:
         if s.children[3] is not None:
             desc = remove_quotes(str(s.children[3]))
 
-        return atoms.Parameter(
+        return cls(
             name=str(s.children[0]),
             value=float(s.children[1]),
             component=component,
             unit_str=unit,
             description=desc,
+            **kwargs,
         )
     else:
         raise exceptions.UnknownTreeTypeError(datatype=s.data, atom="Parameter")
@@ -122,14 +136,10 @@ class TreeToODE(lark.Transformer):
         info = s[1]
         if info is not None:
             info = remove_quotes(str(info))
+
         return tuple(
             [
-                atoms.State(
-                    name=str(p[0]),
-                    ic=float(p[1]),
-                    component=component,
-                    info=info,
-                )
+                tree2parameter(p, component=component, info=info, cls=atoms.State)
                 for p in s[2:]
             ],
         )
@@ -140,10 +150,12 @@ class TreeToODE(lark.Transformer):
         if component is not None:
             component = remove_quotes(str(component))
 
-        return tuple([tree2parameter(p, component=component) for p in s[1:]])
-
-    def pair(self, s):
-        return s
+        return tuple(
+            [
+                tree2parameter(p, component=component, cls=atoms.Parameter)
+                for p in s[1:]
+            ],
+        )
 
     def expressions(self, s) -> tuple[atoms.Assignment, ...]:
         component = find_assignment_component(s[0])

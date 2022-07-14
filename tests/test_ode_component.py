@@ -19,9 +19,9 @@ def test_component_None(parser, trans):
         atoms.Parameter(name="z", value=3),
     }
     assert comp.states == {
-        atoms.State(name="a", ic=1),
-        atoms.State(name="b", ic=2),
-        atoms.State(name="c", ic=3),
+        atoms.State(name="a", value=1),
+        atoms.State(name="b", value=2),
+        atoms.State(name="c", value=3),
     }
 
     assert comp.assignments == {
@@ -74,7 +74,7 @@ def test_component_intermediates(parser, trans):
             lhs="da_dt",
             rhs=atoms.Expression(tree=lark.Tree("number", [lark.Token("NUMBER", "0")])),
             component=None,
-            state=atoms.State(name="a", ic=2.0, component=None, info=None),
+            state=atoms.State(name="a", value=2.0, component=None, info=None),
         ),
         atoms.StateDerivative(
             lhs="db_dt",
@@ -88,7 +88,7 @@ def test_component_intermediates(parser, trans):
                 ),
             ),
             component=None,
-            state=atoms.State(name="b", ic=3.0, component=None, info=None),
+            state=atoms.State(name="b", value=3.0, component=None, info=None),
         ),
     }
 
@@ -120,10 +120,10 @@ def test_state_with_and_without_derivatives(parser, trans):
     result = trans.transform(tree)
     comp = result[0]
     assert comp.states_with_derivatives == {
-        atoms.State(name="y", ic=2, component=None, info=None),
+        atoms.State(name="y", value=2, component=None, info=None),
     }
     assert comp.states_without_derivatives == {
-        atoms.State(name="x", ic=1, component=None, info=None),
+        atoms.State(name="x", value=1, component=None, info=None),
     }
     assert comp.is_complete() is False
 

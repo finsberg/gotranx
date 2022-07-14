@@ -1,15 +1,13 @@
 ?start: ode
 
 ?ode: (parameters | states | expressions)*
-
-?pair: NAME "=" SIGNED_NUMBER
 ?parameter: NAME "=" SIGNED_NUMBER  -> param
     | NAME "=" "ScalarParam" "(" SIGNED_NUMBER ["," "unit" "=" UNIT_STR] ["," "description" "=" DESCRIPTION] ")" -> scalarparam
 
 ?assignment : NAME "=" expression [ unit ]
 ?unit: "#" UNIT
 parameters : "parameters" "(" [ COMPONENT_NAME "," ] parameter ("," parameter)*  ")"
-states : "states" "(" [ COMPONENT_NAME "," ] [ INFO ","] pair ("," pair)* ")"
+states : "states" "(" [ COMPONENT_NAME "," ] [ INFO ","] parameter ("," parameter)* ")"
 expressions: (assignment)+
     | "expressions" "(" COMPONENT_NAME [ "," INFO ] ")" (assignment)+
     | "component" "(" COMPONENT_NAME  [ "," INFO ] ")" (assignment)+
