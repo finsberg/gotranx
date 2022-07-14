@@ -5,6 +5,7 @@ from typing import Sequence
 from typing import TypeVar
 
 import attr
+import sympy as sp
 
 from . import exceptions
 from .ode_component import Component
@@ -63,7 +64,7 @@ def find_duplicates(x: Iterable[T]) -> set[T]:
 @attr.s
 class ODE:
     components: Sequence[Component] = attr.ib()
-    symbols: frozenset[str] = attr.ib(init=False)
+    symbols: dict[str, sp.Symbol] = attr.ib(init=False)
 
     def __attrs_post_init__(self):
         check_components(components=self.components)

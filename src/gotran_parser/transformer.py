@@ -20,13 +20,37 @@ def find_assignment_component(s) -> Optional[str]:
     return component
 
 
-def find_assignments(s, component: Optional[str] = None) -> list[atoms.Assignment]:
+def find_assignment_info(s) -> Optional[str]:
+    info = None
+    if len(s) > 1 and isinstance(s[1], lark.Token) and s[1].type == "INFO":
+        info = remove_quotes(str(s[1]))
+    return info
+
+
+def get_unit_from_assignment(s: lark.Tree) -> Optional[str]:
+    if len(s.children) >= 3:
+        unit = s.children[2]
+        try:
+            if unit.type == "UNIT":
+                return unit.value
+        except AttributeError:
+            pass
+    return None
+
+
+def find_assignments(
+    s,
+    component: Optional[str] = None,
+    info: Optional[str] = None,
+) -> list[atoms.Assignment]:
     if isinstance(s, lark.Tree):
         return [
             atoms.Assignment(
                 lhs=str(s.children[0]),
                 rhs=atoms.Expression(tree=s.children[1]),
                 component=component,
+                info=info,
+                unit_str=get_unit_from_assignment(s),
             ),
         ]
 
@@ -98,10 +122,11 @@ class TreeToODE(lark.Transformer):
 
     def expressions(self, s) -> tuple[atoms.Assignment, ...]:
         component = find_assignment_component(s[0])
+        info = find_assignment_info(s)
         assignments = []
 
         for si in s:
-            assignments.extend(find_assignments(si, component=component))
+            assignments.extend(find_assignments(si, component=component, info=info))
 
         return tuple(assignments)
 

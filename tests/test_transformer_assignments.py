@@ -1,5 +1,7 @@
 import lark
 import pytest
+from gotran_parser.units import ureg
+from structlog.testing import capture_logs
 
 
 @pytest.mark.parametrize("expr", ["x=1", "x = 1", "x= 1"])
@@ -189,3 +191,54 @@ def test_expressions_with_name(parser, trans):
     assert result[1].component == "My Component"
     assert result[1].lhs == "y"
     assert result[1].rhs.tree == lark.Tree("number", [lark.Token("NUMBER", "2")])
+
+
+def test_expressions_with_name_and_info(parser, trans):
+    expr = """
+    expressions("My Component", "Some info")
+    x = 1
+    y = 2
+    """
+    tree = parser.parse(expr)
+    result = trans.transform(tree)
+
+    assert len(result) == 2
+    assert result[0].component == "My Component"
+    assert result[0].info == "Some info"
+    assert result[0].lhs == "x"
+    assert result[0].rhs.tree == lark.Tree("number", [lark.Token("NUMBER", "1")])
+    assert result[1].component == "My Component"
+    assert result[1].info == "Some info"
+    assert result[1].lhs == "y"
+    assert result[1].rhs.tree == lark.Tree("number", [lark.Token("NUMBER", "2")])
+
+
+def test_expressions_with_name_and_info_and_unit(parser, trans):
+    expr = """
+    expressions("My Component", "Some info")
+    x = 1  # mV
+    y = 2  # mol
+    """
+    tree = parser.parse(expr)
+    result = trans.transform(tree)
+
+    assert len(result) == 2
+    assert result[0].component == "My Component"
+    assert result[0].info == "Some info"
+    assert result[0].lhs == "x"
+    assert result[0].rhs.tree == lark.Tree("number", [lark.Token("NUMBER", "1")])
+    assert result[0].unit == ureg.Unit("mV")
+    assert result[1].component == "My Component"
+    assert result[1].info == "Some info"
+    assert result[1].lhs == "y"
+    assert result[1].rhs.tree == lark.Tree("number", [lark.Token("NUMBER", "2")])
+    assert result[1].unit == ureg.Unit("mol")
+
+
+def test_invaild_unit_displays_warning(parser, trans):
+    expr = "x = 1  # badUnit"
+    tree = parser.parse(expr)
+    with capture_logs() as cap_logs:
+        trans.transform(tree)
+
+    assert cap_logs == [{"event": "Undefined unit 'badUnit'", "log_level": "warning"}]

@@ -7,6 +7,7 @@ from . import ode
 from . import ode_component
 from . import parser
 from . import transformer
+from . import units
 from .load import load_ode
 from .ode import ODE
 from .ode_component import Component
@@ -34,4 +35,5 @@ __all__ = [
     "Component",
     "ode",
     "ODE",
+    "units",
 ]

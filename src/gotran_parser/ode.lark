@@ -3,13 +3,13 @@
 ?ode: (parameters | states | expressions)*
 
 ?pair: NAME "=" SIGNED_NUMBER
-?assignment : NAME "=" expression
-
+?assignment : NAME "=" expression [ unit ]
+?unit: "#" UNIT
 parameters : "parameters" "(" [ COMPONENT_NAME "," ] pair ("," pair)*  ")"
 states : "states" "(" [ COMPONENT_NAME "," ] [ INFO ","] pair ("," pair)* ")"
 expressions: (assignment)+
-    | "expressions" "(" COMPONENT_NAME ")" (assignment)+
-    | "component" "(" COMPONENT_NAME ")" (assignment)+
+    | "expressions" "(" COMPONENT_NAME [ "," INFO ] ")" (assignment)+
+    | "component" "(" COMPONENT_NAME  [ "," INFO ] ")" (assignment)+
 
 ?expression: product
     | expression "+" product   -> add
@@ -27,6 +27,7 @@ expressions: (assignment)+
 
 COMPONENT_NAME: ESCAPED_STRING
 INFO: ESCAPED_STRING
+UNIT: NAME
 
 %ignore WS
 %ignore WS_INLINE

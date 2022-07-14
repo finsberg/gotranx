@@ -5,6 +5,13 @@ from typing import Union
 
 import attr
 import lark
+import pint
+import sympy as sp
+from structlog import get_logger
+
+from .units import ureg
+
+logger = get_logger()
 
 
 @attr.s(frozen=True, kw_only=True, slots=True)
@@ -14,6 +21,22 @@ class Parameter:
     name: str = attr.ib()
     value: float = attr.ib()
     component: Optional[str] = attr.ib(None)
+    unit: Optional[str] = attr.ib(None)
+    description: Optional[str] = attr.ib(None)
+    symbol: sp.Symbol = attr.ib(init=False)
+
+    def __attrs_post_init__(self):
+        object.__setattr__(
+            self,
+            "symbol",
+            sp.Symbol(
+                name=self.name,
+                real=True,
+                imaginary=False,
+                commutative=True,
+                finite=True,
+            ),
+        )
 
 
 @attr.s(frozen=True, kw_only=True, slots=True)
@@ -26,6 +49,22 @@ class State:
     ic: float = attr.ib()
     component: Optional[str] = attr.ib(None)
     info: Optional[str] = attr.ib(None)
+    unit: Optional[str] = attr.ib(None)
+    description: Optional[str] = attr.ib(None)
+    symbol: sp.Symbol = attr.ib(init=False)
+
+    def __attrs_post_init__(self):
+        object.__setattr__(
+            self,
+            "symbol",
+            sp.Symbol(
+                name=self.name,
+                real=True,
+                imaginary=False,
+                commutative=True,
+                finite=True,
+            ),
+        )
 
 
 @attr.s(frozen=True, kw_only=True, slots=True)
@@ -51,6 +90,18 @@ class Expression:
         object.__setattr__(self, "dependencies", frozenset(deps))
 
 
+def unit_from_string(unit_str: Optional[str]) -> Optional[pint.Unit]:
+    if unit_str is not None:
+        try:
+            unit = ureg.Unit(unit_str)
+        except pint.UndefinedUnitError:
+            logger.warning(f"Undefined unit {unit_str!r}")
+            unit = None
+    else:
+        unit = None
+    return unit
+
+
 @attr.s(frozen=True, kw_only=True, slots=True)
 class Assignment:
     """Assignments are object of the form `lhs = rhs`."""
@@ -58,15 +109,29 @@ class Assignment:
     lhs: str = attr.ib()
     rhs: Expression = attr.ib()
     component: Optional[str] = attr.ib(None)
+    info: Optional[str] = attr.ib(None)
+    unit_str: Optional[str] = attr.ib(None, repr=False)
+    unit: Optional[pint.Unit] = attr.ib(init=False)
+
+    def __attrs_post_init__(self):
+        object.__setattr__(self, "unit", unit_from_string(self.unit_str))
 
     def to_intermediate(self) -> "Intermediate":
-        return Intermediate(lhs=self.lhs, rhs=self.rhs, component=self.component)
+        return Intermediate(
+            lhs=self.lhs,
+            rhs=self.rhs,
+            component=self.component,
+            info=self.info,
+            unit=self.unit,
+        )
 
     def to_state_derivative(self, state: State) -> "StateDerivative":
         return StateDerivative(
             lhs=self.lhs,
             rhs=self.rhs,
             component=self.component,
+            info=self.info,
+            unit=self.unit,
             state=state,
         )
 
@@ -79,6 +144,8 @@ class Intermediate:
     lhs: str = attr.ib()
     rhs: Expression = attr.ib()
     component: Optional[str] = attr.ib(None)
+    info: Optional[str] = attr.ib(None)
+    unit: Optional[str] = attr.ib(None)
 
 
 @attr.s(frozen=True, kw_only=True, slots=True)
@@ -91,6 +158,8 @@ class StateDerivative:
     rhs: Expression = attr.ib()
     state: State = attr.ib()
     component: Optional[str] = attr.ib(None)
+    info: Optional[str] = attr.ib(None)
+    unit: Optional[str] = attr.ib(None)
 
 
 Atoms = Union[State, Parameter, Assignment]
