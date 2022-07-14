@@ -34,6 +34,34 @@ def find_assignments(s, component: Optional[str] = None) -> list[atoms.Assignmen
 
 
 class TreeToODE(lark.Transformer):
+    def _call_userfunc(self, tree, new_children=None):  # pragma: nocover
+        # Assumes tree is already transformed
+        children = new_children if new_children is not None else tree.children
+        try:
+            f = getattr(self, tree.data)
+        except AttributeError:
+            return self.__default__(tree.data, children, tree.meta)
+        else:
+            try:
+                wrapper = getattr(f, "visit_wrapper", None)
+                if wrapper is not None:
+                    return f.visit_wrapper(f, tree.data, children, tree.meta)
+                else:
+                    return f(children)
+            except lark.GrammarError:
+                raise
+
+    def _call_userfunc_token(self, token):  # pragma: nocover
+        try:
+            f = getattr(self, token.type)
+        except AttributeError:
+            return self.__default_token__(token)
+        else:
+            try:
+                return f(token)
+            except lark.GrammarError:
+                raise
+
     def states(self, s) -> tuple[atoms.State, ...]:
         component = s[0]
         if component is not None:

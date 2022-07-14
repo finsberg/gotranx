@@ -2,7 +2,7 @@ import lark
 import pytest
 from gotran_parser import atoms
 from gotran_parser import exceptions
-from gotran_parser.ode import STATE_DERIV_EXPR
+from gotran_parser import ode_component
 
 
 def test_component_None(parser, trans):
@@ -108,10 +108,24 @@ def test_StateNotFound(parser, trans):
     expr = "states(x=1)\n y=x \n dy_dt=0"
     tree = parser.parse(expr)
 
-    with pytest.raises(exceptions.StateNotFound) as e:
+    with pytest.raises(exceptions.StateNotFoundInComponent) as e:
         trans.transform(tree)
 
-    assert str(e.value) == "State with name 'y' not found"
+    assert str(e.value) == "State with name 'y' not found in component None"
+
+
+def test_state_with_and_without_derivatives(parser, trans):
+    expr = "states(x=1, y=2)\n dy_dt=0"
+    tree = parser.parse(expr)
+    result = trans.transform(tree)
+    comp = result[0]
+    assert comp.states_with_derivatives == {
+        atoms.State(name="y", ic=2, component=None, info=None),
+    }
+    assert comp.states_without_derivatives == {
+        atoms.State(name="x", ic=1, component=None, info=None),
+    }
+    assert comp.is_complete() is False
 
 
 @pytest.mark.parametrize(
@@ -132,7 +146,7 @@ def test_StateNotFound(parser, trans):
     ],
 )
 def test_STATE_DERIV_EXPR(expr, is_match, state_name):
-    result = STATE_DERIV_EXPR.match(expr)
+    result = ode_component.STATE_DERIV_EXPR.match(expr)
     if is_match:
         assert result.groupdict()["state"] == state_name
     else:

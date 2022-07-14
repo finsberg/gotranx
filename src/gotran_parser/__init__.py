@@ -3,9 +3,14 @@ from importlib.metadata import metadata
 from . import cli
 from . import exceptions
 from . import load
+from . import ode
+from . import ode_component
 from . import parser
+from . import save
 from . import transformer
 from .load import load_ode
+from .ode import ODE
+from .ode_component import Component
 from .parser import Parser
 from .transformer import TreeToODE
 
@@ -26,4 +31,9 @@ __all__ = [
     "exceptions",
     "load",
     "load_ode",
+    "ode_component",
+    "Component",
+    "ode",
+    "ODE",
+    "save",
 ]
