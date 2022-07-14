@@ -35,7 +35,7 @@ def find_lhs_symbols(components: Sequence[Component]):
     return symbols
 
 
-def find_duplicates(x: Iterable[T]) -> list[T]:
+def find_duplicates(x: Iterable[T]) -> set[T]:
     """Find duplicates in an iterable.
     Assumes type is hashable
 
@@ -46,7 +46,7 @@ def find_duplicates(x: Iterable[T]) -> list[T]:
 
     Returns
     -------
-    list[T]
+    set[T]
         List of duplicate values
     """
     seen = set()
@@ -57,7 +57,7 @@ def find_duplicates(x: Iterable[T]) -> list[T]:
             dupes.append(xi)
         else:
             seen.add(xi)
-    return dupes
+    return set(dupes)
 
 
 @attr.s

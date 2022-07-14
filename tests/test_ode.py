@@ -18,15 +18,16 @@ def test_ODE_with_incomplete_component_raises_ComponentNotCompleteError(parser, 
 @pytest.mark.parametrize(
     "input, output",
     [
-        (("x", "y", "z"), []),
-        (("x", "y", "y"), ["y"]),
-        (("x"), []),
-        (("y", "y", "y"), ["y"]),
-        (("x", "y", "y", "x"), ["x", "y"]),
+        ((), set()),
+        (("x", "y", "z"), set()),
+        (("x", "y", "y"), {"y"}),
+        (("x"), set()),
+        (("y", "y", "y"), {"y"}),
+        (("x", "y", "y", "x"), {"x", "y"}),
     ],
 )
 def test_find_duplicates(input, output):
-    assert set(ode.find_duplicates(input)) == set(output)
+    assert ode.find_duplicates(input) == output
 
 
 def test_ODE_with_duplicates_raises_DuplicateSymbolError(parser, trans):
@@ -35,4 +36,4 @@ def test_ODE_with_duplicates_raises_DuplicateSymbolError(parser, trans):
     with pytest.raises(exceptions.DuplicateSymbolError) as e:
         ode.ODE(trans.transform(tree))
 
-    assert "Found multiple definitions for ['y']" in str(e.value)
+    assert "Found multiple definitions for {'y'}" in str(e.value)
