@@ -4,11 +4,6 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
-# Need to inherit from BaseException because
-# lark catches all Exceptions in the Transformer
-# class. FIXME: Find a way to avoid this
-# We would like that users the catch "Exception"
-# also catches these exceptions
 class GotranParserError(Exception):
     pass
 
