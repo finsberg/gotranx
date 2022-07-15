@@ -1,3 +1,4 @@
+import lark
 import pytest
 from gotran_parser import atoms
 
@@ -105,5 +106,24 @@ def test_states_arguments(parser, trans):
             description="Description of z",
             component="My other component",
             info="other info",
+        ),
+    }
+
+
+def test_comment(parser, trans):
+    expr = """
+    # This is one comment.
+    # Here is another comment
+    x = 1
+    parameters(y = 2)
+    """
+    tree = parser.parse(expr)
+    result = trans.transform(tree)
+    assert len(result) == 1
+    assert result[0].parameters == {atoms.Parameter(name="y", value=2.0)}
+    assert result[0].assignments == {
+        atoms.Assignment(
+            lhs="x",
+            rhs=atoms.Expression(tree=lark.Tree("number", [lark.Token("NUMBER", "1")])),
         ),
     }

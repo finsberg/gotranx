@@ -1,11 +1,13 @@
 ?start: ode
 
-?ode: (parameters | states | expressions)*
+?ode: (parameters | states | expressions | comment) *
 ?parameter: NAME "=" SIGNED_NUMBER  -> param
     | NAME "=" "ScalarParam" "(" SIGNED_NUMBER ["," "unit" "=" UNIT_STR] ["," "description" "=" DESCRIPTION] ")" -> scalarparam
 
 ?assignment : NAME "=" expression [ unit ]
 ?unit: "#" UNIT
+
+comment : ("#" /.+/)+
 parameters : "parameters" "(" [ COMPONENT_NAME "," ] parameter ("," parameter)*  ")"
 states : "states" "(" [ COMPONENT_NAME "," ] [ INFO ","] parameter ("," parameter)* ")"
 expressions: (assignment)+
@@ -32,6 +34,7 @@ DESCRIPTION: ESCAPED_STRING
 UNIT_STR: ESCAPED_STRING
 UNIT: NAME
 
+
 %ignore WS
 %ignore WS_INLINE
 
@@ -39,6 +42,6 @@ UNIT: NAME
 %import common.NUMBER
 %import common.SIGNED_NUMBER
 %import common.WS
+%import common.NEWLINE
 %import common.WS_INLINE
-%import common.SH_COMMENT -> COMMENT
 %import common.ESCAPED_STRING

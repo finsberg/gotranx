@@ -128,6 +128,9 @@ class TreeToODE(lark.Transformer):
             except lark.GrammarError:
                 raise
 
+    def comment(self, s):
+        return atoms.Comment(" ".join(map(str, s)))
+
     def states(self, s) -> tuple[atoms.State, ...]:
         component = s[0]
         if component is not None:
@@ -179,8 +182,12 @@ class TreeToODE(lark.Transformer):
         components: dict[Optional[str], dict[str, set[atoms.Atoms]]] = defaultdict(
             lambda: {atom: set() for atom in mapping.values()},
         )
-
+        comments = []
         for line in s:  # Each line in the block
+            if isinstance(line, atoms.Comment):
+                comments.append(line)
+                continue
+
             for atom in line:  # State, Parameters or Assignment
                 components[atom.component][mapping[type(atom)]].add(atom)
 

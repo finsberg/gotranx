@@ -14,6 +14,11 @@ from .units import ureg
 logger = get_logger()
 
 
+@attr.s(frozen=True, slots=True)
+class Comment:
+    text: str = attr.ib()
+
+
 @attr.s(frozen=True, kw_only=True, slots=True)
 class Parameter:
     """A Parameter is a constant scalar value"""
