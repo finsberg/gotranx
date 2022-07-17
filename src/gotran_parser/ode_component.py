@@ -47,7 +47,7 @@ class Component:
         state_derivatives = []
         intermediates = []
         for assignment in self.assignments:
-            if state_name := STATE_DERIV_EXPR.match(assignment.lhs):
+            if state_name := STATE_DERIV_EXPR.match(assignment.name):
                 state = self._find_state(state_name=state_name.groupdict()["state"])
                 state_derivatives.append(assignment.to_state_derivative(state))
             else:

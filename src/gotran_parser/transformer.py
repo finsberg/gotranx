@@ -51,8 +51,8 @@ def find_assignments(
     if isinstance(s, lark.Tree):
         return [
             atoms.Assignment(
-                lhs=str(s.children[0]),
-                rhs=atoms.Expression(tree=s.children[1]),
+                name=str(s.children[0]),
+                value=atoms.Expression(tree=s.children[1]),
                 component=component,
                 info=info,
                 unit_str=get_unit_from_assignment(s),

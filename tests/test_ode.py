@@ -37,3 +37,25 @@ def test_ODE_with_duplicates_raises_DuplicateSymbolError(parser, trans):
         ode.ODE(trans.transform(tree))
 
     assert "Found multiple definitions for {'y'}" in str(e.value)
+
+
+def test_ODE_resolve_expressions(parser, trans):
+    expr = """
+    states("First component", "X-gate", x = 1, xr=3.14)
+    states("First component", "Y-gate", y = 1)
+    states("Second component", z=1)
+    parameters("First component", a=1, b=2)
+    parameters("Second component", c=3)
+
+    expressions("First component")
+    dx_dt=a+1
+    d = a + b * 2 - 3 / c
+    dy_dt = 2 * d - 1
+    dxr_dt = (x / b) - d * xr
+
+    expressions("Second component")
+    dz_dt = 1 + x - y
+    """
+    tree = parser.parse(expr)
+    result = ode.ODE(trans.transform(tree))
+    result.resolve_expressions()

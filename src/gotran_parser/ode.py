@@ -24,16 +24,22 @@ def check_components(components: Sequence[Component]):
             )
 
 
-def find_lhs_symbols(components: Sequence[Component]):
-    symbols = []
+def find_name_symbols(
+    components: Sequence[Component],
+) -> tuple[list[str], dict[str, sp.Symbol]]:
+    symbol_names = []
+    symbols = {}
     for component in components:
         for p in component.parameters:
-            symbols.append(p.name)
+            symbol_names.append(p.name)
+            symbols[p.name] = p.symbol
         for s in component.states:
-            symbols.append(s.name)
+            symbol_names.append(s.name)
+            symbols[s.name] = s.symbol
         for a in component.assignments:
-            symbols.append(a.lhs)
-    return symbols
+            symbol_names.append(a.name)
+            symbols[a.name] = a.symbol
+    return symbol_names, symbols
 
 
 def find_duplicates(x: Iterable[T]) -> set[T]:
@@ -64,11 +70,21 @@ def find_duplicates(x: Iterable[T]) -> set[T]:
 @attr.s
 class ODE:
     components: Sequence[Component] = attr.ib()
-    symbols: dict[str, sp.Symbol] = attr.ib(init=False)
 
     def __attrs_post_init__(self):
         check_components(components=self.components)
-        symbols = find_lhs_symbols(components=self.components)
+        symbol_names, symbols = find_name_symbols(components=self.components)
 
-        if not len(symbols) == len(set(symbols)):
-            raise exceptions.DuplicateSymbolError(find_duplicates(symbols))
+        if not len(symbol_names) == len(set(symbol_names)):
+            raise exceptions.DuplicateSymbolError(find_duplicates(symbol_names))
+        self._symbols = symbols
+
+    @property
+    def symbols(self) -> set[str]:
+        return self._symbols
+
+    def resolve_expressions(self):
+
+        for component in self.components:
+            for assignment in component.assignments:
+                assignment.resolve_expression(self.symbols)

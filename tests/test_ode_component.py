@@ -26,16 +26,22 @@ def test_component_None(parser, trans):
 
     assert comp.assignments == {
         atoms.Assignment(
-            lhs="da_dt",
-            rhs=atoms.Expression(tree=lark.Tree("number", [lark.Token("NUMBER", "0")])),
+            name="da_dt",
+            value=atoms.Expression(
+                tree=lark.Tree("number", [lark.Token("NUMBER", "0")]),
+            ),
         ),
         atoms.Assignment(
-            lhs="db_dt",
-            rhs=atoms.Expression(tree=lark.Tree("number", [lark.Token("NUMBER", "1")])),
+            name="db_dt",
+            value=atoms.Expression(
+                tree=lark.Tree("number", [lark.Token("NUMBER", "1")]),
+            ),
         ),
         atoms.Assignment(
-            lhs="dc_dt",
-            rhs=atoms.Expression(tree=lark.Tree("number", [lark.Token("NUMBER", "2")])),
+            name="dc_dt",
+            value=atoms.Expression(
+                tree=lark.Tree("number", [lark.Token("NUMBER", "2")]),
+            ),
         ),
     }
 
@@ -55,8 +61,8 @@ def test_component_intermediates(parser, trans):
 
     assert comp.intermediates == {
         atoms.Intermediate(
-            lhs="c",
-            rhs=atoms.Expression(
+            name="c",
+            value=atoms.Expression(
                 tree=lark.Tree(
                     "add",
                     [
@@ -71,14 +77,16 @@ def test_component_intermediates(parser, trans):
 
     assert comp.state_derivatives == {
         atoms.StateDerivative(
-            lhs="da_dt",
-            rhs=atoms.Expression(tree=lark.Tree("number", [lark.Token("NUMBER", "0")])),
+            name="da_dt",
+            value=atoms.Expression(
+                tree=lark.Tree("number", [lark.Token("NUMBER", "0")]),
+            ),
             component=None,
             state=atoms.State(name="a", value=2.0, component=None, info=None),
         ),
         atoms.StateDerivative(
-            lhs="db_dt",
-            rhs=atoms.Expression(
+            name="db_dt",
+            value=atoms.Expression(
                 tree=lark.Tree(
                     "sub",
                     [

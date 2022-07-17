@@ -1,5 +1,6 @@
 import lark
 import pytest
+import sympy as sp
 from gotran_parser import atoms
 
 
@@ -15,7 +16,7 @@ def test_expression_dependencies(expr, deps, parser, trans):
 
     tree = parser.parse(expr)
     result = trans.transform(tree)
-    assert result[0].rhs.dependencies == deps
+    assert result[0].value.dependencies == deps
 
 
 def test_parameter_arguments(parser, trans):
@@ -123,7 +124,39 @@ def test_comment(parser, trans):
     assert result[0].parameters == {atoms.Parameter(name="y", value=2.0)}
     assert result[0].assignments == {
         atoms.Assignment(
-            lhs="x",
-            rhs=atoms.Expression(tree=lark.Tree("number", [lark.Token("NUMBER", "1")])),
+            name="x",
+            value=atoms.Expression(
+                tree=lark.Tree("number", [lark.Token("NUMBER", "1")]),
+            ),
         ),
     }
+
+
+def test_TimeDependentState(parser, trans):
+    expr = """
+    states(x = ScalarParam(1, unit="M"))
+    """
+    tree = parser.parse(expr)
+    result = trans.transform(tree)
+    t = sp.Symbol("t")
+    x = result[0]
+    x_t = x.to_TimeDependentState(t)
+
+    assert str(x.symbol) == "x"
+    assert str(x_t.symbol) == "x(t)"
+
+
+# def test_StateDerivative(parser, trans):
+#     expr = """
+#     parameters(a = 1)
+#     states(x=2)
+#     dx_dt = a + 1
+#     """
+#     tree = parser.parse(expr)
+#     result = trans.transform(tree)
+#     assert len(result) == 1
+#     comp = result[0]
+#     assert len(comp.state_derivatives) == 1
+#     dx_dt = comp.state_derivatives.pop()
+#     t = sp.Symbol("t")
+#     breakpoint()
