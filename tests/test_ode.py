@@ -1,4 +1,5 @@
 import pytest
+from gotran_parser import atoms
 from gotran_parser import exceptions
 from gotran_parser import ode
 
@@ -39,7 +40,16 @@ def test_ODE_with_duplicates_raises_DuplicateSymbolError(parser, trans):
     assert "Found multiple definitions for {'y'}" in str(e.value)
 
 
-def test_ODE_resolve_expressions(parser, trans):
+def test_make_ode_with_duplicates_raises_DuplicateSymbolError(parser, trans):
+    expr = "states(y=2)\n dy_dt=0 \n y=42"
+    tree = parser.parse(expr)
+    with pytest.raises(exceptions.DuplicateSymbolError) as e:
+        ode.make_ode(trans.transform(tree))
+
+    assert "Found multiple definitions for {'y'}" in str(e.value)
+
+
+def test_make_ode(parser, trans):
     expr = """
     states("First component", "X-gate", x = 1, xr=3.14)
     states("First component", "Y-gate", y = 1)
@@ -57,5 +67,46 @@ def test_ODE_resolve_expressions(parser, trans):
     dz_dt = 1 + x - y
     """
     tree = parser.parse(expr)
-    result = ode.ODE(trans.transform(tree))
-    result.resolve_expressions()
+    result = ode.make_ode(trans.transform(tree))
+
+    # assert str(result.symbols["dxr_dt"]) == "Derivative(xr(t), t)"
+
+    states = result.states
+    assert len(states) == 4
+    state_names = set()
+    state_symbols = set()
+    for state in states:
+        assert isinstance(state, atoms.TimeDependentState)
+        state_names.add(state.name)
+        state_symbols.add(str(state.symbol))
+
+    assert state_names == {"x", "xr", "y", "z"}
+    assert state_symbols == {"x(t)", "xr(t)", "y(t)", "z(t)"}
+
+    parameters = result.parameters
+    assert len(parameters) == 3
+    parameter_names = set()
+    for parameter in parameters:
+        parameter_names.add(parameter.name)
+
+    assert parameter_names == {"a", "b", "c"}
+
+    state_derivatives = result.state_derivatives
+    assert len(state_derivatives) == 4
+    state_derivative_names = set()
+    state_derivative_symbols = set()
+    for state_derivative in state_derivatives:
+        assert isinstance(state_derivative.state, atoms.TimeDependentState)
+        state_derivative_names.add(state_derivative.name)
+        state_derivative_symbols.add(str(state_derivative.symbol))
+
+    assert state_derivative_names == {"dx_dt", "dxr_dt", "dy_dt", "dz_dt"}
+    assert state_derivative_symbols == {
+        "Derivative(x(t), t)",
+        "Derivative(xr(t), t)",
+        "Derivative(y(t), t)",
+        "Derivative(z(t), t)",
+    }
+
+    intermediates = result.intermediates
+    assert len(intermediates) == 1

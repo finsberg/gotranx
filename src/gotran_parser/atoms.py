@@ -144,7 +144,7 @@ class Assignment(Atom):
 
     def resolve_expression(self, symbols: dict[str, sp.Symbol]) -> Assignment:
         expr = self.value.resolve(symbols)
-        return Assignment(
+        return type(self)(
             name=self.name,
             value=self.value,
             component=self.component,
@@ -152,6 +152,7 @@ class Assignment(Atom):
             unit_str=self.unit_str,
             unit=self.unit,
             expr=expr,
+            symbol=self.symbol,
         )
 
     def to_intermediate(self) -> "Intermediate":
@@ -192,19 +193,16 @@ class StateDerivative(Assignment):
 
     state: State = attr.ib()
 
-
-# @attr.s(frozen=True, kw_only=True, slots=True)
-# class TimeDependentStateDerivative(StateDerivative):
-#     """A StateDerivative is an Assignment of the form
-#     `dX_dt = value` where X is a state. A StatedDerivative
-#     also holds a pointer to the State"""
-
-#     state: TimeDependentState = attr.ib()
-#     symbol: sp.Symbol = attr.ib(init=False)
-
-#     def __attrs_post_init__(self):
-#         object.__setattr__(
-#             self, "symbol", sp.Derivative(self.state.symbol)
-
-
-Atoms = Union[State, Parameter, Assignment, StateDerivative]
+    def resolve_expression(self, symbols: dict[str, sp.Symbol]) -> Assignment:
+        expr = self.value.resolve(symbols)
+        return StateDerivative(
+            name=self.name,
+            value=self.value,
+            component=self.component,
+            info=self.info,
+            unit_str=self.unit_str,
+            unit=self.unit,
+            symbol=self.symbol,
+            expr=expr,
+            state=self.state,
+        )

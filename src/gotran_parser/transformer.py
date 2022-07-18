@@ -179,7 +179,7 @@ class TreeToODE(lark.Transformer):
             atoms.State: "states",
         }
 
-        components: dict[Optional[str], dict[str, set[atoms.Atoms]]] = defaultdict(
+        components: dict[Optional[str], dict[str, set[atoms.Atom]]] = defaultdict(
             lambda: {atom: set() for atom in mapping.values()},
         )
         comments = []
@@ -192,7 +192,7 @@ class TreeToODE(lark.Transformer):
                 components[atom.component][mapping[type(atom)]].add(atom)
 
         # Make sets frozen
-        frozen_components: dict[Optional[str], dict[str, frozenset[atoms.Atoms]]] = {}
+        frozen_components: dict[Optional[str], dict[str, frozenset[atoms.Atom]]] = {}
         for component_name, component_values in components.items():
             frozen_components[component_name] = {}
             for atom_name, atom_values in component_values.items():

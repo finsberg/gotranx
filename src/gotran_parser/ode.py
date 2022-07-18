@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from functools import cached_property
 from typing import Iterable
 from typing import Sequence
 from typing import TypeVar
@@ -25,7 +26,7 @@ def check_components(components: Sequence[Component]):
             )
 
 
-def find_name_symbols(
+def gather_atoms(
     components: Sequence[Component],
 ) -> tuple[list[str], dict[str, sp.Symbol], dict[str, atoms.Atom]]:
     symbol_names = []
@@ -72,19 +73,116 @@ def find_duplicates(x: Iterable[T]) -> set[T]:
     return set(dupes)
 
 
+def add_temporal_state(
+    components: Sequence[Component],
+    t: sp.Symbol,
+) -> tuple[Component, ...]:
+    new_components = []
+    for component in components:
+        state_derivatives = set()
+        states = set()
+        for state_derivative in component.state_derivatives:
+
+            new_state = state_derivative.state.to_TimeDependentState(t)
+            state_derivatives.add(
+                atoms.StateDerivative(
+                    name=state_derivative.name,
+                    value=state_derivative.value,
+                    component=state_derivative.component,
+                    description=state_derivative.description,
+                    info=state_derivative.info,
+                    unit_str=state_derivative.unit_str,
+                    unit=state_derivative.unit,
+                    state=new_state,
+                    symbol=sp.Derivative(new_state.symbol, t),
+                ),
+            )
+            states.add(new_state)
+
+        new_components.append(
+            Component(
+                name=component.name,
+                states=frozenset(states),
+                parameters=component.parameters,
+                assignments=frozenset(component.intermediates | state_derivatives),
+            ),
+        )
+    return tuple(new_components)
+
+
+def resolve_expressions(
+    components: Sequence[Component],
+    symbols: dict[str, sp.Symbol],
+) -> tuple[Component, ...]:
+    new_components = []
+    for component in components:
+        assignments = []
+        for assignment in component.assignments:
+            assignments.append(assignment.resolve_expression(symbols))
+        new_components.append(
+            Component(
+                name=component.name,
+                states=component.states,
+                parameters=component.parameters,
+                assignments=frozenset(assignments),
+            ),
+        )
+    return tuple(new_components)
+
+
+def make_ode(components: Sequence[Component]) -> ODE:
+    check_components(components=components)
+    t = sp.Symbol("t")
+    components = add_temporal_state(components, t)
+    check_components(components=components)
+    symbol_names, symbols, lookup = gather_atoms(components=components)
+
+    if not len(symbol_names) == len(set(symbol_names)):
+        raise exceptions.DuplicateSymbolError(find_duplicates(symbol_names))
+    components = resolve_expressions(components=components, symbols=symbols)
+    return ODE(components=components, t=t)
+
+
 @attr.s
 class ODE:
     components: Sequence[Component] = attr.ib()
-    t: sp.Symbol = attr.ib("t")
+    t: sp.Symbol = attr.ib(None)
 
     def __attrs_post_init__(self):
-        check_components(components=self.components)
-        symbol_names, symbols, lookup = find_name_symbols(components=self.components)
-
+        check_components(self.components)
+        symbol_names, symbols, lookup = gather_atoms(components=self.components)
         if not len(symbol_names) == len(set(symbol_names)):
             raise exceptions.DuplicateSymbolError(find_duplicates(symbol_names))
         self._symbols = symbols
         self._lookup = lookup
+
+    @cached_property
+    def states(self) -> frozenset[atoms.State]:
+        states: set[atoms.State] = set()
+        for component in self.components:
+            states |= component.states
+        return frozenset(states)
+
+    @cached_property
+    def parameters(self) -> frozenset[atoms.Parameter]:
+        parameters: set[atoms.Parameter] = set()
+        for component in self.components:
+            parameters |= component.parameters
+        return frozenset(parameters)
+
+    @cached_property
+    def state_derivatives(self) -> frozenset[atoms.StateDerivative]:
+        state_derivatives: set[atoms.StateDerivative] = set()
+        for component in self.components:
+            state_derivatives |= component.state_derivatives
+        return frozenset(state_derivatives)
+
+    @cached_property
+    def intermediates(self) -> frozenset[atoms.Intermediate]:
+        intermediates: set[atoms.Intermediate] = set()
+        for component in self.components:
+            intermediates |= component.intermediates
+        return frozenset(intermediates)
 
     @property
     def symbols(self) -> dict[str, sp.Symbol]:
@@ -92,19 +190,3 @@ class ODE:
 
     def __getitem__(self, name) -> atoms.Atom:
         return self._lookup[name]
-
-    def resolve_expressions(self) -> ODE:
-        components = []
-        for component in self.components:
-            assignments = []
-            for assignment in component.assignments:
-                assignments.append(assignment.resolve_expression(self.symbols))
-            components.append(
-                Component(
-                    name=component.name,
-                    states=component.states,
-                    parameters=component.parameters,
-                    assignments=frozenset(assignments),
-                ),
-            )
-        return ODE(components=components, t=self.t)

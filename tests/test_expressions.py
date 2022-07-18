@@ -1,6 +1,6 @@
+import gotran_parser
 import pytest
 import sympy as sp
-from gotran_parser import ODE
 from gotran_parser.expressions import build_expression
 
 
@@ -35,7 +35,16 @@ def test_build_two_expressions(parser, trans):
     """
     tree = parser.parse(expr)
     result = trans.transform(tree)
-    ode = ODE(result).resolve_expressions()
+    t = sp.Symbol("t")
+
+    old_ode = gotran_parser.ode.ODE(result)
+
+    symbols = old_ode.symbols
+    ode = gotran_parser.ode.ODE(
+        gotran_parser.ode.resolve_expressions(result, symbols=symbols),
+        t=t,
+    )
+
     assert len(ode.components) == 1
     assert len(ode.components[0].parameters) == 2
     assert len(ode.components[0].states) == 1
@@ -52,3 +61,20 @@ def test_build_two_expressions(parser, trans):
     assert ode["x"].expr == (a + 1.0) / b
     assert ode["y"].expr == b * x
     assert ode["du_dt"].expr == x + y - u
+
+
+def test_add_temporal_state(parser, trans):
+    expr = """
+    states(u=42)
+    parameters(a=1, b=2)
+    x = (1 + a) / b
+    y = b  * x
+    du_dt = y + x - u
+    """
+    tree = parser.parse(expr)
+    result = trans.transform(tree)
+    t = sp.Symbol("t")
+    components = gotran_parser.ode.add_temporal_state(components=result, t=t)
+    ode = gotran_parser.ode.ODE(components=components, t=t)
+    assert str(ode["u"].symbol) == "u(t)"
+    assert str(ode["du_dt"].symbol) == "Derivative(u(t), t)"

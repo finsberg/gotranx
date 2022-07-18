@@ -36,7 +36,7 @@ class ComponentNotCompleteError(GotranParserError):
 
 @dataclass
 class DuplicateSymbolError(GotranParserError):
-    duplicates: list[str]
+    duplicates: set[str]
 
     def __str__(self) -> str:
         return (
