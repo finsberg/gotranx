@@ -122,11 +122,12 @@ def test_comment(parser, trans):
     result = trans.transform(tree)
     assert len(result) == 1
     assert result[0].parameters == {atoms.Parameter(name="y", value=2.0)}
+
     assert result[0].assignments == {
         atoms.Assignment(
             name="x",
             value=atoms.Expression(
-                tree=lark.Tree("number", [lark.Token("NUMBER", "1")]),
+                tree=lark.Tree("scientific", [lark.Token("SCIENTIFIC_NUMBER", "1")]),
             ),
         ),
     }

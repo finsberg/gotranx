@@ -28,19 +28,19 @@ def test_component_None(parser, trans):
         atoms.Assignment(
             name="da_dt",
             value=atoms.Expression(
-                tree=lark.Tree("number", [lark.Token("NUMBER", "0")]),
+                tree=lark.Tree("scientific", [lark.Token("SCIENTIFIC_NUMBER", "0")]),
             ),
         ),
         atoms.Assignment(
             name="db_dt",
             value=atoms.Expression(
-                tree=lark.Tree("number", [lark.Token("NUMBER", "1")]),
+                tree=lark.Tree("scientific", [lark.Token("SCIENTIFIC_NUMBER", "1")]),
             ),
         ),
         atoms.Assignment(
             name="dc_dt",
             value=atoms.Expression(
-                tree=lark.Tree("number", [lark.Token("NUMBER", "2")]),
+                tree=lark.Tree("scientific", [lark.Token("SCIENTIFIC_NUMBER", "2")]),
             ),
         ),
     }
@@ -66,8 +66,8 @@ def test_component_intermediates(parser, trans):
                 tree=lark.Tree(
                     "add",
                     [
-                        lark.Tree("name", [lark.Token("NAME", "a")]),
-                        lark.Tree("name", [lark.Token("NAME", "b")]),
+                        lark.Tree("variable", [lark.Token("VARIABLE", "a")]),
+                        lark.Tree("variable", [lark.Token("VARIABLE", "b")]),
                     ],
                 ),
             ),
@@ -79,7 +79,7 @@ def test_component_intermediates(parser, trans):
         atoms.StateDerivative(
             name="da_dt",
             value=atoms.Expression(
-                tree=lark.Tree("number", [lark.Token("NUMBER", "0")]),
+                tree=lark.Tree("scientific", [lark.Token("SCIENTIFIC_NUMBER", "0")]),
             ),
             component=None,
             state=atoms.State(name="a", value=2.0, component=None, info=None),
@@ -90,8 +90,8 @@ def test_component_intermediates(parser, trans):
                 tree=lark.Tree(
                     "sub",
                     [
-                        lark.Tree("name", [lark.Token("NAME", "c")]),
-                        lark.Tree("name", [lark.Token("NAME", "a")]),
+                        lark.Tree("variable", [lark.Token("VARIABLE", "c")]),
+                        lark.Tree("variable", [lark.Token("VARIABLE", "a")]),
                     ],
                 ),
             ),

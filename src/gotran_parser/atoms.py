@@ -123,8 +123,9 @@ class Expression:
 
     def _find_dependencies(self) -> frozenset[str]:
         deps = set()
+
         for tree in self.tree.iter_subtrees():
-            if tree.data == "name":
+            if tree.data == "variable":
                 deps.add(str(tree.children[0]))
         return frozenset(deps)
 

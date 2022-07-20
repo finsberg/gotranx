@@ -1,5 +1,9 @@
+import math
+
 import lark
 import pytest
+import sympy as sp
+from gotran_parser.expressions import build_expression
 from gotran_parser.units import ureg
 from structlog.testing import capture_logs
 
@@ -11,7 +15,10 @@ def test_assignment_single_1(expr, parser, trans):
     result = trans.transform(tree)
     assert len(result) == 1
     assert result[0].name == "x"
-    assert result[0].value.tree == lark.Tree("number", [lark.Token("NUMBER", "1")])
+    assert result[0].value.tree == lark.Tree(
+        "scientific",
+        [lark.Token("SCIENTIFIC_NUMBER", "1")],
+    )
 
 
 @pytest.mark.parametrize(
@@ -33,8 +40,8 @@ def test_assignment_single_2_terms(expr, parser, trans):
     assert result[0].value.tree == lark.Tree(
         "add",
         [
-            lark.Tree("number", [lark.Token("NUMBER", "1")]),
-            lark.Tree("number", [lark.Token("NUMBER", "2")]),
+            lark.Tree("scientific", [lark.Token("SCIENTIFIC_NUMBER", "1")]),
+            lark.Tree("scientific", [lark.Token("SCIENTIFIC_NUMBER", "2")]),
         ],
     )
 
@@ -51,11 +58,11 @@ def test_assignment_single_3_terms(parser, trans):
             lark.Tree(
                 "mul",
                 [
-                    lark.Tree("number", [lark.Token("NUMBER", "1")]),
-                    lark.Tree("number", [lark.Token("NUMBER", "2")]),
+                    lark.Tree("scientific", [lark.Token("SCIENTIFIC_NUMBER", "1")]),
+                    lark.Tree("scientific", [lark.Token("SCIENTIFIC_NUMBER", "2")]),
                 ],
             ),
-            lark.Tree("number", [lark.Token("NUMBER", "3")]),
+            lark.Tree("scientific", [lark.Token("SCIENTIFIC_NUMBER", "3")]),
         ],
     )
 
@@ -65,6 +72,7 @@ def test_assignment_single_4_terms(parser, trans):
     tree = parser.parse("x = 1 * 2 + 3 - 4")
     result = trans.transform(tree)
     assert len(result) == 1
+
     assert result[0].name == "x"
     assert result[0].value.tree == lark.Tree(
         "sub",
@@ -75,14 +83,20 @@ def test_assignment_single_4_terms(parser, trans):
                     lark.Tree(
                         "mul",
                         [
-                            lark.Tree("number", [lark.Token("NUMBER", "1")]),
-                            lark.Tree("number", [lark.Token("NUMBER", "2")]),
+                            lark.Tree(
+                                "scientific",
+                                [lark.Token("SCIENTIFIC_NUMBER", "1")],
+                            ),
+                            lark.Tree(
+                                "scientific",
+                                [lark.Token("SCIENTIFIC_NUMBER", "2")],
+                            ),
                         ],
                     ),
-                    lark.Tree("number", [lark.Token("NUMBER", "3")]),
+                    lark.Tree("scientific", [lark.Token("SCIENTIFIC_NUMBER", "3")]),
                 ],
             ),
-            lark.Tree("number", [lark.Token("NUMBER", "4")]),
+            lark.Tree("scientific", [lark.Token("SCIENTIFIC_NUMBER", "4")]),
         ],
     )
 
@@ -111,18 +125,24 @@ def test_assignment_single5(expr, parser, trans):
                     lark.Tree(
                         "mul",
                         [
-                            lark.Tree("number", [lark.Token("NUMBER", "1")]),
-                            lark.Tree("number", [lark.Token("NUMBER", "2")]),
+                            lark.Tree(
+                                "scientific",
+                                [lark.Token("SCIENTIFIC_NUMBER", "1")],
+                            ),
+                            lark.Tree(
+                                "scientific",
+                                [lark.Token("SCIENTIFIC_NUMBER", "2")],
+                            ),
                         ],
                     ),
-                    lark.Tree("number", [lark.Token("NUMBER", "3")]),
+                    lark.Tree("scientific", [lark.Token("SCIENTIFIC_NUMBER", "3")]),
                 ],
             ),
             lark.Tree(
                 "div",
                 [
-                    lark.Tree("number", [lark.Token("NUMBER", "4")]),
-                    lark.Tree("number", [lark.Token("NUMBER", "5")]),
+                    lark.Tree("scientific", [lark.Token("SCIENTIFIC_NUMBER", "4")]),
+                    lark.Tree("scientific", [lark.Token("SCIENTIFIC_NUMBER", "5")]),
                 ],
             ),
         ],
@@ -145,18 +165,21 @@ def test_assignment_single_with_names(parser, trans):
                     lark.Tree(
                         "mul",
                         [
-                            lark.Tree("number", [lark.Token("NUMBER", "1")]),
-                            lark.Tree("name", [lark.Token("NAME", "y")]),
+                            lark.Tree(
+                                "scientific",
+                                [lark.Token("SCIENTIFIC_NUMBER", "1")],
+                            ),
+                            lark.Tree("variable", [lark.Token("VARIABLE", "y")]),
                         ],
                     ),
-                    lark.Tree("name", [lark.Token("NAME", "rho")]),
+                    lark.Tree("variable", [lark.Token("VARIABLE", "rho")]),
                 ],
             ),
             lark.Tree(
                 "div",
                 [
-                    lark.Tree("name", [lark.Token("NAME", "z")]),
-                    lark.Tree("name", [lark.Token("NAME", "sigma")]),
+                    lark.Tree("variable", [lark.Token("VARIABLE", "z")]),
+                    lark.Tree("variable", [lark.Token("VARIABLE", "sigma")]),
                 ],
             ),
         ],
@@ -170,12 +193,18 @@ def test_assignment_double(expr, parser, trans):
     result = trans.transform(tree)
     assert len(result) == 2
     assert result[0].name == "x"
-    assert result[0].value.tree == lark.Tree("number", [lark.Token("NUMBER", "1")])
+    assert result[0].value.tree == lark.Tree(
+        "scientific",
+        [lark.Token("SCIENTIFIC_NUMBER", "1")],
+    )
     assert result[1].name == "y"
-    assert result[1].value.tree == lark.Tree("number", [lark.Token("NUMBER", "2")])
+    assert result[1].value.tree == lark.Tree(
+        "scientific",
+        [lark.Token("SCIENTIFIC_NUMBER", "2")],
+    )
 
 
-def test_expressions_with_name(parser, trans):
+def test_expressions_with_name_only(parser, trans):
     expr = """
     expressions("My Component")
     x = 1
@@ -187,10 +216,16 @@ def test_expressions_with_name(parser, trans):
     assert len(result) == 2
     assert result[0].component == "My Component"
     assert result[0].name == "x"
-    assert result[0].value.tree == lark.Tree("number", [lark.Token("NUMBER", "1")])
+    assert result[0].value.tree == lark.Tree(
+        "scientific",
+        [lark.Token("SCIENTIFIC_NUMBER", "1")],
+    )
     assert result[1].component == "My Component"
     assert result[1].name == "y"
-    assert result[1].value.tree == lark.Tree("number", [lark.Token("NUMBER", "2")])
+    assert result[1].value.tree == lark.Tree(
+        "scientific",
+        [lark.Token("SCIENTIFIC_NUMBER", "2")],
+    )
 
 
 def test_expressions_with_name_and_info(parser, trans):
@@ -206,11 +241,17 @@ def test_expressions_with_name_and_info(parser, trans):
     assert result[0].component == "My Component"
     assert result[0].info == "Some info"
     assert result[0].name == "x"
-    assert result[0].value.tree == lark.Tree("number", [lark.Token("NUMBER", "1")])
+    assert result[0].value.tree == lark.Tree(
+        "scientific",
+        [lark.Token("SCIENTIFIC_NUMBER", "1")],
+    )
     assert result[1].component == "My Component"
     assert result[1].info == "Some info"
     assert result[1].name == "y"
-    assert result[1].value.tree == lark.Tree("number", [lark.Token("NUMBER", "2")])
+    assert result[1].value.tree == lark.Tree(
+        "scientific",
+        [lark.Token("SCIENTIFIC_NUMBER", "2")],
+    )
 
 
 def test_expressions_with_name_and_info_and_unit(parser, trans):
@@ -226,12 +267,18 @@ def test_expressions_with_name_and_info_and_unit(parser, trans):
     assert result[0].component == "My Component"
     assert result[0].info == "Some info"
     assert result[0].name == "x"
-    assert result[0].value.tree == lark.Tree("number", [lark.Token("NUMBER", "1")])
+    assert result[0].value.tree == lark.Tree(
+        "scientific",
+        [lark.Token("SCIENTIFIC_NUMBER", "1")],
+    )
     assert result[0].unit == ureg.Unit("mV")
     assert result[1].component == "My Component"
     assert result[1].info == "Some info"
     assert result[1].name == "y"
-    assert result[1].value.tree == lark.Tree("number", [lark.Token("NUMBER", "2")])
+    assert result[1].value.tree == lark.Tree(
+        "scientific",
+        [lark.Token("SCIENTIFIC_NUMBER", "2")],
+    )
     assert result[1].unit == ureg.Unit("mol")
 
 
@@ -242,3 +289,18 @@ def test_invaild_unit_displays_warning(parser, trans):
         trans.transform(tree)
 
     assert cap_logs == [{"event": "Undefined unit 'badUnit'", "log_level": "warning"}]
+
+
+@pytest.mark.parametrize(
+    "expr, subs, expected",
+    [
+        ("\n x = 1\n y = log(x * 2)", {"x": 1}, math.log(2.0)),
+        ("\n x = 1\n y = log(x + log(2))", {"x": 1}, math.log(1 + math.log(2.0))),
+    ],
+)
+def test_expression_functions(expr, subs, expected, parser, trans):
+    tree = parser.parse(expr)
+    result = trans.transform(tree)
+    symbols = {name: sp.Symbol(name) for name in subs}
+    sympy_expr = build_expression(result[1].value.tree, symbols=symbols)
+    assert math.isclose(sympy_expr.subs(subs), expected)
