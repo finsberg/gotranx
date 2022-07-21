@@ -364,3 +364,17 @@ def test_expressions_scientific_notation(expr, expected, parser, trans):
     result = trans.transform(tree)
     sympy_expr = build_expression(result[0].value.tree)
     assert math.isclose(sympy_expr, expected)
+
+
+@pytest.mark.parametrize(
+    "expr, unit",
+    [
+        ("x = 1", None),
+        ("x = 1 # mV", ureg.Unit("mV")),
+        ("x = 1 # pA*pF**-1", ureg.Unit("pA*pF**-1")),
+    ],
+)
+def test_assignment_with_unit(expr, unit, parser, trans):
+    tree = parser.parse(expr)
+    result = trans.transform(tree)
+    assert result[0].unit == unit

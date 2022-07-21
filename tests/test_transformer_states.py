@@ -113,3 +113,62 @@ def test_different_sets_of_states(parser, trans):
     assert third_component.states == {
         atoms.State(name="w", value=4, component=None),
     }
+
+
+@pytest.mark.parametrize(
+    "expr, expected",
+    [
+        (
+            'states(x=ScalarParam(1, unit="pA"))',
+            (atoms.State(name="x", value=1.0, unit_str="pA"),),
+        ),
+        (
+            'states(x=ScalarParam(1, unit="pA", description="Info about x"))',
+            (
+                atoms.State(
+                    name="x",
+                    value=1.0,
+                    unit_str="pA",
+                    description="Info about x",
+                ),
+            ),
+        ),
+        (
+            'states(x=ScalarParam(1, unit="pA*pF**-1", description="Info about x"))',
+            (
+                atoms.State(
+                    name="x",
+                    value=1.0,
+                    unit_str="pA*pF**-1",
+                    description="Info about x",
+                ),
+            ),
+        ),
+        (
+            """
+        states(
+            x=ScalarParam(1, unit="pA", description="Info about x"),
+            y=ScalarParam(2.0, unit="mM", description="Info about y")
+        )
+        """,
+            (
+                atoms.State(
+                    name="x",
+                    value=1.0,
+                    unit_str="pA",
+                    description="Info about x",
+                ),
+                atoms.State(
+                    name="y",
+                    value=2.0,
+                    unit_str="mM",
+                    description="Info about y",
+                ),
+            ),
+        ),
+    ],
+)
+def test_states_with_unit_and_desc(expr, expected, parser, trans):
+    tree = parser.parse(expr)
+    result = trans.transform(tree)
+    assert result == expected
