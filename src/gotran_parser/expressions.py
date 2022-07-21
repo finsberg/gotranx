@@ -5,6 +5,26 @@ from typing import Optional
 import lark
 import sympy as sp
 
+from .exceptions import InvalidTreeError
+
+BINARY_OPERATIONS = {"add", "mul", "sub", "div", "pow"}
+
+
+def binary_op(op: str, fst, snd):
+
+    if op == "add":
+        return fst + snd
+    if op == "sub":
+        return fst - snd
+    if op == "div":
+        return fst / snd
+    if op == "mul":
+        return fst * snd
+    if op == "pow":
+        return pow(fst, snd)
+
+    raise RuntimeError(f"Invalid binary operation {op}")
+
 
 def build_expression(
     root: lark.Tree,
@@ -18,28 +38,23 @@ def build_expression(
             return symbols_[str(tree.children[0])]
         if tree.data == "scientific":
             return float(tree.children[0])
-        if tree.data == "add":
-            return expr2symbols(tree.children[0]) + expr2symbols(tree.children[1])
-        if tree.data == "sub":
-            return expr2symbols(tree.children[0]) - expr2symbols(tree.children[1])
-        if tree.data == "div":
-            return expr2symbols(tree.children[0]) / expr2symbols(tree.children[1])
-        if tree.data == "mul":
-            return expr2symbols(tree.children[0]) * expr2symbols(tree.children[1])
-        if tree.data == "pow":
-            return pow(expr2symbols(tree.children[0]), expr2symbols(tree.children[1]))
+
+        if tree.data in BINARY_OPERATIONS:
+            return binary_op(
+                tree.data,
+                expr2symbols(tree.children[0]),
+                expr2symbols(tree.children[1]),
+            )
 
         if tree.data == "constant":
             if tree.children[0] == "pi":
                 return sp.pi
 
         if tree.data == "func":
-            if tree.children[0] == "log":
-                return sp.log(expr2symbols(tree.children[1]))
-            if tree.children[0] == "exp":
-                return sp.exp(expr2symbols(tree.children[1]))
+            # Children name (e.g 'log', 'exp', 'cos' etc) are methods
+            # available in the sympy name space
+            return getattr(sp, tree.children[0])(expr2symbols(tree.children[1]))
 
-        # FIXME: Add custom exception
-        raise RuntimeError
+        raise InvalidTreeError(tree=tree)
 
     return expr2symbols(root)

@@ -294,17 +294,24 @@ def test_invaild_unit_displays_warning(parser, trans):
 @pytest.mark.parametrize(
     "expr, subs, expected",
     [
-        ("\n x = 1\n y = log(x * 2)", {"x": 1}, math.log(2.0)),
-        ("\n x = 1\n y = log(x + log(2))", {"x": 1}, math.log(1 + math.log(2.0))),
-        ("\n x = 1\n y = exp(x * 2)", {"x": 1}, math.exp(2.0)),
-        ("\n x = 1\n y = exp(x + log(2) - 1 )", {"x": 1}, 2),
+        ("y = log(x * 2)", {"x": 1}, math.log(2.0)),
+        ("y = log(x + log(2))", {"x": 1}, math.log(1 + math.log(2.0))),
+        ("y = exp(x * 2)", {"x": 1}, math.exp(2.0)),
+        ("y = exp(x + log(2) - 1 )", {"x": 1}, 2),
+        ("y = sin(x)", {"x": math.pi / 3}, math.sqrt(3) / 2),
+        ("y = cos(x)", {"x": math.pi / 3}, 0.5),
+        ("y = tan(x)", {"x": math.pi / 3}, math.sqrt(3)),
+        ("y = asin(x)", {"x": math.sqrt(3) / 2}, math.pi / 3),
+        ("y = acos(x)", {"x": 0.5}, math.pi / 3),
+        ("y = atan(x)", {"x": math.sqrt(3)}, math.pi / 3),
+        ("y = sqrt(x)", {"x": 4}, 2),
     ],
 )
 def test_expression_functions(expr, subs, expected, parser, trans):
     tree = parser.parse(expr)
     result = trans.transform(tree)
     symbols = {name: sp.Symbol(name) for name in subs}
-    sympy_expr = build_expression(result[1].value.tree, symbols=symbols)
+    sympy_expr = build_expression(result[0].value.tree, symbols=symbols)
     assert math.isclose(sympy_expr.subs(subs), expected)
 
 

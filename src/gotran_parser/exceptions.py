@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+import lark
+
 
 class GotranParserError(Exception):
     pass
@@ -53,3 +55,11 @@ class UnknownTreeTypeError(GotranParserError):
 
     def __str__(self) -> str:
         return f"Cannot prase tree data type {self.datatype} for atom {self.atom}"
+
+
+@dataclass
+class InvalidTreeError(GotranParserError):
+    tree: lark.Tree
+
+    def __str__(self) -> str:
+        return f"Invaild tree with data attribute {self.tree.data!r} \n{self.tree.pretty()}"
