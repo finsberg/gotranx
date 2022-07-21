@@ -296,6 +296,8 @@ def test_invaild_unit_displays_warning(parser, trans):
     [
         ("\n x = 1\n y = log(x * 2)", {"x": 1}, math.log(2.0)),
         ("\n x = 1\n y = log(x + log(2))", {"x": 1}, math.log(1 + math.log(2.0))),
+        ("\n x = 1\n y = exp(x * 2)", {"x": 1}, math.exp(2.0)),
+        ("\n x = 1\n y = exp(x + log(2) - 1 )", {"x": 1}, 2),
     ],
 )
 def test_expression_functions(expr, subs, expected, parser, trans):
@@ -304,3 +306,54 @@ def test_expression_functions(expr, subs, expected, parser, trans):
     symbols = {name: sp.Symbol(name) for name in subs}
     sympy_expr = build_expression(result[1].value.tree, symbols=symbols)
     assert math.isclose(sympy_expr.subs(subs), expected)
+
+
+@pytest.mark.parametrize(
+    "expr, subs, expected",
+    [
+        ("\n x = 1\n y = x**2", {"x": 1}, 1),
+        ("\n x = 1\n y = x**2", {"x": 2}, 4),
+        ("\n x = 1\n y = (1 + x) ** 2", {"x": 2}, 9),
+        ("\n x = 1\n y = ((2 + x) / 2) ** (1 + x)", {"x": 2}, 8),
+    ],
+)
+def test_power_expressions(expr, subs, expected, parser, trans):
+    tree = parser.parse(expr)
+    result = trans.transform(tree)
+    symbols = {name: sp.Symbol(name) for name in subs}
+    sympy_expr = build_expression(result[1].value.tree, symbols=symbols)
+    assert math.isclose(sympy_expr.subs(subs), expected)
+
+
+@pytest.mark.parametrize(
+    "expr, expected",
+    [
+        ("\n x = pi", math.pi),
+        ("\n x = 3 * pi", 3 * math.pi),
+    ],
+)
+def test_expressions_constants(expr, expected, parser, trans):
+    tree = parser.parse(expr)
+    result = trans.transform(tree)
+    sympy_expr = build_expression(result[0].value.tree)
+    assert math.isclose(sympy_expr, expected)
+
+
+@pytest.mark.parametrize(
+    "expr, expected",
+    [
+        ("\n x = 1e3", 1000),
+        ("\n x = 1e-3", 0.001),
+        ("\n x = 1E2", 100),
+        ("\n x = 1E-2", 0.01),
+        ("\n x = 2e3", 2000),
+        ("\n x = 2e-3", 0.002),
+        ("\n x = 2E2", 200),
+        ("\n x = 2E-2", 0.02),
+    ],
+)
+def test_expressions_scientific_notation(expr, expected, parser, trans):
+    tree = parser.parse(expr)
+    result = trans.transform(tree)
+    sympy_expr = build_expression(result[0].value.tree)
+    assert math.isclose(sympy_expr, expected)
