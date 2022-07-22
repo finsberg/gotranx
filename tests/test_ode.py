@@ -51,6 +51,8 @@ def test_make_ode_with_duplicates_raises_DuplicateSymbolError(parser, trans):
 
 def test_make_ode(parser, trans):
     expr = """
+    # This is an ODE.
+    # Here is another line.
     states("First component", "X-gate", x = 1, xr=3.14)
     states("First component", "Y-gate", y = 1)
     states("Second component", z=1)
@@ -67,8 +69,10 @@ def test_make_ode(parser, trans):
     dz_dt = 1 + x - y
     """
     tree = parser.parse(expr)
-    result = ode.make_ode(trans.transform(tree).components, name="TestODE")
 
+    result = ode.make_ode(*trans.transform(tree), name="TestODE")
+
+    assert result.text == "This is an ODE. Here is another line."
     assert repr(result) == "ODE(TestODE, num_states=4, num_parameters=3)"
 
     assert result.num_components == 2
