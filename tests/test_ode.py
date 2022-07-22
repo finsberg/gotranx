@@ -67,12 +67,14 @@ def test_make_ode(parser, trans):
     dz_dt = 1 + x - y
     """
     tree = parser.parse(expr)
-    result = ode.make_ode(trans.transform(tree))
+    result = ode.make_ode(trans.transform(tree), name="TestODE")
 
-    # assert str(result.symbols["dxr_dt"]) == "Derivative(xr(t), t)"
+    assert repr(result) == "ODE(TestODE, num_states=4, num_parameters=3)"
+
+    assert result.num_components == 2
 
     states = result.states
-    assert len(states) == 4
+    assert len(states) == result.num_states == 4
     state_names = set()
     state_symbols = set()
     for state in states:
@@ -84,7 +86,7 @@ def test_make_ode(parser, trans):
     assert state_symbols == {"x(t)", "xr(t)", "y(t)", "z(t)"}
 
     parameters = result.parameters
-    assert len(parameters) == 3
+    assert len(parameters) == result.num_parameters == 3
     parameter_names = set()
     for parameter in parameters:
         parameter_names.add(parameter.name)

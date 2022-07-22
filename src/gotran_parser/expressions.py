@@ -59,7 +59,12 @@ def build_expression(
         if tree.data == "func":
             # Children name (e.g 'log', 'exp', 'cos' etc) are methods
             # available in the sympy name space
-            return getattr(sp, tree.children[0])(expr2symbols(tree.children[1]))
+            funcname = tree.children[0]
+            if tree.children[0] == "abs":
+                # Only exceptions is 'abs' which is 'Abs'
+                funcname = "Abs"
+
+            return getattr(sp, funcname)(expr2symbols(tree.children[1]))
 
         if tree.data == "logicalfunc":
             if tree.children[0] == "Conditional":
@@ -67,16 +72,11 @@ def build_expression(
                     (expr2symbols(tree.children[2]), expr2symbols(tree.children[1])),
                     (expr2symbols(tree.children[3]), True),
                 )
-            if tree.children[0] == "Lt":
-                return sp.Lt(
-                    expr2symbols(tree.children[1]),
-                    expr2symbols(tree.children[2]),
-                )
-            if tree.children[0] == "Gt":
-                return sp.Gt(
-                    expr2symbols(tree.children[1]),
-                    expr2symbols(tree.children[2]),
-                )
+
+            return getattr(sp, tree.children[0])(
+                expr2symbols(tree.children[1]),
+                expr2symbols(tree.children[2]),
+            )
 
         raise InvalidTreeError(tree=tree)
 

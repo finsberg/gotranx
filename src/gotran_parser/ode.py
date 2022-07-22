@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from functools import cached_property
 from typing import Iterable
+from typing import Optional
 from typing import Sequence
 from typing import TypeVar
 
-import attr
 import sympy as sp
 
 from . import atoms
@@ -130,31 +130,48 @@ def resolve_expressions(
     return tuple(new_components)
 
 
-def make_ode(components: Sequence[Component]) -> ODE:
+def make_ode(components: Sequence[Component], name: str = "ODE") -> ODE:
     check_components(components=components)
     t = sp.Symbol("t")
     components = add_temporal_state(components, t)
     check_components(components=components)
     symbol_names, symbols, lookup = gather_atoms(components=components)
+    symbols["time"] = t
 
     if not len(symbol_names) == len(set(symbol_names)):
         raise exceptions.DuplicateSymbolError(find_duplicates(symbol_names))
     components = resolve_expressions(components=components, symbols=symbols)
-    return ODE(components=components, t=t)
+    return ODE(components=components, t=t, name=name)
 
 
-@attr.s
 class ODE:
-    components: Sequence[Component] = attr.ib()
-    t: sp.Symbol = attr.ib(None)
+    def __init__(
+        self,
+        components: Sequence[Component],
+        t: Optional[sp.Symbol] = None,
+        name: str = "ODE",
+    ):
 
-    def __attrs_post_init__(self):
-        check_components(self.components)
-        symbol_names, symbols, lookup = gather_atoms(components=self.components)
+        check_components(components)
+        symbol_names, symbols, lookup = gather_atoms(components=components)
         if not len(symbol_names) == len(set(symbol_names)):
             raise exceptions.DuplicateSymbolError(find_duplicates(symbol_names))
+        if t is None:
+            t = sp.Symbol("t")
+        self.t = t
+        symbols["time"] = t
+
         self._symbols = symbols
         self._lookup = lookup
+        self.components = components
+        self.name = name
+
+    def __repr__(self) -> str:
+        return (
+            f"{type(self).__name__}({self.name}, "
+            f"num_states={self.num_states}, "
+            f"num_parameters={self.num_parameters})"
+        )
 
     @cached_property
     def states(self) -> frozenset[atoms.State]:
@@ -163,12 +180,24 @@ class ODE:
             states |= component.states
         return frozenset(states)
 
+    @property
+    def num_states(self) -> int:
+        return len(self.states)
+
+    @property
+    def num_components(self) -> int:
+        return len(self.components)
+
     @cached_property
     def parameters(self) -> frozenset[atoms.Parameter]:
         parameters: set[atoms.Parameter] = set()
         for component in self.components:
             parameters |= component.parameters
         return frozenset(parameters)
+
+    @property
+    def num_parameters(self) -> int:
+        return len(self.parameters)
 
     @cached_property
     def state_derivatives(self) -> frozenset[atoms.StateDerivative]:

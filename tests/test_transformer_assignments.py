@@ -305,6 +305,7 @@ def test_invaild_unit_displays_warning(parser, trans):
         ("y = acos(x)", {"x": 0.5}, math.pi / 3),
         ("y = atan(x)", {"x": math.sqrt(3)}, math.pi / 3),
         ("y = sqrt(x)", {"x": 4}, 2),
+        ("y = abs(x)", {"x": -2}, 2),
     ],
 )
 def test_expression_functions(expr, subs, expected, parser, trans):
@@ -384,7 +385,7 @@ def test_assignment_with_unit(expr, unit, parser, trans):
     "expr, subs, expected",
     [
         (
-            "alpha_h = Conditional(Lt(V, -40), 0.057*exp(-(V + 80)/6.8), 0) # ms**-1",
+            "alpha_h = Conditional(Lt(V, -40), 0.057*exp(-(V + 80)/6.8), +0) # ms**-1",
             {"V": 0},
             0,
         ),
@@ -410,6 +411,72 @@ def test_lt_gt_conditional(expr, subs, expected, parser, trans):
     tree = parser.parse(expr)
     result = trans.transform(tree)
     symbols = {name: sp.Symbol(name) for name in subs}
+    sympy_expr = build_expression(result[0].value.tree, symbols=symbols)
+
+    assert math.isclose(sympy_expr.subs(subs), expected)
+
+
+@pytest.mark.parametrize(
+    "subs, expected",
+    [
+        (
+            {
+                "stim_period": 100,
+                "time": 0,
+                "stim_amplitude": 42,
+                "stim_start": 1,
+                "stim_duration": 10,
+            },
+            0,
+        ),
+        (
+            {
+                "stim_period": 100,
+                "time": 2,
+                "stim_amplitude": 42,
+                "stim_start": 1,
+                "stim_duration": 10,
+            },
+            -42,
+        ),
+        (
+            {
+                "stim_period": 100,
+                "time": 12,
+                "stim_amplitude": 42,
+                "stim_start": 1,
+                "stim_duration": 10,
+            },
+            0,
+        ),
+        (
+            {
+                "stim_period": 100,
+                "time": 102,
+                "stim_amplitude": 42,
+                "stim_start": 1,
+                "stim_duration": 10,
+            },
+            -42,
+        ),
+    ],
+)
+def test_stimulus_current(subs, expected, parser, trans):
+    expr = """
+    i_Stim = Conditional(
+       And(
+              Ge(
+                     time - floor(time/stim_period)*stim_period, stim_start
+              ),
+              Le(
+                     time - floor(time/stim_period)*stim_period, stim_start + stim_duration
+              )
+       ),
+        -stim_amplitude, 0) # pA*pF**-1
+    """
+    tree = parser.parse(expr)
+    result = trans.transform(tree)
+    symbols = {name: sp.Symbol(name) for name in result[0].value.dependencies}
     sympy_expr = build_expression(result[0].value.tree, symbols=symbols)
 
     assert math.isclose(sympy_expr.subs(subs), expected)

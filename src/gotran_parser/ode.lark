@@ -52,11 +52,17 @@ variable: VARIABLE
     | LN
     | SQRT
     | EXP
+    | ABS
+    | FLOOR
 
 ?logicalfunc: logicalfuncname "(" expression ("," expression)* ")"
 ?logicalfuncname: CONDITIONAL
     | LT
     | GT
+    | LE
+    | GE
+    | AND
+    | OR
 
 CONDITIONAL: "Conditional"
 EXP: "exp"
@@ -66,11 +72,18 @@ TAN: "tan"
 ACOS: "acos"
 ASIN: "asin"
 ATAN: "atan"
+ABS: "abs"
+FLOOR: "floor"
 LN: "ln"
 LOG: "log"
 SQRT: "sqrt"
 GT: "Gt"
 LT: "Lt"
+GE: "Ge"
+LE: "Le"
+AND: "And"
+OR: "Or"
+
 
 POINT: "."
 POW: "^"
