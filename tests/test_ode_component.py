@@ -9,7 +9,7 @@ def test_component_None(parser, trans):
     tree = parser.parse(
         "parameters(x=1, y=2)\nparameters(z=3)\nstates(a=1)\nstates(b=2, c=3)\nda_dt=0\ndb_dt=1\ndc_dt=2",
     )
-    result = trans.transform(tree)
+    result = trans.transform(tree).components
     assert len(result) == 1  # Only one component
     comp = result[0]
     assert comp.name is None
@@ -57,7 +57,7 @@ def test_component_intermediates(parser, trans):
         ),
     )
     result = trans.transform(tree)
-    comp = result[0]
+    comp = result.components[0]
 
     assert comp.intermediates == {
         atoms.Intermediate(
@@ -108,7 +108,7 @@ def test_component_intermediates(parser, trans):
 def test_component_is_complete(expr, is_complete, parser, trans):
     tree = parser.parse(expr)
     result = trans.transform(tree)
-    comp = result[0]
+    comp = result.components[0]
     assert comp.is_complete() is is_complete
 
 
@@ -126,7 +126,7 @@ def test_state_with_and_without_derivatives(parser, trans):
     expr = "states(x=1, y=2)\n dy_dt=0"
     tree = parser.parse(expr)
     result = trans.transform(tree)
-    comp = result[0]
+    comp = result.components[0]
     assert comp.states_with_derivatives == {
         atoms.State(name="y", value=2, component=None, info=None),
     }

@@ -130,7 +130,11 @@ def resolve_expressions(
     return tuple(new_components)
 
 
-def make_ode(components: Sequence[Component], name: str = "ODE") -> ODE:
+def make_ode(
+    components: Sequence[Component],
+    comments: Optional[Sequence[atoms.Comment]] = None,
+    name: str = "ODE",
+) -> ODE:
     check_components(components=components)
     t = sp.Symbol("t")
     components = add_temporal_state(components, t)
@@ -141,7 +145,7 @@ def make_ode(components: Sequence[Component], name: str = "ODE") -> ODE:
     if not len(symbol_names) == len(set(symbol_names)):
         raise exceptions.DuplicateSymbolError(find_duplicates(symbol_names))
     components = resolve_expressions(components=components, symbols=symbols)
-    return ODE(components=components, t=t, name=name)
+    return ODE(components=components, t=t, name=name, comments=comments)
 
 
 class ODE:
@@ -150,6 +154,7 @@ class ODE:
         components: Sequence[Component],
         t: Optional[sp.Symbol] = None,
         name: str = "ODE",
+        comments: Optional[Sequence[atoms.Comment]] = None,
     ):
 
         check_components(components)
@@ -165,6 +170,11 @@ class ODE:
         self._lookup = lookup
         self.components = components
         self.name = name
+        if comments is None:
+            comments = (atoms.Comment(""),)
+
+        self.comments = comments
+        self.text = "".join(comment.text for comment in comments)
 
     def __repr__(self) -> str:
         return (

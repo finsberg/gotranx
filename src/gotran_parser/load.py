@@ -23,7 +23,11 @@ def load_ode(path: str):
     with open(fname, "r") as f:
         result = parser.parse(f.read())
 
-    ode = make_ode(result, name=fname.stem)
+    ode = make_ode(
+        components=result.components,
+        name=fname.stem,
+        comments=result.comments,
+    )
     logger.info(f"Num states {ode.num_states}")
     logger.info(f"Num parameters {ode.num_parameters}")
     return ode

@@ -9,7 +9,7 @@ def test_ODE_with_incomplete_component_raises_ComponentNotCompleteError(parser, 
     tree = parser.parse(expr)
     result = trans.transform(tree)
     with pytest.raises(exceptions.ComponentNotCompleteError) as e:
-        ode.ODE(result)
+        ode.ODE(result.components)
     assert (
         str(e.value)
         == "Component None is not complete. Missing state derivatives for ['x']"
@@ -35,7 +35,7 @@ def test_ODE_with_duplicates_raises_DuplicateSymbolError(parser, trans):
     expr = "states(y=2)\n dy_dt=0 \n y=42"
     tree = parser.parse(expr)
     with pytest.raises(exceptions.DuplicateSymbolError) as e:
-        ode.ODE(trans.transform(tree))
+        ode.ODE(trans.transform(tree).components)
 
     assert "Found multiple definitions for {'y'}" in str(e.value)
 
@@ -44,7 +44,7 @@ def test_make_ode_with_duplicates_raises_DuplicateSymbolError(parser, trans):
     expr = "states(y=2)\n dy_dt=0 \n y=42"
     tree = parser.parse(expr)
     with pytest.raises(exceptions.DuplicateSymbolError) as e:
-        ode.make_ode(trans.transform(tree))
+        ode.make_ode(trans.transform(tree).components)
 
     assert "Found multiple definitions for {'y'}" in str(e.value)
 
@@ -67,7 +67,7 @@ def test_make_ode(parser, trans):
     dz_dt = 1 + x - y
     """
     tree = parser.parse(expr)
-    result = ode.make_ode(trans.transform(tree), name="TestODE")
+    result = ode.make_ode(trans.transform(tree).components, name="TestODE")
 
     assert repr(result) == "ODE(TestODE, num_states=4, num_parameters=3)"
 

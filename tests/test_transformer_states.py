@@ -82,7 +82,7 @@ def test_states_with_component_and_info(parser, trans):
 def test_different_sets_of_states(parser, trans):
     expr = 'states("First component", "Some info about first component", x=1, y=2)\nstates("Second component", z=3)\nstates(w=4)'
     tree = parser.parse(expr)
-    result = trans.transform(tree)
+    result = trans.transform(tree).components
 
     assert len(result) == 3
     first_component = result[0]

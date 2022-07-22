@@ -74,9 +74,9 @@ def test_states_arguments(parser, trans):
 
     tree = parser.parse(expr)
     result = trans.transform(tree)
-    assert len(result) == 2
+    assert len(result.components) == 2
 
-    comp1 = result[0]
+    comp1 = result.components[0]
     assert comp1.name == "My component"
     assert comp1.states == {
         atoms.State(name="y", value=1.0, component="My component"),
@@ -98,7 +98,7 @@ def test_states_arguments(parser, trans):
         ),
     }
 
-    comp2 = result[1]
+    comp2 = result.components[1]
     assert comp2.name == "My other component"
     assert comp2.states == {
         atoms.State(
@@ -120,10 +120,17 @@ def test_comment(parser, trans):
     """
     tree = parser.parse(expr)
     result = trans.transform(tree)
-    assert len(result) == 1
-    assert result[0].parameters == {atoms.Parameter(name="y", value=2.0)}
 
-    assert result[0].assignments == {
+    assert len(result.comments) == 1
+    assert result.comments[0] == atoms.Comment(
+        text="This is one comment. Here is another comment",
+    )
+
+    comp = result.components
+    assert len(comp) == 1
+    assert comp[0].parameters == {atoms.Parameter(name="y", value=2.0)}
+
+    assert comp[0].assignments == {
         atoms.Assignment(
             name="x",
             value=atoms.Expression(

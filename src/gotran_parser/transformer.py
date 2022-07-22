@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from typing import NamedTuple
 from typing import Optional
 from typing import Type
 from typing import TypeVar
@@ -9,9 +10,14 @@ import lark
 
 from . import atoms
 from . import exceptions
-from . import ode
+from . import ode_component
 
 T = TypeVar("T", atoms.State, atoms.Parameter)
+
+
+class LarkODE(NamedTuple):
+    components: tuple[ode_component.Component, ...]
+    comments: tuple[atoms.Comment, ...]
 
 
 def remove_quotes(s: str) -> str:
@@ -170,7 +176,7 @@ class TreeToODE(lark.Transformer):
 
         return tuple(assignments)
 
-    def ode(self, s) -> tuple[ode.Component, ...]:
+    def ode(self, s) -> LarkODE:
 
         # FIXME: Could use Enum here
         mapping = {
@@ -200,9 +206,12 @@ class TreeToODE(lark.Transformer):
 
         # FIXME: Need to somehow tell the type checker that each of the inner dictionaries
         # are actually of the correct type.
-        return tuple(
-            [
-                ode.Component(name=key, **value)  # type: ignore
-                for key, value in frozen_components.items()
-            ],
+        return LarkODE(
+            components=tuple(
+                [
+                    ode_component.Component(name=key, **value)  # type: ignore
+                    for key, value in frozen_components.items()
+                ],
+            ),
+            comments=tuple(comments),
         )

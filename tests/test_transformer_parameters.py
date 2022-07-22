@@ -57,7 +57,7 @@ def test_parameters_with_component(parser, trans):
 def test_different_sets_of_parameters(parser, trans):
     expr = 'parameters("First component", x=1, y=2)\nparameters("Second component", z=3)\nparameters(w=4)'
     tree = parser.parse(expr)
-    result = trans.transform(tree)
+    result = trans.transform(tree).components
 
     assert len(result) == 3
     first_component = result[0]

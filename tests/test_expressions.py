@@ -37,11 +37,11 @@ def test_build_two_expressions(parser, trans):
     result = trans.transform(tree)
     t = sp.Symbol("t")
 
-    old_ode = gotran_parser.ode.ODE(result)
+    old_ode = gotran_parser.ode.ODE(result.components)
 
     symbols = old_ode.symbols
     ode = gotran_parser.ode.ODE(
-        gotran_parser.ode.resolve_expressions(result, symbols=symbols),
+        gotran_parser.ode.resolve_expressions(result.components, symbols=symbols),
         t=t,
     )
 
@@ -74,7 +74,7 @@ def test_add_temporal_state(parser, trans):
     tree = parser.parse(expr)
     result = trans.transform(tree)
     t = sp.Symbol("t")
-    components = gotran_parser.ode.add_temporal_state(components=result, t=t)
+    components = gotran_parser.ode.add_temporal_state(components=result.components, t=t)
     ode = gotran_parser.ode.ODE(components=components, t=t)
     assert str(ode["u"].symbol) == "u(t)"
     assert str(ode["du_dt"].symbol) == "Derivative(u(t), t)"
