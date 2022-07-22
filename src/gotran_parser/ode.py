@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from functools import cached_property
+from graphlib import TopologicalSorter
 from typing import Iterable
 from typing import Optional
 from typing import Sequence
@@ -148,6 +149,13 @@ def make_ode(
     return ODE(components=components, t=t, name=name, comments=comments)
 
 
+def sort_assignments(assignments: Iterable[atoms.Assignment]) -> tuple[str, ...]:
+    sorter: TopologicalSorter = TopologicalSorter()
+    for assignment in assignments:
+        sorter.add(assignment.name, *assignment.value.dependencies)
+    return tuple(sorter.static_order())
+
+
 class ODE:
     def __init__(
         self,
@@ -229,3 +237,7 @@ class ODE:
 
     def __getitem__(self, name) -> atoms.Atom:
         return self._lookup[name]
+
+    @cached_property
+    def sorted_assignements(self) -> tuple[str, ...]:
+        return sort_assignments(self.intermediates | self.state_derivatives)

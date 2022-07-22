@@ -116,3 +116,17 @@ def test_make_ode(parser, trans):
 
     intermediates = result.intermediates
     assert len(intermediates) == 1
+
+
+def test_sorted_assignments(parser, trans):
+    expr = """
+    states(V=0)
+    dV_dt = x * z
+    x = y + z
+    z = a - 2
+    a = y + 3
+    y = 1
+    """
+    tree = parser.parse(expr)
+    result = ode.make_ode(*trans.transform(tree), name="TestODE")
+    assert result.sorted_assignements == ("y", "a", "z", "x", "dV_dt")
