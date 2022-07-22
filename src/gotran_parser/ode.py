@@ -149,11 +149,22 @@ def make_ode(
     return ODE(components=components, t=t, name=name, comments=comments)
 
 
-def sort_assignments(assignments: Iterable[atoms.Assignment]) -> tuple[str, ...]:
+def sort_assignments(
+    assignments: Iterable[atoms.Assignment],
+    assignments_only: bool = False,
+) -> tuple[str, ...]:
     sorter: TopologicalSorter = TopologicalSorter()
+    assignment_names = set()
     for assignment in assignments:
+        assignment_names.add(assignment.name)
         sorter.add(assignment.name, *assignment.value.dependencies)
-    return tuple(sorter.static_order())
+
+    static_order = tuple(sorter.static_order())
+
+    if assignments_only:
+        return tuple([name for name in static_order if name in assignment_names])
+    else:
+        return static_order
 
 
 class ODE:
@@ -239,5 +250,8 @@ class ODE:
         return self._lookup[name]
 
     @cached_property
-    def sorted_assignements(self) -> tuple[str, ...]:
-        return sort_assignments(self.intermediates | self.state_derivatives)
+    def sorted_assignments(self) -> tuple[str, ...]:
+        return sort_assignments(
+            self.intermediates | self.state_derivatives,
+            assignments_only=True,
+        )

@@ -118,15 +118,40 @@ def test_make_ode(parser, trans):
     assert len(intermediates) == 1
 
 
-def test_sorted_assignments(parser, trans):
+def test_ode_sorted_assignments(parser, trans):
     expr = """
     states(V=0)
     dV_dt = x * z
-    x = y + z
+    x = y + z + V
     z = a - 2
     a = y + 3
     y = 1
     """
     tree = parser.parse(expr)
     result = ode.make_ode(*trans.transform(tree), name="TestODE")
-    assert result.sorted_assignements == ("y", "a", "z", "x", "dV_dt")
+    assert result.sorted_assignments == ("y", "a", "z", "x", "dV_dt")
+
+
+@pytest.mark.parametrize(
+    "assignments_only, expected",
+    [
+        (True, ("y", "a", "z", "x", "dV_dt")),
+        (False, ("V", "y", "a", "z", "x", "dV_dt")),
+    ],
+)
+def test_sort_assignment(assignments_only, expected, parser, trans):
+    expr = """
+    states(V=0)
+    dV_dt = x * z
+    x = y + z + V
+    z = a - 2
+    a = y + 3
+    y = 1
+    """
+    tree = parser.parse(expr)
+    result = ode.make_ode(*trans.transform(tree), name="TestODE")
+    sorted_assignments = ode.sort_assignments(
+        result.intermediates | result.state_derivatives,
+        assignments_only=assignments_only,
+    )
+    assert sorted_assignments == expected
