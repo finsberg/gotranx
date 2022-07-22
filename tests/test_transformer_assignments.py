@@ -378,3 +378,38 @@ def test_assignment_with_unit(expr, unit, parser, trans):
     tree = parser.parse(expr)
     result = trans.transform(tree)
     assert result[0].unit == unit
+
+
+@pytest.mark.parametrize(
+    "expr, subs, expected",
+    [
+        (
+            "alpha_h = Conditional(Lt(V, -40), 0.057*exp(-(V + 80)/6.8), 0) # ms**-1",
+            {"V": 0},
+            0,
+        ),
+        (
+            "alpha_h = Conditional(Lt(V, -40), 0.057*exp(-(V + 80)/6.8), 0) # ms**-1",
+            {"V": -80},
+            0.057,
+        ),
+        (
+            "alpha_h = Conditional(Gt(V, -40), 0.057*exp(-(V + 80)/6.8), 0) # ms**-1",
+            {"V": 0},
+            0.057 * math.exp(-80 / 6.8),
+        ),
+        (
+            "alpha_h = Conditional(Gt(V, -40), 0.057*exp(-(V + 80)/6.8), 0) # ms**-1",
+            {"V": -80},
+            0,
+        ),
+    ],
+)
+def test_lt_gt_conditional(expr, subs, expected, parser, trans):
+
+    tree = parser.parse(expr)
+    result = trans.transform(tree)
+    symbols = {name: sp.Symbol(name) for name in subs}
+    sympy_expr = build_expression(result[0].value.tree, symbols=symbols)
+
+    assert math.isclose(sympy_expr.subs(subs), expected)

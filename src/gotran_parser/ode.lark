@@ -26,9 +26,9 @@ expressions: (assignment)+
 ?powexpression: signedatom
     | signedatom "**" signedatom -> pow
 
-?signedatom: "+" signedatom
-    | "-" signedatom
+?signedatom: SIGN signedatom
     | func
+    | logicalfunc
     | atom
 
 ?atom: scientific
@@ -53,6 +53,12 @@ variable: VARIABLE
     | SQRT
     | EXP
 
+?logicalfunc: logicalfuncname "(" expression ("," expression)* ")"
+?logicalfuncname: CONDITIONAL
+    | LT
+    | GT
+
+CONDITIONAL: "Conditional"
 EXP: "exp"
 COS: "cos"
 SIN: "sin"
@@ -63,9 +69,9 @@ ATAN: "atan"
 LN: "ln"
 LOG: "log"
 SQRT: "sqrt"
-GT: ">"
-LT: "<"
-EQ: "="
+GT: "Gt"
+LT: "Lt"
+
 POINT: "."
 POW: "^"
 PI: "pi"
@@ -78,7 +84,7 @@ SCIENTIFIC_NUMBER: NUMBER ((E1 | E2) SIGN? NUMBER)?
 E1: "E"
 E2: "e"
 SIGN: "+" | "-"
-
+NEG: "-"
 
 
 COMPONENT_NAME: ESCAPED_STRING

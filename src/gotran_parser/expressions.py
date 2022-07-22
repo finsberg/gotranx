@@ -39,6 +39,12 @@ def build_expression(
         if tree.data == "scientific":
             return float(tree.children[0])
 
+        if tree.data == "signedatom":
+            if tree.children[0] == "-":
+                return -expr2symbols(tree.children[1])
+            else:  # +
+                return expr2symbols(tree.children[1])
+
         if tree.data in BINARY_OPERATIONS:
             return binary_op(
                 tree.data,
@@ -54,6 +60,23 @@ def build_expression(
             # Children name (e.g 'log', 'exp', 'cos' etc) are methods
             # available in the sympy name space
             return getattr(sp, tree.children[0])(expr2symbols(tree.children[1]))
+
+        if tree.data == "logicalfunc":
+            if tree.children[0] == "Conditional":
+                return sp.Piecewise(
+                    (expr2symbols(tree.children[2]), expr2symbols(tree.children[1])),
+                    (expr2symbols(tree.children[3]), True),
+                )
+            if tree.children[0] == "Lt":
+                return sp.Lt(
+                    expr2symbols(tree.children[1]),
+                    expr2symbols(tree.children[2]),
+                )
+            if tree.children[0] == "Gt":
+                return sp.Gt(
+                    expr2symbols(tree.children[1]),
+                    expr2symbols(tree.children[2]),
+                )
 
         raise InvalidTreeError(tree=tree)
 
