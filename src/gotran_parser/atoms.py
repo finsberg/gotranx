@@ -140,9 +140,6 @@ class Assignment(Atom):
     value: Expression = attr.ib()
     expr: Optional[sp.Expr] = attr.ib(None)
 
-    def is_resolved(self) -> bool:
-        return self.expr is not None
-
     def resolve_expression(self, symbols: dict[str, sp.Symbol]) -> Assignment:
         expr = self.value.resolve(symbols)
         return type(self)(

@@ -138,7 +138,7 @@ def make_ode(
 ) -> ODE:
     check_components(components=components)
     t = sp.Symbol("t")
-    components = add_temporal_state(components, t)
+    # components = add_temporal_state(components, t)
     check_components(components=components)
     symbol_names, symbols, lookup = gather_atoms(components=components)
     symbols["time"] = t
@@ -200,6 +200,16 @@ class ODE:
             f"{type(self).__name__}({self.name}, "
             f"num_states={self.num_states}, "
             f"num_parameters={self.num_parameters})"
+        )
+
+    def __eq__(self, __o: object) -> bool:
+        if not isinstance(__o, ODE):
+            return False
+
+        return (
+            __o.comments == self.comments
+            and __o.components == self.components
+            and __o.name == self.name
         )
 
     @cached_property

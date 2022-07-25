@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 from gotran_parser import load_ode
+from gotran_parser.exceptions import ODEFileNotFound
 
 
 @pytest.fixture
@@ -9,6 +10,11 @@ def path():
     _path = Path("tmp_ode_file.ode")
     yield _path
     _path.unlink()
+
+
+def test_load_nonexisting_ode_raises_ODEFileNotFound():
+    with pytest.raises(ODEFileNotFound):
+        load_ode("invalid_ode.ode")
 
 
 def test_load_ode(path):
