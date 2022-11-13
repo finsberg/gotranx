@@ -2,17 +2,18 @@ from __future__ import annotations
 
 import attr
 import sympy
-from sympy.codegen.ast import Assignment
 
 from . import atoms
 from .ode import ODE
+
+# from sympy.codegen.ast import Assignment
 
 
 @attr.s(frozen=True, slots=True)
 class SympyODE:
     ode: ODE = attr.ib()
     sorted_states: list[atoms.State] = attr.ib(init=False, repr=False)
-    sorted_parameters: list[atoms.State] = attr.ib(init=False, repr=False)
+    sorted_parameters: list[atoms.Parameter] = attr.ib(init=False, repr=False)
     sorted_state_derivatives: list[atoms.StateDerivative] = attr.ib(
         init=False,
         repr=False,
@@ -51,7 +52,9 @@ class SympyODE:
 
     @property
     def parameter_values(self) -> sympy.Matrix:
-        return sympy.Matrix([parameter.value for parameter in self.sorted_parameters])
+        return sympy.Matrix(
+            [sympy.Float(str(parameter.value)) for parameter in self.sorted_parameters],
+        )
 
     @property
     def state_derivatives(self) -> sympy.Matrix:
@@ -67,10 +70,10 @@ class SympyODE:
     def jacobian(self):
         return self.rhs.jacobian(self.states)
 
-    @property
-    def expressions(self):
-        expressions = []
-        for assignment_name in self.ode.sorted_assignments:
-            assignment = self.ode._lookup[assignment_name]
-            expressions.append(Assignment(assignment.symbol, assignment.expr))
-        return expressions
+    # @property
+    # def expressions(self):
+    #     expressions = []
+    #     for assignment_name in self.ode.sorted_assignments:
+    #         assignment = self.ode._lookup[assignment_name]
+    #         expressions.append(Assignment(assignment.symbol, assignment.expr))
+    #     return expressions
