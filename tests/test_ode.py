@@ -1,6 +1,6 @@
 import pytest
-from gotran_parser import exceptions
-from gotran_parser import ode
+from gotranx import exceptions
+from gotranx import ode
 
 
 def test_ODE_with_incomplete_component_raises_ComponentNotCompleteError(parser, trans):

@@ -3,8 +3,8 @@ import math
 import lark
 import pytest
 import sympy as sp
-from gotran_parser.expressions import build_expression
-from gotran_parser.units import ureg
+from gotranx.expressions import build_expression
+from gotranx.units import ureg
 from structlog.testing import capture_logs
 
 

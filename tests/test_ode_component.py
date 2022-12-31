@@ -1,8 +1,8 @@
 import lark
 import pytest
-from gotran_parser import atoms
-from gotran_parser import exceptions
-from gotran_parser import ode_component
+from gotranx import atoms
+from gotranx import exceptions
+from gotranx import ode_component
 
 
 def test_component_None(parser, trans):

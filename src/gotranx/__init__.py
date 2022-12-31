@@ -15,7 +15,7 @@ from .parser import Parser
 from .transformer import TreeToODE
 
 
-meta = metadata("gotran_parser")
+meta = metadata("gotranx")
 __version__ = meta["Version"]
 __author__ = meta["Author"]
 __license__ = meta["License"]

@@ -1,7 +1,7 @@
 import lark
 import pytest
 import sympy as sp
-from gotran_parser import atoms
+from gotranx import atoms
 
 
 @pytest.mark.parametrize(

@@ -1,7 +1,7 @@
 import pytest
-from gotran_parser.ode import make_ode
-from gotran_parser.ode import ODE
-from gotran_parser.sympy_ode import SympyODE
+from gotranx.ode import make_ode
+from gotranx.ode import ODE
+from gotranx.sympy_ode import SympyODE
 
 
 @pytest.fixture(scope="module")

@@ -2,9 +2,9 @@ import sys
 from unittest import mock
 
 import pytest
-from gotran_parser.codegen import CCodeGenerator
-from gotran_parser.codegen import RHSArgument
-from gotran_parser.ode import make_ode
+from gotranx.codegen import CCodeGenerator
+from gotranx.codegen import RHSArgument
+from gotranx.ode import make_ode
 
 
 @pytest.fixture(scope="module")

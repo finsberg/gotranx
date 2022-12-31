@@ -1,6 +1,6 @@
 import pytest
-from gotran_parser import Parser
-from gotran_parser import TreeToODE
+from gotranx import Parser
+from gotranx import TreeToODE
 
 
 @pytest.fixture(scope="module")

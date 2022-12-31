@@ -1,5 +1,5 @@
 import pytest
-from gotran_parser import atoms
+from gotranx import atoms
 
 
 @pytest.mark.parametrize(

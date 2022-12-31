@@ -6,7 +6,7 @@ app = typer.Typer()
 def version_callback(show_version: bool):
     """Prints version information."""
     if show_version:
-        from . import __version__, __program_name__
+        from .. import __version__, __program_name__
 
         typer.echo(f"{__program_name__} {__version__}")
         raise typer.Exit()
@@ -15,7 +15,7 @@ def version_callback(show_version: bool):
 def license_callback(show_license: bool):
     """Prints license information."""
     if show_license:
-        from . import __license__
+        from .. import __license__
 
         typer.echo(f"{__license__}")
         raise typer.Exit()

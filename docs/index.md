@@ -1,12 +1,12 @@
-*gotran-parser* is a tool to parse gotran `.ode` files.
+*gotranx* is a tool to parse gotran `.ode` files.
 
-**Documentation:** <https://finsberg.github.io/gotran-parser>
+**Documentation:** <https://finsberg.github.io/gotranx>
 
-**Source code:** <https://github.com/finsberg/gotran-parser>
+**Source code:** <https://github.com/finsberg/gotranx>
 
 ## Installation
 
 Install with pip
 ```
-python -m pip install gotran-parser
+python -m pip install gotranx
 ```
