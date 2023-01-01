@@ -1,4 +1,8 @@
+import typing
+from pathlib import Path
+
 import typer
+
 
 app = typer.Typer()
 
@@ -21,8 +25,27 @@ def license_callback(show_license: bool):
         raise typer.Exit()
 
 
-@app.callback()
+@app.command()
 def main(
+    fname: typing.Optional[Path] = typer.Argument(
+        None,
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        writable=False,
+        readable=True,
+        resolve_path=True,
+    ),
+    to: str = typer.Option(
+        "",
+        "--to",
+        help="Generate code to another programming language",
+    ),
+    outname: typing.Optional[str] = typer.Option(
+        None,
+        "--outname",
+        help="Output name",
+    ),
     version: bool = typer.Option(
         None,
         "--version",
@@ -38,5 +61,9 @@ def main(
         help="Show license",
     ),
 ):
-    # Do other global stuff, handle other global options here
-    return
+    if fname is None:
+        return
+    if to in [".c", ".h"]:
+        from . import gotran2c
+
+        gotran2c.main(fname=fname, suffix=to, outname=outname)
