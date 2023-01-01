@@ -150,7 +150,7 @@ def test_sort_assignment(assignments_only, expected, parser, trans):
     tree = parser.parse(expr)
     result = ode.make_ode(*trans.transform(tree), name="TestODE")
     sorted_assignments = ode.sort_assignments(
-        result.intermediates | result.state_derivatives,
+        result.intermediates + result.state_derivatives,
         assignments_only=assignments_only,
     )
     assert sorted_assignments == expected

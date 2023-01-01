@@ -12,59 +12,67 @@ from .ode import ODE
 @attr.s(frozen=True, slots=True)
 class SympyODE:
     ode: ODE = attr.ib()
-    sorted_states: list[atoms.State] = attr.ib(init=False, repr=False)
-    sorted_parameters: list[atoms.Parameter] = attr.ib(init=False, repr=False)
-    sorted_state_derivatives: list[atoms.StateDerivative] = attr.ib(
-        init=False,
-        repr=False,
-    )
-
-    def __attrs_post_init__(self):
-        object.__setattr__(
-            self,
-            "sorted_states",
-            sorted(self.ode.states, key=lambda x: x.name),
-        )
-        object.__setattr__(
-            self,
-            "sorted_parameters",
-            sorted(self.ode.parameters, key=lambda x: x.name),
-        )
-        object.__setattr__(
-            self,
-            "sorted_state_derivatives",
-            sorted(self.ode.state_derivatives, key=lambda x: x.name),
-        )
 
     @property
     def states(self) -> sympy.Matrix:
-        return sympy.Matrix([state.symbol for state in self.sorted_states])
+        return sympy.Matrix(
+            [state_der.state.symbol for state_der in self.ode.state_derivatives],
+        )
 
     @property
     def state_values(self) -> sympy.Matrix:
         return sympy.Matrix(
-            [sympy.Float(str(state.value)) for state in self.sorted_states],
+            [
+                sympy.Float(str(state_der.state.value))
+                for state_der in self.ode.state_derivatives
+            ],
         )
 
     @property
     def parameters(self) -> sympy.Matrix:
-        return sympy.Matrix([parameter.symbol for parameter in self.sorted_parameters])
+        return sympy.Matrix([parameter.symbol for parameter in self.ode.parameters])
 
     @property
     def parameter_values(self) -> sympy.Matrix:
         return sympy.Matrix(
-            [sympy.Float(str(parameter.value)) for parameter in self.sorted_parameters],
+            [sympy.Float(str(parameter.value)) for parameter in self.ode.parameters],
         )
 
     @property
     def state_derivatives(self) -> sympy.Matrix:
-        return sympy.Matrix([state.symbol for state in self.sorted_state_derivatives])
+        return sympy.Matrix([state.symbol for state in self.ode.state_derivatives])
 
     @property
     def rhs(self) -> sympy.Matrix:
+
         intermediates = {x.symbol: x.expr for x in self.ode.intermediates}
-        rhs = sympy.Matrix([state.expr for state in self.sorted_state_derivatives])
+        rhs = sympy.Matrix([state.expr for state in self.ode.state_derivatives])
+
         return rhs.xreplace(intermediates)
+
+    def rhs_sorted(self):
+        syms_st = []
+        expr_st = []
+        syms_i = []
+        expr_i = []
+
+        for sym in self.ode.sorted_assignments:
+            print(sym)
+
+            x = self.ode[sym]
+            if isinstance(x, atoms.Intermediate):
+                syms_i.append(x.symbol)
+                expr_i.append(x.expr)
+            elif isinstance(x, atoms.StateDerivative):
+                syms_st.append(x.symbol)
+                expr_st.append(x.expr)
+            else:
+                raise RuntimeError("What?")
+
+        # rhs = sympy.Matrix(expr_st)
+        # breakpoint()
+        # return syms_st, rhs.xreplace(dict(zip(syms_i, expr_i)))
+        return syms_st, expr_st, syms_i, expr_i
 
     @property
     def jacobian(self):

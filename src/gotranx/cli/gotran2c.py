@@ -10,6 +10,7 @@ def main(fname: Path, suffix: str = ".h", outname: typing.Optional[str] = None) 
     codegen = CCodeGenerator(ode)
     code = "\n".join(
         [
+            "#include <math.h>",
             codegen.initial_parameter_values(),
             codegen.initial_state_values(),
             codegen.rhs(),

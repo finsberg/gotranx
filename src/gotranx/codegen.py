@@ -40,6 +40,15 @@ class GotranCCodePrinter(C99CodePrinter):
     def _print_Float(self, flt):
         return self._print(str(float(flt)))
 
+    def _print_Piecewise(self, expr):
+        fst, snd = expr.args
+        return (
+            f"{super()._print(fst[0].args[0])} = "
+            f"({super()._print(fst[1])}) ? "
+            f"{super()._print(fst[0].args[1])} : "
+            f"{super()._print(snd[0].args[1])};"
+        )
+
 
 class CodeGenerator(abc.ABC):
     variable_prefix = ""
@@ -79,7 +88,7 @@ class CodeGenerator(abc.ABC):
         state_result = sympy.MatrixSymbol(name, self.ode.num_states, 1)
 
         values = ", ".join(
-            [f"{state.name}={state.value}" for state in self.sympy_ode.sorted_states],
+            [f"{state.name}={state.value}" for state in self.sympy_ode.ode.states],
         )
         expr = self.printer.doprint(self.sympy_ode.state_values, assign_to=state_result)
 
@@ -95,7 +104,7 @@ class CodeGenerator(abc.ABC):
         values = ", ".join(
             [
                 f"{parameter.name}={parameter.value}"
-                for parameter in self.sympy_ode.sorted_parameters
+                for parameter in self.sympy_ode.ode.parameters
             ],
         )
         expr = self.printer.doprint(
@@ -115,25 +124,52 @@ class CodeGenerator(abc.ABC):
         states = "\n".join(
             [
                 f"{self.variable_prefix}{self.printer.doprint(Assignment(state.symbol, value))}"
-                for state, value in zip(self.sympy_ode.sorted_states, rhs.states)
+                for state, value in zip(self.sympy_ode.ode.states, rhs.states)
             ],
         )
         parameters = "\n".join(
             [
                 f"{self.variable_prefix}{self.printer.doprint(Assignment(param.symbol, value))}"
                 for param, value in zip(
-                    self.sympy_ode.sorted_parameters,
+                    self.sympy_ode.ode.parameters,
                     rhs.parameters,
                 )
             ],
         )
-        values = self.printer.doprint(self.sympy_ode.rhs, assign_to=rhs.values)
+        from . import atoms
 
+        state_names = [x.name for x in self.sympy_ode.ode.states]
+        values = []
+        for sym in self.sympy_ode.ode.sorted_assignments:
+            # print(sym)
+            x = self.sympy_ode.ode[sym]
+            if isinstance(x, atoms.Intermediate):
+                values.append(
+                    f"{self.variable_prefix}{self.printer.doprint(Assignment(x.symbol, x.expr))}",
+                )
+
+            elif isinstance(x, atoms.StateDerivative):
+                values.append(
+                    self.printer.doprint(
+                        Assignment(rhs.values[state_names.index(x.state.name)], x.expr),
+                    ),
+                )
+            else:
+                raise RuntimeError("What?")
+
+        # use_cse = False
+        # if use_cse:
+        #     replacements, reduced_exprs = sympy.cse(self.sympy_ode.rhs)
+        # sym, expr = self.sympy_ode.rhs_sorted()
+        # values = self.printer.doprint(self.sympy_ode.rhs, assign_to=rhs.values)
+        # expr = expr.xreplace({s: rhs.values[i] for i, s in enumerate(sym)})
+        # values = self.printer.doprint(expr, assign_to=rhs.values)
+        # breakpoint()
         code = self.template.RHS.format(
             args=rhs.arguments,
             states=states,
             parameters=parameters,
-            values=values,
+            values="\n".join(values),
         )
 
         return self._format(code)
@@ -187,6 +223,7 @@ class CCodeGenerator(CodeGenerator):
         states = sympy.MatrixSymbol("states", self.ode.num_states, 1)
         parameters = sympy.MatrixSymbol("parameters", self.ode.num_parameters, 1)
         values = sympy.MatrixSymbol("values", self.ode.num_states, 1)
+
         return RHS(
             arguments=", ".join(argument_list),
             states=states,
