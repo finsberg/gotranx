@@ -147,23 +147,16 @@ class TreeToODE(lark.Transformer):
             info = remove_quotes(str(info))
 
         return tuple(
-            [
-                tree2parameter(p, component=component, info=info, cls=atoms.State)
-                for p in s[2:]
-            ],
+            [tree2parameter(p, component=component, info=info, cls=atoms.State) for p in s[2:]],
         )
 
     def parameters(self, s) -> tuple[atoms.Parameter, ...]:
-
         component = s[0]
         if component is not None:
             component = remove_quotes(str(component))
 
         return tuple(
-            [
-                tree2parameter(p, component=component, cls=atoms.Parameter)
-                for p in s[1:]
-            ],
+            [tree2parameter(p, component=component, cls=atoms.Parameter) for p in s[1:]],
         )
 
     def expressions(self, s) -> tuple[atoms.Assignment, ...]:
@@ -177,7 +170,6 @@ class TreeToODE(lark.Transformer):
         return tuple(assignments)
 
     def ode(self, s) -> LarkODE:
-
         # FIXME: Could use Enum here
         mapping = {
             atoms.Parameter: "parameters",

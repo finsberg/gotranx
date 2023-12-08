@@ -21,9 +21,7 @@ def check_components(components: Sequence[Component]):
         if not comp.is_complete():
             raise exceptions.ComponentNotCompleteError(
                 component_name=comp.name,
-                missing_state_derivatives=[
-                    state.name for state in comp.states_without_derivatives
-                ],
+                missing_state_derivatives=[state.name for state in comp.states_without_derivatives],
             )
 
 
@@ -87,7 +85,6 @@ def add_temporal_state(
         state_derivatives = set()
         states = set()
         for state_derivative in component.state_derivatives:
-
             new_state = state_derivative.state.to_TimeDependentState(t)
             state_derivatives.add(
                 atoms.StateDerivative(
@@ -179,7 +176,6 @@ class ODE:
         name: str = "ODE",
         comments: Optional[Sequence[atoms.Comment]] = None,
     ):
-
         check_components(components)
         symbol_names, symbols, lookup = gather_atoms(components=components)
         if not len(symbol_names) == len(set(symbol_names)):

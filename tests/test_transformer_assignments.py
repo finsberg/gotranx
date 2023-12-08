@@ -10,7 +10,6 @@ from structlog.testing import capture_logs
 
 @pytest.mark.parametrize("expr", ["x=1", "x = 1", "x= 1"])
 def test_assignment_single_1(expr, parser, trans):
-
     tree = parser.parse(expr)
     result = trans.transform(tree)
     assert len(result) == 1
@@ -32,7 +31,6 @@ def test_assignment_single_1(expr, parser, trans):
     ],
 )
 def test_assignment_single_2_terms(expr, parser, trans):
-
     tree = parser.parse(expr)
     result = trans.transform(tree)
     assert len(result) == 1
@@ -47,7 +45,6 @@ def test_assignment_single_2_terms(expr, parser, trans):
 
 
 def test_assignment_single_3_terms(parser, trans):
-
     tree = parser.parse("x = 1 * 2 + 3")
     result = trans.transform(tree)
     assert len(result) == 1
@@ -68,7 +65,6 @@ def test_assignment_single_3_terms(parser, trans):
 
 
 def test_assignment_single_4_terms(parser, trans):
-
     tree = parser.parse("x = 1 * 2 + 3 - 4")
     result = trans.transform(tree)
     assert len(result) == 1
@@ -111,7 +107,6 @@ def test_assignment_single_4_terms(parser, trans):
     ],
 )
 def test_assignment_single5(expr, parser, trans):
-
     tree = parser.parse(expr)
     result = trans.transform(tree)
     assert len(result) == 1
@@ -150,7 +145,6 @@ def test_assignment_single5(expr, parser, trans):
 
 
 def test_assignment_single_with_names(parser, trans):
-
     expr = "x = (1 * y) + rho - (z / sigma)"
     tree = parser.parse(expr)
     result = trans.transform(tree)
@@ -188,7 +182,6 @@ def test_assignment_single_with_names(parser, trans):
 
 @pytest.mark.parametrize("expr", ["x=1\ny=2", "x = 1 \n y =2", "x= 1\n y = 2"])
 def test_assignment_double(expr, parser, trans):
-
     tree = parser.parse(expr)
     result = trans.transform(tree)
     assert len(result) == 2
@@ -407,7 +400,6 @@ def test_assignment_with_unit(expr, unit, parser, trans):
     ],
 )
 def test_lt_gt_conditional(expr, subs, expected, parser, trans):
-
     tree = parser.parse(expr)
     result = trans.transform(tree)
     symbols = {name: sp.Symbol(name) for name in subs}

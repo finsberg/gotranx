@@ -24,9 +24,9 @@ void init_parameter_values(double* {name}){{
 )
 
 
-RHS = dedent(
+METHOD = dedent(
     """
-void rhs({args}){{
+void {name}({args}){{
 
     // Assign states
     {states}

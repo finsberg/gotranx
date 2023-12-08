@@ -15,7 +15,7 @@ from .sympy_ode import SympyODE
 
 
 class RHS(typing.NamedTuple):
-    arguments: str
+    arguments: list[str]
     states: sympy.MatrixSymbol
     parameters: sympy.MatrixSymbol
     values: sympy.MatrixSymbol
@@ -42,12 +42,17 @@ class GotranCCodePrinter(C99CodePrinter):
 
     def _print_Piecewise(self, expr):
         fst, snd = expr.args
-        return (
-            f"{super()._print(fst[0].args[0])} = "
-            f"({super()._print(fst[1])}) ? "
-            f"{super()._print(fst[0].args[1])} : "
-            f"{super()._print(snd[0].args[1])};"
-        )
+        if isinstance(fst[0], Assignment):
+            value = (
+                f"{super()._print(fst[0].args[0])} = "
+                f"({super()._print(fst[1])}) ? "
+                f"{super()._print(fst[0].args[1])} : "
+                f"{super()._print(snd[0].args[1])};"
+            )
+        else:
+            value = super()._print_Piecewise(expr)
+
+        return value
 
 
 class CodeGenerator(abc.ABC):
@@ -88,7 +93,7 @@ class CodeGenerator(abc.ABC):
         state_result = sympy.MatrixSymbol(name, self.ode.num_states, 1)
 
         values = ", ".join(
-            [f"{state.name}={state.value}" for state in self.sympy_ode.ode.states],
+            [f"{state.name}={state.value}" for state in self.ode.states],
         )
         expr = self.printer.doprint(self.sympy_ode.state_values, assign_to=state_result)
 
@@ -102,10 +107,7 @@ class CodeGenerator(abc.ABC):
     def initial_parameter_values(self, name="parameters") -> str:
         parameter_result = sympy.MatrixSymbol(name, self.ode.num_parameters, 1)
         values = ", ".join(
-            [
-                f"{parameter.name}={parameter.value}"
-                for parameter in self.sympy_ode.ode.parameters
-            ],
+            [f"{parameter.name}={parameter.value}" for parameter in self.ode.parameters],
         )
         expr = self.printer.doprint(
             self.sympy_ode.parameter_values,
@@ -118,61 +120,103 @@ class CodeGenerator(abc.ABC):
         )
         return self._format(code)
 
-    def rhs(self, order: RHSArgument | str = RHSArgument.stp) -> str:
-        rhs = self._rhs_arguments(order)
-
-        states = "\n".join(
+    def _state_assignments(self, states: sympy.MatrixSymbol) -> str:
+        return "\n".join(
             [
                 f"{self.variable_prefix}{self.printer.doprint(Assignment(state.symbol, value))}"
-                for state, value in zip(self.sympy_ode.ode.states, rhs.states)
+                for state, value in zip(self.ode.states, states)
             ],
         )
-        parameters = "\n".join(
+
+    def _parameter_assignments(self, parameters: sympy.MatrixSymbol) -> str:
+        return "\n".join(
             [
                 f"{self.variable_prefix}{self.printer.doprint(Assignment(param.symbol, value))}"
                 for param, value in zip(
-                    self.sympy_ode.ode.parameters,
-                    rhs.parameters,
+                    self.ode.parameters,
+                    parameters,
                 )
             ],
         )
-        from . import atoms
 
-        state_names = [x.name for x in self.sympy_ode.ode.states]
-        values = []
-        for sym in self.sympy_ode.ode.sorted_assignments:
-            # print(sym)
-            x = self.sympy_ode.ode[sym]
-            if isinstance(x, atoms.Intermediate):
-                values.append(
-                    f"{self.variable_prefix}{self.printer.doprint(Assignment(x.symbol, x.expr))}",
+    def rhs(self, order: RHSArgument | str = RHSArgument.stp) -> str:
+        # breakpoint()
+        rhs = self._rhs_arguments(order)
+
+        states = self._state_assignments(rhs.states)
+        parameters = self._parameter_assignments(rhs.parameters)
+
+        # state_names = [x.name for x in self.ode.states]
+        # values = []
+        # for sym in self.ode.sorted_assignments:
+        #     x = self.ode[sym]
+        #     if isinstance(x, atoms.Intermediate):
+        #         values.append(
+        #             f"{self.variable_prefix}{self.printer.doprint(Assignment(x.symbol, x.expr))}",
+        #         )
+
+        #     elif isinstance(x, atoms.StateDerivative):
+        #         values.append(
+        #             self.printer.doprint(
+        #                 Assignment(rhs.values[state_names.index(x.state.name)], x.expr),
+        #             ),
+        #         )
+        #     else:
+        #         raise RuntimeError("What?")
+
+        use_cse = True
+        if use_cse:
+            replacements, reduced_exprs = sympy.cse(self.sympy_ode.rhs)
+            values_lst = []
+            for replacement in replacements:
+                values_lst.append(
+                    f"{self.variable_prefix}{self.printer.doprint(Assignment(*replacement))}",
                 )
+            values = "\n".join(values_lst) + self.printer.doprint(
+                reduced_exprs[0], assign_to=rhs.values
+            )
 
-            elif isinstance(x, atoms.StateDerivative):
-                values.append(
-                    self.printer.doprint(
-                        Assignment(rhs.values[state_names.index(x.state.name)], x.expr),
-                    ),
-                )
-            else:
-                raise RuntimeError("What?")
-
-        # use_cse = False
-        # if use_cse:
-        #     replacements, reduced_exprs = sympy.cse(self.sympy_ode.rhs)
-        # sym, expr = self.sympy_ode.rhs_sorted()
-        # values = self.printer.doprint(self.sympy_ode.rhs, assign_to=rhs.values)
+        else:
+            values = self.printer.doprint(self.sympy_ode.rhs, assign_to=rhs.values)
         # expr = expr.xreplace({s: rhs.values[i] for i, s in enumerate(sym)})
         # values = self.printer.doprint(expr, assign_to=rhs.values)
-        # breakpoint()
-        code = self.template.RHS.format(
-            args=rhs.arguments,
+
+        code = self.template.METHOD.format(
+            name="rhs",
+            args=", ".join(rhs.arguments),
             states=states,
             parameters=parameters,
-            values="\n".join(values),
+            values=values,
         )
 
         return self._format(code)
+
+    # def forward_euler(self, order: RHSArgument | str = RHSArgument.stp):
+    #     """
+    #     .. math
+    #         y_{n+1} = y_n + h f(t_n, y_n)
+    #     """
+    #     rhs = self._rhs_arguments(order)
+
+    #     states = self._state_assignments(rhs.states)
+    #     parameters = self._parameter_assignments(rhs.parameters)
+
+    #     dt = sympy.Symbol("dt")
+    #     values = self.sympy_ode.states + dt * self.sympy_ode.state_derivatives
+
+    #     # states = states + h * dy_dt
+    #     # args = "double *__restrict states, const double t,
+    #     # const, double dt, const double *__restrict parameters"
+    #     breakpoint()
+    #     code = self.template.METHOD.format(
+    #         name="forward_euler",
+    #         args=", ".join(rhs.arguments + ["dt"]),
+    #         states=states,
+    #         parameters=parameters,
+    #         values="\n".join(values),
+    #     )
+    #     print(code)
+    #     # breakpoint()
 
     @property
     @abc.abstractmethod
@@ -212,10 +256,13 @@ class CCodeGenerator(CodeGenerator):
     def template(self):
         return templates.c
 
-    def _rhs_arguments(self, order: RHSArgument | str = RHSArgument.stp) -> RHS:
+    def _rhs_arguments(
+        self, order: RHSArgument | str = RHSArgument.stp, const_states: bool = True
+    ) -> RHS:
         value = RHSArgument.get_value(order)
+        states_prefix = "const " if const_states else ""
         argument_dict = {
-            "s": "const double *__restrict states",
+            "s": states_prefix + "double *__restrict states",
             "t": "const double t",
             "p": "const double *__restrict parameters",
         }
@@ -225,7 +272,7 @@ class CCodeGenerator(CodeGenerator):
         values = sympy.MatrixSymbol("values", self.ode.num_states, 1)
 
         return RHS(
-            arguments=", ".join(argument_list),
+            arguments=argument_list,
             states=states,
             parameters=parameters,
             values=values,

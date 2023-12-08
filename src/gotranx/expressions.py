@@ -11,7 +11,6 @@ BINARY_OPERATIONS = {"add", "mul", "sub", "div", "pow"}
 
 
 def binary_op(op: str, fst, snd):
-
     if op == "add":
         return fst + snd
     if op == "sub":
@@ -30,7 +29,6 @@ def build_expression(
     root: lark.Tree,
     symbols: Optional[dict[str, sp.Symbol]] = None,
 ) -> sp.Expr:
-
     symbols_: dict[str, sp.Symbol] = symbols or {}
 
     def expr2symbols(tree: lark.Tree):

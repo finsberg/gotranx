@@ -15,7 +15,6 @@ from gotranx.expressions import build_expression
     ],
 )
 def test_build_expression(expr, symbol_values, expected, parser, trans):
-
     tree = parser.parse(expr)
     result = trans.transform(tree)
 

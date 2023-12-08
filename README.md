@@ -4,6 +4,6 @@
 [![codecov](https://codecov.io/gh/finsberg/gotranx/branch/main/graph/badge.svg?token=CZMILL5Y25)](https://codecov.io/gh/finsberg/gotranx)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-# gotran Parser
+# gotranx
 
 Parser for gotran `.ode` files

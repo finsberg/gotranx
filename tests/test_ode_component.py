@@ -7,7 +7,10 @@ from gotranx import ode_component
 
 def test_component_None(parser, trans):
     tree = parser.parse(
-        "parameters(x=1, y=2)\nparameters(z=3)\nstates(a=1)\nstates(b=2, c=3)\nda_dt=0\ndb_dt=1\ndc_dt=2",
+        (
+            "parameters(x=1, y=2)\nparameters(z=3)\nstates(a=1)\n"
+            "states(b=2, c=3)\nda_dt=0\ndb_dt=1\ndc_dt=2"
+        ),
     )
     result = trans.transform(tree).components
     assert len(result) == 1  # Only one component
@@ -48,13 +51,7 @@ def test_component_None(parser, trans):
 
 def test_component_intermediates(parser, trans):
     tree = parser.parse(
-        (
-            "parameters(x=1, y=2)\n"
-            "states(a=2, b=3)\n"
-            "da_dt=0\n"
-            "c=a+b\n"
-            "db_dt=c - a"
-        ),
+        ("parameters(x=1, y=2)\n" "states(a=2, b=3)\n" "da_dt=0\n" "c=a+b\n" "db_dt=c - a"),
     )
     result = trans.transform(tree)
     comp = result.components[0]

@@ -16,7 +16,6 @@ from gotranx import atoms
     ],
 )
 def test_states_single(expr, parser, trans):
-
     tree = parser.parse(expr)
     result = trans.transform(tree)
     assert len(result) == 1
@@ -38,7 +37,6 @@ def test_states_single(expr, parser, trans):
     ],
 )
 def test_states_double(expr, parser, trans):
-
     tree = parser.parse(expr)
     result = trans.transform(tree)
     assert len(result) == 2
@@ -80,7 +78,10 @@ def test_states_with_component_and_info(parser, trans):
 
 
 def test_different_sets_of_states(parser, trans):
-    expr = 'states("First component", "Some info about first component", x=1, y=2)\nstates("Second component", z=3)\nstates(w=4)'
+    expr = (
+        'states("First component", "Some info about first '
+        'component", x=1, y=2)\nstates("Second component", z=3)\nstates(w=4)'
+    )
     tree = parser.parse(expr)
     result = trans.transform(tree).components
 

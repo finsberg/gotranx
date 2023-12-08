@@ -1,0 +1,135 @@
+[build-system]
+requires = ["setuptools>=61.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gotranx"
+version = "0.0.1"
+description = "Sync local directories with dropbox"
+authors = [{name = "Henrik Finsberg", email = "henriknf@simula.no"}]
+license = {text = "MIT"}
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+]
+keywords = ["parser", "lark", "gotran", "ode"]
+urls = {Homepage = "https://github.com/finsberg/gotranx"}
+requires-python = ">=3.8"
+dependencies = [
+    "attrs",
+    "clang-format-docs",
+    "lark",
+    "pint",
+    "rich-click",
+    "structlog",
+    "sympy",
+    "typer",
+    'graphlib-backport;python_version < "3.9"',
+]
+
+[project.readme]
+file = "README.md"
+content-type = "text/markdown"
+
+[project.optional-dependencies]
+dev = [
+    "bump2version",
+    "ipython",
+    "pdbpp",
+    "pre-commit",
+    "twine",
+    "wheel",
+]
+docs = [
+    "mkdocs",
+    "mkdocs-material",
+]
+test = [
+    "pre-commit",
+    "pytest",
+    "pytest-cov",
+]
+
+[project.scripts]
+gotranx = "gotranx.cli:app"
+
+[tool.setuptools]
+include-package-data = true
+package-dir = {"" = "src"}
+zip-safe = false
+
+[tool.setuptools.packages.find]
+where = ["src"]
+namespaces = false
+
+[tool.setuptools.package-data]
+"*" = ["*.lark"]
+
+[tool.aliases]
+test = "pytest"
+
+[tool.pytest.ini_options]
+addopts = "--cov=gotranx --cov-report html --cov-report xml --cov-report term-missing -v"
+testpaths = ["tests"]
+
+[tool.isort]
+profile = "black"
+
+[tool.mypy]
+files = ["src/gotranx", "tests"]
+ignore_missing_imports = true
+exclude = "docs"
+
+[tool.coverage.run]
+omit = ["src/gotranx/__main__.py"]
+
+
+[tool.ruff]
+# Enable pycodestyle (`E`) and Pyflakes (`F`) codes by default.
+select = ["E", "F"]
+ignore = ["E402", "E741", "E743", "E731"]
+
+# Allow autofix for all enabled rules (when `--fix`) is provided.
+fixable = ["A", "B", "C", "D", "E", "F"]
+unfixable = []
+
+# Exclude a variety of commonly ignored directories.
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".hg",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".pytype",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "venv",
+]
+
+# Same as Black.
+line-length = 100
+
+# Allow unused variables when underscore-prefixed.
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+# Assume Python 3.10.
+target-version = "py310"
+
+[tool.ruff.mccabe]
+# Unlike Flake8, default to a complexity level of 10.
+max-complexity = 10

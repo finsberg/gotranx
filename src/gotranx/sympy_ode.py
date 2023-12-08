@@ -22,10 +22,7 @@ class SympyODE:
     @property
     def state_values(self) -> sympy.Matrix:
         return sympy.Matrix(
-            [
-                sympy.Float(str(state_der.state.value))
-                for state_der in self.ode.state_derivatives
-            ],
+            [sympy.Float(str(state_der.state.value)) for state_der in self.ode.state_derivatives],
         )
 
     @property
@@ -44,11 +41,18 @@ class SympyODE:
 
     @property
     def rhs(self) -> sympy.Matrix:
-
         intermediates = {x.symbol: x.expr for x in self.ode.intermediates}
         rhs = sympy.Matrix([state.expr for state in self.ode.state_derivatives])
 
-        return rhs.xreplace(intermediates)
+        # has_intermediates = [rhs.has(k) for k in intermediates.keys()]
+        num_tries = 0
+        while (any([rhs.has(k) for k in intermediates.keys()])) and num_tries < 20:
+            rhs = rhs.xreplace(intermediates)
+            num_tries += 1
+
+        if num_tries == 20:
+            raise RuntimeError("Maximum number of tries used")
+        return rhs
 
     def rhs_sorted(self):
         syms_st = []

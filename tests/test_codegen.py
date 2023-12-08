@@ -33,7 +33,6 @@ def codegen(ode) -> CCodeGenerator:
 
 
 def test_c_codegen_initial_state_values(codegen: CCodeGenerator):
-
     assert codegen.initial_state_values() == (
         "\nvoid init_state_values(double *states)\n"
         "{\n"
@@ -48,7 +47,6 @@ def test_c_codegen_initial_state_values(codegen: CCodeGenerator):
 
 
 def test_c_codegen_initial_parameter_values(codegen: CCodeGenerator):
-
     assert codegen.initial_parameter_values() == (
         "\nvoid init_parameter_values(double *parameters)\n"
         "{\n"
@@ -84,15 +82,24 @@ def test_c_codegen_initial_parameter_values_no_clang_format(ode):
     [
         (
             RHSArgument.stp,
-            "const double *__restrict states, const double t, const double *__restrict parameters, double *values",
+            (
+                "const double *__restrict states, const double t, "
+                "const double *__restrict parameters, double *values"
+            ),
         ),
         (
             "spt",
-            "const double *__restrict states, const double *__restrict parameters, const double t, double *values",
+            (
+                "const double *__restrict states, "
+                "const double *__restrict parameters, const double t, double *values"
+            ),
         ),
         (
             "tsp",
-            "const double t, const double *__restrict states, const double *__restrict parameters, double *values",
+            (
+                "const double t, const double *__restrict states, "
+                "const double *__restrict parameters, double *values",
+            ),
         ),
     ],
 )
