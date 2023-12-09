@@ -1,7 +1,7 @@
 import lark
 import pytest
 import sympy as sp
-from gotran_parser import atoms
+from gotranx import atoms
 
 
 @pytest.mark.parametrize(
@@ -13,14 +13,12 @@ from gotran_parser import atoms
     ],
 )
 def test_expression_dependencies(expr, deps, parser, trans):
-
     tree = parser.parse(expr)
     result = trans.transform(tree)
     assert result[0].value.dependencies == deps
 
 
 def test_parameter_arguments(parser, trans):
-
     expr = """parameters("My component",
         y = 1.0,
         x = ScalarParam(42.0),
@@ -57,7 +55,6 @@ def test_parameter_arguments(parser, trans):
 
 
 def test_states_arguments(parser, trans):
-
     expr = """
     states("My component",
         y = 1.0,

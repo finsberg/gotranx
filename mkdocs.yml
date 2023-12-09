@@ -1,11 +1,11 @@
-site_name: gotran-parser
+site_name: gotranx
 site_description: Parser for gotran ode files
 strict: true
 
 theme:
   name: "material"
-repo_name: finsberg/gotran-parser
-repo_url: https://github.com/finsberg/gotran-parser
+repo_name: finsberg/gotranx
+repo_url: https://github.com/finsberg/gotranx
 
 
 nav:

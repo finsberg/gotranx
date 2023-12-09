@@ -1,4 +1,4 @@
 Install with pip
 ```
-python -m pip install gotran-parser
+python -m pip install gotranx
 ```

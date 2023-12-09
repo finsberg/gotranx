@@ -1,6 +1,6 @@
 import pytest
-from gotran_parser import exceptions
-from gotran_parser import ode
+from gotranx import exceptions
+from gotranx import ode
 
 
 def test_ODE_with_incomplete_component_raises_ComponentNotCompleteError(parser, trans):
@@ -9,10 +9,7 @@ def test_ODE_with_incomplete_component_raises_ComponentNotCompleteError(parser, 
     result = trans.transform(tree)
     with pytest.raises(exceptions.ComponentNotCompleteError) as e:
         ode.ODE(result.components)
-    assert (
-        str(e.value)
-        == "Component None is not complete. Missing state derivatives for ['x']"
-    )
+    assert str(e.value) == "Component None is not complete. Missing state derivatives for ['x']"
 
 
 @pytest.mark.parametrize(
@@ -150,7 +147,7 @@ def test_sort_assignment(assignments_only, expected, parser, trans):
     tree = parser.parse(expr)
     result = ode.make_ode(*trans.transform(tree), name="TestODE")
     sorted_assignments = ode.sort_assignments(
-        result.intermediates | result.state_derivatives,
+        result.intermediates + result.state_derivatives,
         assignments_only=assignments_only,
     )
     assert sorted_assignments == expected

@@ -25,7 +25,6 @@ def start_odeblock(case, name=None, info=None):
 
 
 def print_ScalarParam(p: atoms.Atom) -> str:
-
     unit_str = "" if p.unit_str is None else f'unit="{p.unit_str}"'
     description = "" if p.description is None else f'description="{p.description}"'
 
@@ -58,7 +57,6 @@ def write_ODE_to_ode_file(ode: ODE, path: Path) -> None:
     path = Path(path)
     text = ""
     for component in ode.components:
-
         name = component.name
         logger.debug(f"Saving component {name}")
 

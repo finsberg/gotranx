@@ -1,9 +1,9 @@
 from pathlib import Path
 
 import pytest
-from gotran_parser import load_ode
-from gotran_parser import save
-from gotran_parser.ode import make_ode
+from gotranx import load_ode
+from gotranx import save
+from gotranx.ode import make_ode
 
 
 @pytest.fixture

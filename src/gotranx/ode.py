@@ -21,9 +21,7 @@ def check_components(components: Sequence[Component]):
         if not comp.is_complete():
             raise exceptions.ComponentNotCompleteError(
                 component_name=comp.name,
-                missing_state_derivatives=[
-                    state.name for state in comp.states_without_derivatives
-                ],
+                missing_state_derivatives=[state.name for state in comp.states_without_derivatives],
             )
 
 
@@ -42,10 +40,14 @@ def gather_atoms(
             symbol_names.append(s.name)
             symbols[s.name] = s.symbol
             lookup[s.name] = s
-        for a in component.assignments:
-            symbol_names.append(a.name)
-            symbols[a.name] = a.symbol
-            lookup[a.name] = a
+        for i in component.intermediates:
+            symbol_names.append(i.name)
+            symbols[i.name] = i.symbol
+            lookup[i.name] = i
+        for st in component.state_derivatives:
+            symbol_names.append(st.name)
+            symbols[st.name] = st.symbol
+            lookup[st.name] = st
     return symbol_names, symbols, lookup
 
 
@@ -83,7 +85,6 @@ def add_temporal_state(
         state_derivatives = set()
         states = set()
         for state_derivative in component.state_derivatives:
-
             new_state = state_derivative.state.to_TimeDependentState(t)
             state_derivatives.add(
                 atoms.StateDerivative(
@@ -175,7 +176,6 @@ class ODE:
         name: str = "ODE",
         comments: Optional[Sequence[atoms.Comment]] = None,
     ):
-
         check_components(components)
         symbol_names, symbols, lookup = gather_atoms(components=components)
         if not len(symbol_names) == len(set(symbol_names)):
@@ -212,12 +212,12 @@ class ODE:
             and __o.name == self.name
         )
 
-    @cached_property
-    def states(self) -> frozenset[atoms.State]:
+    @property
+    def states(self) -> tuple[atoms.State, ...]:
         states: set[atoms.State] = set()
         for component in self.components:
             states |= component.states
-        return frozenset(states)
+        return tuple(sorted(states, key=lambda x: x.name))
 
     @property
     def num_states(self) -> int:
@@ -228,29 +228,29 @@ class ODE:
         return len(self.components)
 
     @cached_property
-    def parameters(self) -> frozenset[atoms.Parameter]:
+    def parameters(self) -> tuple[atoms.Parameter, ...]:
         parameters: set[atoms.Parameter] = set()
         for component in self.components:
             parameters |= component.parameters
-        return frozenset(parameters)
+        return tuple(sorted(parameters, key=lambda x: x.name))
 
     @property
     def num_parameters(self) -> int:
         return len(self.parameters)
 
     @cached_property
-    def state_derivatives(self) -> frozenset[atoms.StateDerivative]:
+    def state_derivatives(self) -> tuple[atoms.StateDerivative, ...]:
         state_derivatives: set[atoms.StateDerivative] = set()
         for component in self.components:
             state_derivatives |= component.state_derivatives
-        return frozenset(state_derivatives)
+        return tuple(sorted(state_derivatives, key=lambda x: x.name))
 
     @cached_property
-    def intermediates(self) -> frozenset[atoms.Intermediate]:
+    def intermediates(self) -> tuple[atoms.Intermediate, ...]:
         intermediates: set[atoms.Intermediate] = set()
         for component in self.components:
             intermediates |= component.intermediates
-        return frozenset(intermediates)
+        return tuple(sorted(intermediates, key=lambda x: x.name))
 
     @property
     def symbols(self) -> dict[str, sp.Symbol]:
@@ -262,6 +262,6 @@ class ODE:
     @cached_property
     def sorted_assignments(self) -> tuple[str, ...]:
         return sort_assignments(
-            self.intermediates | self.state_derivatives,
+            self.intermediates + self.state_derivatives,
             assignments_only=True,
         )

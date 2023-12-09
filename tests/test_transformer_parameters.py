@@ -1,5 +1,5 @@
 import pytest
-from gotran_parser import atoms
+from gotranx import atoms
 
 
 @pytest.mark.parametrize(
@@ -16,7 +16,6 @@ from gotran_parser import atoms
     ],
 )
 def test_parameters_single(expr, parser, trans):
-
     tree = parser.parse(expr)
     result = trans.transform(tree)
     assert len(result) == 1
@@ -55,7 +54,10 @@ def test_parameters_with_component(parser, trans):
 
 
 def test_different_sets_of_parameters(parser, trans):
-    expr = 'parameters("First component", x=1, y=2)\nparameters("Second component", z=3)\nparameters(w=4)'
+    expr = (
+        'parameters("First component", x=1, y=2)\n'
+        'parameters("Second component", z=3)\nparameters(w=4)'
+    )
     tree = parser.parse(expr)
     result = trans.transform(tree).components
 

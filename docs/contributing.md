@@ -8,7 +8,7 @@ You can contribute in many ways:
 
 ### Report Bugs
 
-Report bugs at <https://github.com/finsberg/gotran-parser/issues>.
+Report bugs at <https://github.com/finsberg/gotranx/issues>.
 
 If you are reporting a bug, please include:
 
@@ -31,7 +31,7 @@ Action Potential features could always use more documentation, whether as part o
 ### Submit Feedback
 
 The best way to send feedback is to file an issue at
-<https://github.com/finsberg/gotran-parser/issues>.
+<https://github.com/finsberg/gotranx/issues>.
 
 If you are proposing a feature:
 
@@ -43,20 +43,20 @@ If you are proposing a feature:
 
 ## Get Started!
 
-Ready to contribute? Here's how to set up `gotran-parser` for local development.
+Ready to contribute? Here's how to set up `gotranx` for local development.
 
-* Fork the `gotran-parser` repo on GitHub.
+* Fork the `gotranx` repo on GitHub.
 
 * Clone your fork locally:
 
 ```
-git clone git@github.com:your_name_here/gotran-parser.git
+git clone git@github.com:your_name_here/gotranx.git
 ```
 
 * Install your local copy into a virtual environment.
 
 ```
-cd gotran-parser/
+cd gotranx/
 python -m venv venv
 . venv/bin/activate  # Unix
 # . venv\Scripts\activate # Windows
@@ -106,7 +106,7 @@ Before you submit a pull request, check that it meets these guidelines:
 
 1.  The pull request should include tests.
 2.  If the pull request adds functionality, the docs should be updated. Put your new functionality into a function with a docstring.
-3. Make sure all tests are passing for all supported python versions by checking out the CI at <https://github.com/finsberg/gotran-parser/actions>
+3. Make sure all tests are passing for all supported python versions by checking out the CI at <https://github.com/finsberg/gotranx/actions>
 
 ## Tips
 

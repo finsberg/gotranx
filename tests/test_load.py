@@ -1,8 +1,8 @@
 from pathlib import Path
 
 import pytest
-from gotran_parser import load_ode
-from gotran_parser.exceptions import ODEFileNotFound
+from gotranx import load_ode
+from gotranx.exceptions import ODEFileNotFound
 
 
 @pytest.fixture

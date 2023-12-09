@@ -1,6 +1,7 @@
 from importlib.metadata import metadata
 
 from . import cli
+from . import codecomponent
 from . import exceptions
 from . import load
 from . import ode
@@ -15,7 +16,7 @@ from .parser import Parser
 from .transformer import TreeToODE
 
 
-meta = metadata("gotran_parser")
+meta = metadata("gotranx")
 __version__ = meta["Version"]
 __author__ = meta["Author"]
 __license__ = meta["License"]
@@ -36,4 +37,5 @@ __all__ = [
     "ode",
     "ODE",
     "units",
+    "codecomponent",
 ]
