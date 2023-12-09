@@ -139,7 +139,7 @@ class CodeGenerator(abc.ABC):
             ],
         )
 
-    def rhs(self, order: RHSArgument | str = RHSArgument.stp) -> str:
+    def rhs(self, order: RHSArgument | str = RHSArgument.stp, use_cse=False) -> str:
         # breakpoint()
         rhs = self._rhs_arguments(order)
 
@@ -164,7 +164,6 @@ class CodeGenerator(abc.ABC):
         #     else:
         #         raise RuntimeError("What?")
 
-        use_cse = True
         if use_cse:
             replacements, reduced_exprs = sympy.cse(self.sympy_ode.rhs)
             values_lst = []

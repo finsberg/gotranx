@@ -88,17 +88,17 @@ def test_c_codegen_initial_parameter_values_no_clang_format(ode):
             ),
         ),
         (
-            "spt",
+            RHSArgument.spt,
             (
                 "const double *__restrict states, "
                 "const double *__restrict parameters, const double t, double *values"
             ),
         ),
         (
-            "tsp",
+            RHSArgument.tsp,
             (
                 "const double t, const double *__restrict states, "
-                "const double *__restrict parameters, double *values",
+                "const double *__restrict parameters, double *values"
             ),
         ),
     ],
