@@ -1,11 +1,11 @@
-import typing
+from __future__ import annotations
 from pathlib import Path
 
 from ..codegen import CCodeGenerator
 from ..load import load_ode
 
 
-def main(fname: Path, suffix: str = ".h", outname: typing.Optional[str] = None) -> None:
+def main(fname: Path, suffix: str = ".h", outname: str | None = None) -> None:
     ode = load_ode(fname)
     codegen = CCodeGenerator(ode)
     code = "\n".join(

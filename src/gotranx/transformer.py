@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from collections import defaultdict
 from typing import NamedTuple
-from typing import Optional
 from typing import Type
 from typing import TypeVar
 
@@ -24,21 +23,21 @@ def remove_quotes(s: str) -> str:
     return s.replace("'", "").replace('"', "")
 
 
-def find_assignment_component(s) -> Optional[str]:
+def find_assignment_component(s) -> str | None:
     component = None
     if isinstance(s, lark.Token) and s.type == "COMPONENT_NAME":
         component = remove_quotes(str(s))
     return component
 
 
-def find_assignment_info(s) -> Optional[str]:
+def find_assignment_info(s) -> str | None:
     info = None
     if len(s) > 1 and isinstance(s[1], lark.Token) and s[1].type == "INFO":
         info = remove_quotes(str(s[1]))
     return info
 
 
-def get_unit_from_assignment(s: lark.Tree) -> Optional[str]:
+def get_unit_from_assignment(s: lark.Tree) -> str | None:
     if len(s.children) >= 3:
         unit = s.children[2]
         try:
@@ -51,8 +50,8 @@ def get_unit_from_assignment(s: lark.Tree) -> Optional[str]:
 
 def find_assignments(
     s,
-    component: Optional[str] = None,
-    info: Optional[str] = None,
+    component: str | None = None,
+    info: str | None = None,
 ) -> list[atoms.Assignment]:
     if isinstance(s, lark.Tree):
         return [
@@ -70,9 +69,9 @@ def find_assignments(
 
 def tree2parameter(
     s: lark.Tree,
-    component: Optional[str],
+    component: str | None,
     cls: Type[T],
-    info: Optional[str] = None,
+    info: str | None = None,
 ) -> T:
     kwargs = {}
     if info is not None:
@@ -177,7 +176,7 @@ class TreeToODE(lark.Transformer):
             atoms.State: "states",
         }
 
-        components: dict[Optional[str], dict[str, set[atoms.Atom]]] = defaultdict(
+        components: dict[str | None, dict[str, set[atoms.Atom]]] = defaultdict(
             lambda: {atom: set() for atom in mapping.values()},
         )
         comments = []
@@ -190,7 +189,7 @@ class TreeToODE(lark.Transformer):
                 components[atom.component][mapping[type(atom)]].add(atom)
 
         # Make sets frozen
-        frozen_components: dict[Optional[str], dict[str, frozenset[atoms.Atom]]] = {}
+        frozen_components: dict[str | None, dict[str, frozenset[atoms.Atom]]] = {}
         for component_name, component_values in components.items():
             frozen_components[component_name] = {}
             for atom_name, atom_values in component_values.items():
