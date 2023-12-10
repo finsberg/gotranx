@@ -1,4 +1,3 @@
-from __future__ import annotations
 import gotranx
 from typer.testing import CliRunner
 
