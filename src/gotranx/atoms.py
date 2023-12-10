@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-from typing import Optional
-from typing import Union
-
 import attr
 import lark
 import pint
@@ -29,7 +26,7 @@ def _set_symbol(instance, name: str) -> None:
     )
 
 
-def unit_from_string(unit_str: Optional[str]) -> Optional[pint.Unit]:
+def unit_from_string(unit_str: str | None) -> pint.Unit | None:
     if unit_str is not None:
         try:
             unit = ureg.Unit(unit_str)
@@ -55,13 +52,13 @@ class Atom:
     """Base class for atoms"""
 
     name: str = attr.ib()
-    value: Union[float, Expression] = attr.ib()
-    component: Optional[str] = attr.ib(None)
-    description: Optional[str] = attr.ib(None)
-    info: Optional[str] = attr.ib(None)
+    value: float | Expression = attr.ib()
+    component: str | None = attr.ib(None)
+    description: str | None = attr.ib(None)
+    info: str | None = attr.ib(None)
     symbol: sp.Symbol = attr.ib(None)
-    unit_str: Optional[str] = attr.ib(None, repr=False)
-    unit: Optional[pint.Unit] = attr.ib(None)
+    unit_str: str | None = attr.ib(None, repr=False)
+    unit: pint.Unit | None = attr.ib(None)
 
     def __attrs_post_init__(self):
         if self.unit is None:
@@ -138,7 +135,7 @@ class Assignment(Atom):
     """Assignments are object of the form `name = value`."""
 
     value: Expression = attr.ib()
-    expr: Optional[sp.Expr] = attr.ib(None)
+    expr: sp.Expr | None = attr.ib(None)
 
     def resolve_expression(self, symbols: dict[str, sp.Symbol]) -> Assignment:
         expr = self.value.resolve(symbols)

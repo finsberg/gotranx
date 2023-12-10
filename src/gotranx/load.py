@@ -1,4 +1,4 @@
-import typing
+from __future__ import annotations
 from pathlib import Path
 
 from structlog import get_logger
@@ -12,7 +12,7 @@ from .transformer import TreeToODE
 logger = get_logger()
 
 
-def load_ode(path: typing.Union[str, Path]):
+def load_ode(path: str | Path):
     fname = Path(path)
 
     logger.info(f"Load ode {path}")

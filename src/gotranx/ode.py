@@ -3,7 +3,6 @@ from __future__ import annotations
 from functools import cached_property
 from graphlib import TopologicalSorter
 from typing import Iterable
-from typing import Optional
 from typing import Sequence
 from typing import TypeVar
 
@@ -134,7 +133,7 @@ def resolve_expressions(
 
 def make_ode(
     components: Sequence[Component],
-    comments: Optional[Sequence[atoms.Comment]] = None,
+    comments: Sequence[atoms.Comment] | None = None,
     name: str = "ODE",
 ) -> ODE:
     check_components(components=components)
@@ -172,9 +171,9 @@ class ODE:
     def __init__(
         self,
         components: Sequence[Component],
-        t: Optional[sp.Symbol] = None,
+        t: sp.Symbol | None = None,
         name: str = "ODE",
-        comments: Optional[Sequence[atoms.Comment]] = None,
+        comments: Sequence[atoms.Comment] | None = None,
     ):
         check_components(components)
         symbol_names, symbols, lookup = gather_atoms(components=components)

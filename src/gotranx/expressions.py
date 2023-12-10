@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Optional
-
 import lark
 import sympy as sp
 
@@ -27,7 +25,7 @@ def binary_op(op: str, fst, snd):
 
 def build_expression(
     root: lark.Tree,
-    symbols: Optional[dict[str, sp.Symbol]] = None,
+    symbols: dict[str, sp.Symbol] | None = None,
 ) -> sp.Expr:
     symbols_: dict[str, sp.Symbol] = symbols or {}
 

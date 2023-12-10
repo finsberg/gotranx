@@ -1,4 +1,3 @@
-import typing
 from pathlib import Path
 
 import typer
@@ -27,7 +26,7 @@ def license_callback(show_license: bool):
 
 @app.command()
 def main(
-    fname: typing.Optional[Path] = typer.Argument(
+    fname: Path | None = typer.Argument(
         None,
         exists=True,
         file_okay=True,
@@ -41,7 +40,7 @@ def main(
         "--to",
         help="Generate code to another programming language",
     ),
-    outname: typing.Optional[str] = typer.Option(
+    outname: str | None = typer.Option(
         None,
         "--outname",
         help="Output name",

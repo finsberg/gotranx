@@ -10,7 +10,7 @@ class CodeComponent:
     ode: ODE = attr.ib()
     function_name: str = attr.ib()
     description: str = attr.ib()
-    params: typing.Optional[dict[str, typing.Any]] = attr.ib(default=None)
+    params: dict[str, typing.Any] | None = attr.ib(default=None)
 
 
 def rhs_expressions(ode: ODE, function_name: str = "rhs", result_name: str = "dy", params=None):
