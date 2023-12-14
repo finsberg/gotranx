@@ -7,6 +7,7 @@ from . import load
 from . import ode
 from . import ode_component
 from . import parser
+from . import codegen
 from . import transformer
 from . import units
 from .load import load_ode
@@ -27,6 +28,7 @@ __all__ = [
     "cli",
     "parser",
     "Parser",
+    "codegen",
     "transformer",
     "TreeToODE",
     "exceptions",

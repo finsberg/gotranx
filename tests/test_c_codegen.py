@@ -70,9 +70,9 @@ def test_c_codegen_initial_parameter_values_no_clang_format(ode):
             "    a=0.0, beta=2.4, rho=21.0, sigma=12.0\n"
             "    */\n"
             "    parameters[0] = 0;\n"
-            "parameters[1] = 2.4;\n"
-            "parameters[2] = 21.0;\n"
-            "parameters[3] = 12.0;\n"
+            "    parameters[1] = 2.4;\n"
+            "    parameters[2] = 21.0;\n"
+            "    parameters[3] = 12.0;\n"
             "}\n"
         )
 

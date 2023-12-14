@@ -6,12 +6,11 @@ from enum import Enum
 
 import sympy
 from sympy.codegen.ast import Assignment
-from sympy.printing.c import C99CodePrinter
 from sympy.printing.codeprinter import CodePrinter
 
-from . import templates
-from .ode import ODE
-from .sympy_ode import SympyODE
+from .. import templates
+from ..ode import ODE
+from ..sympy_ode import SympyODE
 
 
 class RHS(typing.NamedTuple):
@@ -19,6 +18,7 @@ class RHS(typing.NamedTuple):
     states: sympy.MatrixSymbol
     parameters: sympy.MatrixSymbol
     values: sympy.MatrixSymbol
+    return_name: str | None = None
 
 
 class RHSArgument(str, Enum):
@@ -34,25 +34,6 @@ class RHSArgument(str, Enum):
         if isinstance(order, RHSArgument):
             return order.value
         return str(order)
-
-
-class GotranCCodePrinter(C99CodePrinter):
-    def _print_Float(self, flt):
-        return self._print(str(float(flt)))
-
-    def _print_Piecewise(self, expr):
-        fst, snd = expr.args
-        if isinstance(fst[0], Assignment):
-            value = (
-                f"{super()._print(fst[0].args[0])} = "
-                f"({super()._print(fst[1])}) ? "
-                f"{super()._print(fst[0].args[1])} : "
-                f"{super()._print(snd[0].args[1])};"
-            )
-        else:
-            value = super()._print_Piecewise(expr)
-
-        return value
 
 
 class CodeGenerator(abc.ABC):
@@ -89,33 +70,40 @@ class CodeGenerator(abc.ABC):
 
         return formatted_code
 
+    def state_index(self) -> str:
+        code = self.template.state_index(data={s.name: i for i, s in enumerate(self.ode.states)})
+        return self._format(code)
+
+    def parameter_index(self) -> str:
+        code = self.template.parameter_index(
+            data={s.name: i for i, s in enumerate(self.ode.parameters)}
+        )
+        return self._format(code)
+
     def initial_state_values(self, name="states") -> str:
         state_result = sympy.MatrixSymbol(name, self.ode.num_states, 1)
 
-        values = ", ".join(
-            [f"{state.name}={state.value}" for state in self.ode.states],
-        )
         expr = self.printer.doprint(self.sympy_ode.state_values, assign_to=state_result)
 
-        code = self.template.INIT_STATE_VALUES.format(
+        code = self.template.init_state_values(
             code=expr,
-            values=values,
+            state_names=[s.name for s in self.ode.states],
+            state_values=[s.value for s in self.ode.states],
             name=name,
         )
         return self._format(code)
 
     def initial_parameter_values(self, name="parameters") -> str:
         parameter_result = sympy.MatrixSymbol(name, self.ode.num_parameters, 1)
-        values = ", ".join(
-            [f"{parameter.name}={parameter.value}" for parameter in self.ode.parameters],
-        )
+
         expr = self.printer.doprint(
             self.sympy_ode.parameter_values,
             assign_to=parameter_result,
         )
-        code = self.template.INIT_PARAMETER_VALUES.format(
+        code = self.template.init_parameter_values(
             code=expr,
-            values=values,
+            parameter_names=[s.name for s in self.ode.parameters],
+            parameter_values=[s.value for s in self.ode.parameters],
             name=name,
         )
         return self._format(code)
@@ -180,12 +168,13 @@ class CodeGenerator(abc.ABC):
         # expr = expr.xreplace({s: rhs.values[i] for i, s in enumerate(sym)})
         # values = self.printer.doprint(expr, assign_to=rhs.values)
 
-        code = self.template.METHOD.format(
+        code = self.template.method(
             name="rhs",
             args=", ".join(rhs.arguments),
             states=states,
             parameters=parameters,
             values=values,
+            return_name=rhs.return_name,
         )
 
         return self._format(code)
@@ -230,49 +219,3 @@ class CodeGenerator(abc.ABC):
     @abc.abstractmethod
     def _rhs_arguments(self, order: RHSArgument | str) -> RHS:
         ...
-
-
-class CCodeGenerator(CodeGenerator):
-    variable_prefix = "double "
-
-    def __init__(self, ode: ODE, apply_clang_format: bool = True) -> None:
-        super().__init__(ode)
-        self._printer = GotranCCodePrinter()
-
-        if apply_clang_format:
-            try:
-                import clang_format_docs
-            except ImportError:
-                print("Cannot apply clang-format, please install 'clang-format-docs'")
-            else:
-                setattr(self, "_formatter", clang_format_docs.clang_format_str)
-
-    @property
-    def printer(self):
-        return self._printer
-
-    @property
-    def template(self):
-        return templates.c
-
-    def _rhs_arguments(
-        self, order: RHSArgument | str = RHSArgument.stp, const_states: bool = True
-    ) -> RHS:
-        value = RHSArgument.get_value(order)
-        states_prefix = "const " if const_states else ""
-        argument_dict = {
-            "s": states_prefix + "double *__restrict states",
-            "t": "const double t",
-            "p": "const double *__restrict parameters",
-        }
-        argument_list = [argument_dict[v] for v in value] + ["double* values"]
-        states = sympy.MatrixSymbol("states", self.ode.num_states, 1)
-        parameters = sympy.MatrixSymbol("parameters", self.ode.num_parameters, 1)
-        values = sympy.MatrixSymbol("values", self.ode.num_states, 1)
-
-        return RHS(
-            arguments=argument_list,
-            states=states,
-            parameters=parameters,
-            values=values,
-        )

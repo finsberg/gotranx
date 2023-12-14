@@ -1,7 +1,7 @@
 from __future__ import annotations
 from pathlib import Path
 
-from ..codegen import CCodeGenerator
+from ..codegen.codegen import CCodeGenerator
 from ..load import load_ode
 
 
