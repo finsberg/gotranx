@@ -1,9 +1,9 @@
 from textwrap import dedent, indent
 
 
-def init_state_values(name, values, code):
+def init_state_values(name, state_names, state_values, code):
     indented_code = indent(code, "    ")
-    indent_values = indent(values, "    ")
+    indent_values = indent(", ".join(f"{n}={v}" for n, v in zip(state_names, state_values)), "    ")
     return dedent(
         f"""
 void init_state_values(double* {name}){{
@@ -16,9 +16,11 @@ void init_state_values(double* {name}){{
     )
 
 
-def init_parameter_values(name, values, code):
+def init_parameter_values(name, parameter_names, parameter_values, code):
     indented_code = indent(code, "    ")
-    indent_values = indent(values, "    ")
+    indent_values = indent(
+        ", ".join(f"{n}={v}" for n, v in zip(parameter_names, parameter_values)), "    "
+    )
     return dedent(
         f"""
 void init_parameter_values(double* {name}){{
@@ -37,7 +39,7 @@ def method(
     states: str,
     parameters: str,
     values: str,
-    retrun_name: None = None,
+    return_name: None = None,
 ):
     indent_states = indent(states, "    ")
     indent_parameters = indent(parameters, "    ")
