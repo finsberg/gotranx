@@ -1,3 +1,4 @@
+from __future__ import annotations
 from sympy.printing.c import C99CodePrinter
 from sympy.codegen.ast import Assignment
 import sympy
