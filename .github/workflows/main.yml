@@ -22,12 +22,14 @@ jobs:
     - name: Test with pytest
       run: |
         python -m pytest
+
     - name: Coverage report
-      uses: codecov/codecov-action@v3
-      if: github.ref == 'refs/heads/main' && matrix.python-version == '3.10'
-      with:
-        fail_ci_if_error: true
-        files: ./coverage.xml
+      if: matrix.python-version == '3.10'
+      run: |
+        python3 -m coverage report | sed 's/^/    /' >> $GITHUB_STEP_SUMMARY
+        python3 -m coverage json
+        export TOTAL=$(python3 -c "import json;print(json.load(open('coverage.json'))['totals']['percent_covered_display'])")
+        echo "total=$TOTAL" >> $GITHUB_ENV
 
     - name: Install pypa/build
       run: >-
