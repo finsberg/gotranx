@@ -183,6 +183,7 @@ def test_python_codegen_rhs(order: str, arguments: str, codegen: PythonCodeGener
         "\n    sigma = parameters[3]"
         "\n"
         "\n    # Assign expressions"
+        "\n    values = np.zeros(3)"
         "\n    values[0] = sigma * (-x + y)"
         "\n    values[1] = x * (rho - z) - y"
         "\n    values[2] = -beta * z + x * y"
