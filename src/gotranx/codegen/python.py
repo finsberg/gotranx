@@ -87,4 +87,5 @@ class PythonCodeGenerator(CodeGenerator):
             parameters=parameters,
             values=values,
             return_name="values",
+            num_return_values=self.ode.num_states,
         )

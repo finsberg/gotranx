@@ -1,7 +1,7 @@
 from __future__ import annotations
 from pathlib import Path
 
-from ..codegen.codegen import CCodeGenerator
+from ..codegen.c import CCodeGenerator
 from ..load import load_ode
 
 
@@ -17,4 +17,4 @@ def main(fname: Path, suffix: str = ".h", outname: str | None = None) -> None:
         ],
     )
     out = fname if outname is None else Path(outname)
-    out.with_suffix(suffix=suffix).write_text(code)
+    out.with_suffix(suffix=suffix).write_text(codegen._format(code))

@@ -34,6 +34,7 @@ class Template(typing.Protocol):
         parameters: str,
         values: str,
         return_name: str | None,
+        num_return_values: int,
     ) -> str:
         ...
 

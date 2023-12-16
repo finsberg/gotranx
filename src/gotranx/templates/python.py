@@ -1,5 +1,13 @@
 from __future__ import annotations
 from textwrap import dedent, indent
+import functools
+
+
+def acc(all_values: str, next_value: str = "# ") -> str:
+    if len(all_values.split("\n")[-1]) + len(next_value) > 60:
+        return all_values + "\n#" + next_value
+    else:
+        return all_values + ", " + next_value
 
 
 def state_index(data: dict[str, int]) -> str:
@@ -31,16 +39,18 @@ def state_index(name: str) -> float:
 
 
 def init_state_values(name, state_names, state_values, code):
-    values_comment = ", ".join(
-        [f"{n}={v}" for n, v in zip(state_names, state_values)],
+    values_comment = indent(
+        "#" + functools.reduce(acc, [f"{n}={v}" for n, v in zip(state_names, state_values)]),
+        "    ",
     )
+
     values = ", ".join(map(str, state_values))
     return dedent(
         f'''
 def init_state_values(**values):
     """Initialize state values
     """
-    # {values_comment}
+{values_comment}
 
     {name} = np.array([{values}])
 
@@ -81,16 +91,19 @@ def parameter_index(name: str) -> float:
 
 
 def init_parameter_values(name, parameter_names, parameter_values, code):
-    values_comment = ", ".join(
-        [f"{n}={v}" for n, v in zip(parameter_names, parameter_values)],
+    values_comment = indent(
+        "#"
+        + functools.reduce(acc, [f"{n}={v}" for n, v in zip(parameter_names, parameter_values)]),
+        "    ",
     )
+
     values = ", ".join(map(str, parameter_values))
     return dedent(
         f'''
 def init_parameter_values(**values):
     """Initialize parameter values
     """
-    # {values_comment}
+{values_comment}
 
     {name} = np.array([{values}])
 
@@ -102,7 +115,7 @@ def init_parameter_values(**values):
     )
 
 
-def method(name, args, states, parameters, values, return_name: str):
+def method(name, args, states, parameters, values, return_name: str, num_return_values: int):
     indent_states = indent(states, "    ")
     indent_parameters = indent(parameters, "    ")
     indent_values = indent(values, "    ")
@@ -118,6 +131,7 @@ def {name}({args}):
 {indent_parameters}
 
     # Assign expressions
+    {return_name} = np.zeros({num_return_values})
 {indent_values}
 
 {indent_return}

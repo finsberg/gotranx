@@ -19,6 +19,7 @@ class RHS(typing.NamedTuple):
     parameters: sympy.MatrixSymbol
     values: sympy.MatrixSymbol
     return_name: str | None = None
+    num_return_values: int = 0
 
 
 class RHSArgument(str, Enum):
@@ -175,6 +176,7 @@ class CodeGenerator(abc.ABC):
             parameters=parameters,
             values=values,
             return_name=rhs.return_name,
+            num_return_values=rhs.num_return_values,
         )
 
         return self._format(code)

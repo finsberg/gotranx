@@ -40,6 +40,7 @@ def method(
     parameters: str,
     values: str,
     return_name: None = None,
+    num_return_values: int = 0,
 ):
     indent_states = indent(states, "    ")
     indent_parameters = indent(parameters, "    ")
