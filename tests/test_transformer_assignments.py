@@ -472,3 +472,50 @@ def test_stimulus_current(subs, expected, parser, trans):
     sympy_expr = build_expression(result[0].value.tree, symbols=symbols)
 
     assert math.isclose(sympy_expr.subs(subs), expected)
+
+
+@pytest.mark.parametrize(
+    "subs, expected",
+    [
+        (
+            {
+                "time": 0,
+                "stim_amplitude": 42,
+                "stim_start": 1,
+                "stim_duration": 10,
+            },
+            math.exp(-1 / 0.2) * 42,
+        ),
+        (
+            {
+                "time": 2,
+                "stim_amplitude": 42,
+                "stim_start": 1,
+                "stim_duration": 10,
+            },
+            42 - math.exp(-1 / 0.2) * 42,
+        ),
+        (
+            {
+                "time": 12,
+                "stim_amplitude": 42,
+                "stim_start": 1,
+                "stim_duration": 10,
+            },
+            math.exp(-1 / 0.2) * 42,
+        ),
+    ],
+)
+def test_stimulus_current_continuous(subs, expected, parser, trans):
+    expr = """
+    i_Stim = stim_amplitude * ContinuousConditional(
+        Ge(time, stim_start), 1, 0, 0.2
+        ) * ContinuousConditional(
+            Le(time, stim_start + stim_duration), 1, 0, 0.2
+        )
+    """
+    tree = parser.parse(expr)
+    result = trans.transform(tree)
+    symbols = {name: sp.Symbol(name) for name in result[0].value.dependencies}
+    sympy_expr = build_expression(result[0].value.tree, symbols=symbols)
+    assert math.isclose(sympy_expr.subs(subs), expected, rel_tol=1e-2)

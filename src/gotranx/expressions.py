@@ -68,6 +68,18 @@ def build_expression(
                     (expr2symbols(tree.children[2]), expr2symbols(tree.children[1])),
                     (expr2symbols(tree.children[3]), True),
                 )
+            elif tree.children[0] == "ContinuousConditional":
+                rel_op, arg1, arg2 = tree.children[1].children
+                true_value = expr2symbols(tree.children[2])
+                false_value = expr2symbols(tree.children[3])
+                sigma = expr2symbols(tree.children[4])
+
+                H = 1 / (1 + sp.exp((expr2symbols(arg1) - expr2symbols(arg2)) / sigma))
+
+                if rel_op.value == "Ge":
+                    return true_value * (1 - H) + false_value * H
+
+                return true_value * H + false_value * (1 - H)
 
             return getattr(sp, tree.children[0])(
                 expr2symbols(tree.children[1]),
