@@ -10,15 +10,16 @@ from sympy.printing.codeprinter import CodePrinter
 
 from .. import templates
 from ..ode import ODE
-from ..sympy_ode import SympyODE
+from .. import atoms
+from .. import sympytools
 
 
 class RHS(typing.NamedTuple):
     arguments: list[str]
-    states: sympy.MatrixSymbol
-    parameters: sympy.MatrixSymbol
-    values: sympy.MatrixSymbol
-    return_name: str | None = None
+    states: sympy.IndexedBase
+    parameters: sympy.IndexedBase
+    values: sympy.IndexedBase
+    return_name: str = "values"
     num_return_values: int = 0
 
 
@@ -42,7 +43,7 @@ class CodeGenerator(abc.ABC):
 
     def __init__(self, ode: ODE) -> None:
         self.ode = ode
-        self.sympy_ode = SympyODE(ode)
+        # self.sympy_ode = SympyODE(ode)
 
     def _formatter(self, code: str) -> str:
         """Alternative formatter that takes a code snippet
@@ -82,9 +83,19 @@ class CodeGenerator(abc.ABC):
         return self._format(code)
 
     def initial_state_values(self, name="states") -> str:
+        # state_result = sympy.IndexedBase(name, shape=(self.ode.num_states,))
         state_result = sympy.MatrixSymbol(name, self.ode.num_states, 1)
-
-        expr = self.printer.doprint(self.sympy_ode.state_values, assign_to=state_result)
+        values = sympy.Matrix(([s.state.value for s in self.ode.state_derivatives]))
+        # values = sympy.Array([sympy.Float(s.state.value) for s in self.ode.state_derivatives])
+        # expr = "\n".join(
+        #     [
+        #         self.printer.doprint(
+        #             Assignment(state_result[i], sympy.Float(str(state_der.state.value)))
+        #         )
+        #         for i, state_der in enumerate(self.ode.state_derivatives)
+        #     ]
+        # )
+        expr = self.printer.doprint(Assignment(state_result, values))
 
         code = self.template.init_state_values(
             code=expr,
@@ -95,12 +106,17 @@ class CodeGenerator(abc.ABC):
         return self._format(code)
 
     def initial_parameter_values(self, name="parameters") -> str:
+        # parameter_result = sympy.IndexedBase(name, shape=(self.ode.num_parameters,))
         parameter_result = sympy.MatrixSymbol(name, self.ode.num_parameters, 1)
+        values = sympy.Matrix(([s.value for s in self.ode.parameters]))
+        expr = self.printer.doprint(Assignment(parameter_result, values))
+        # expr = "\n".join(
+        #     [
+        #         self.printer.doprint(Assignment(parameter_result[i], value))
+        #         for i, value in enumerate(self.sympy_ode.parameter_values)
+        #     ]
+        # )
 
-        expr = self.printer.doprint(
-            self.sympy_ode.parameter_values,
-            assign_to=parameter_result,
-        )
         code = self.template.init_parameter_values(
             code=expr,
             parameter_names=[s.name for s in self.ode.parameters],
@@ -110,6 +126,7 @@ class CodeGenerator(abc.ABC):
         return self._format(code)
 
     def _state_assignments(self, states: sympy.MatrixSymbol) -> str:
+        # breakpoint()
         return "\n".join(
             [
                 f"{self.variable_prefix}{self.printer.doprint(Assignment(state.symbol, value))}"
@@ -131,45 +148,28 @@ class CodeGenerator(abc.ABC):
     def rhs(self, order: RHSArgument | str = RHSArgument.tsp, use_cse=False) -> str:
         # breakpoint()
         rhs = self._rhs_arguments(order)
-
         states = self._state_assignments(rhs.states)
         parameters = self._parameter_assignments(rhs.parameters)
 
-        # state_names = [x.name for x in self.ode.states]
-        # values = []
-        # for sym in self.ode.sorted_assignments:
-        #     x = self.ode[sym]
-        #     if isinstance(x, atoms.Intermediate):
-        #         values.append(
-        #             f"{self.variable_prefix}{self.printer.doprint(Assignment(x.symbol, x.expr))}",
-        #         )
+        lhs_lst = []
+        rhs_lst = []
+        index = 0
+        values_idx = sympy.IndexedBase("values", shape=(len(self.ode.state_derivatives),))
 
-        #     elif isinstance(x, atoms.StateDerivative):
-        #         values.append(
-        #             self.printer.doprint(
-        #                 Assignment(rhs.values[state_names.index(x.state.name)], x.expr),
-        #             ),
-        #         )
-        #     else:
-        #         raise RuntimeError("What?")
+        for x in self.ode.sorted_assignments():
+            rhs_lst.append(x.expr)
+            if isinstance(x, atoms.Intermediate):
+                lhs_lst.append(x.symbol)
+            elif isinstance(x, atoms.StateDerivative):
+                lhs_lst.append(values_idx[index])
+                index += 1
+            else:
+                raise RuntimeError(f"Unknown type {x}")
+
+        values = "\n".join(
+            [self.printer.doprint(Assignment(name, value)) for name, value in zip(lhs_lst, rhs_lst)]
+        )
         # breakpoint()
-
-        if use_cse:
-            replacements, reduced_exprs = sympy.cse(self.sympy_ode.rhs)
-            values_lst = []
-            for replacement in replacements:
-                values_lst.append(
-                    f"{self.variable_prefix}{self.printer.doprint(Assignment(*replacement))}",
-                )
-            values = "\n".join(values_lst) + self.printer.doprint(
-                reduced_exprs[0], assign_to=rhs.values
-            )
-
-        else:
-            values = self.printer.doprint(self.sympy_ode.rhs, assign_to=rhs.values)
-        # expr = expr.xreplace({s: rhs.values[i] for i, s in enumerate(sym)})
-        # values = self.printer.doprint(expr, assign_to=rhs.values)
-
         code = self.template.method(
             name="rhs",
             args=", ".join(rhs.arguments),
@@ -180,6 +180,27 @@ class CodeGenerator(abc.ABC):
             num_return_values=rhs.num_return_values,
         )
 
+        return self._format(code)
+
+    def forward_explicit_euler(self) -> str:
+        rhs = self._rhs_arguments(RHSArgument.stp)
+        states = self._state_assignments(rhs.states)
+        parameters = self._parameter_assignments(rhs.parameters)
+
+        dt = sympy.Symbol("dt")
+        # values = rhs.states + dt * rhs.values
+        eqs = sympytools.forward_explicit_euler(self.ode, dt, name=rhs.return_name)
+        values = "\n".join(self.printer.doprint(Assignment(eq.lhs, eq.rhs)) for eq in eqs)
+
+        code = self.template.method(
+            name="forward_euler",
+            args=", ".join(rhs.arguments + ["dt"]),
+            states=states,
+            parameters=parameters,
+            values=values,
+            return_name=rhs.return_name,
+            num_return_values=rhs.num_return_values,
+        )
         return self._format(code)
 
     # def forward_euler(self, order: RHSArgument | str = RHSArgument.stp):

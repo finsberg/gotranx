@@ -52,7 +52,7 @@ def init_state_values(**values):
     """
 {values_comment}
 
-    {name} = np.array([{values}])
+    {name} = numpy.array([{values}])
 
     for key, value in values.items():
         {name}[state_index(key)] = value
@@ -105,7 +105,7 @@ def init_parameter_values(**values):
     """
 {values_comment}
 
-    {name} = np.array([{values}])
+    {name} = numpy.array([{values}])
 
     for key, value in values.items():
         {name}[parameter_index(key)] = value
@@ -131,7 +131,7 @@ def {name}({args}):
 {indent_parameters}
 
     # Assign expressions
-    {return_name} = np.zeros({num_return_values})
+    {return_name} = numpy.zeros({num_return_values})
 {indent_values}
 
 {indent_return}

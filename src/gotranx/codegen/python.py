@@ -1,12 +1,19 @@
 from __future__ import annotations
 from sympy.printing.pycode import PythonCodePrinter
+from sympy.printing.numpy import NumPyPrinter
 from sympy.codegen.ast import Assignment
 import sympy
 from functools import partial
+from enum import Enum
 
 from ..ode import ODE
 from .. import templates
 from .base import CodeGenerator, RHS, RHSArgument
+
+
+class Backend(str, Enum):
+    python = "python"
+    numpy = "numpy"
 
 
 class GotranPythonCodePrinter(PythonCodePrinter):
@@ -42,9 +49,45 @@ class GotranPythonCodePrinter(PythonCodePrinter):
         return value
 
 
+def squeeze_list(lst):
+    if len(lst) == 1:
+        return lst[0]
+    return lst
+
+
+def squeeze_list_of_lists(lst):
+    return [squeeze_list(item) for item in lst]
+
+
+class GotranNumPyCodePrinter(NumPyPrinter):
+    ...
+    # def _print_MatrixElement(self, expr):
+    #     breakpoint()
+
+    # def _print_ArrayElement(self, expr):
+    #     breakpoint()
+    #     return "%s[%s]" % (
+    #         self.parenthesize(expr.name, PRECEDENCE["Func"], True),
+    #         ", ".join([self._print(i) for i in expr.indices]),
+    #     )
+
+    # def _print_MatrixBase(self, expr):
+    #     breakpoint()
+
+    #     name = expr.__class__.__name__
+    #     func = self.known_functions.get(name, name)
+    #     breakpoint()
+    #     return "%s(%s)" % (func, self._print(squeeze_list_of_lists(expr.tolist())))
+
+
 class PythonCodeGenerator(CodeGenerator):
-    def __init__(self, ode: ODE, apply_black: bool = True) -> None:
+    def __init__(
+        self, ode: ODE, apply_black: bool = True, backend: Backend = Backend.numpy
+    ) -> None:
         super().__init__(ode)
+        # if backend == Backend.numpy:
+        #     self._printer = GotranNumPyCodePrinter()
+        # else:
         self._printer = GotranPythonCodePrinter()
 
         if apply_black:
@@ -77,9 +120,9 @@ class PythonCodeGenerator(CodeGenerator):
         }
 
         argument_list = [argument_dict[v] for v in value]
-        states = sympy.MatrixSymbol("states", self.ode.num_states, 1)
-        parameters = sympy.MatrixSymbol("parameters", self.ode.num_parameters, 1)
-        values = sympy.MatrixSymbol("values", self.ode.num_states, 1)
+        states = sympy.IndexedBase("states", shape=(self.ode.num_states,))
+        parameters = sympy.IndexedBase("parameters", shape=(self.ode.num_parameters,))
+        values = sympy.IndexedBase("values", shape=(self.ode.num_states,))
 
         return RHS(
             arguments=argument_list,

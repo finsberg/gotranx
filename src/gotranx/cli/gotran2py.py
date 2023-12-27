@@ -1,17 +1,22 @@
 from __future__ import annotations
 from pathlib import Path
 
-from ..codegen.python import PythonCodeGenerator
+from ..codegen.python import PythonCodeGenerator, Backend
 from ..load import load_ode
 
 
-def main(fname: Path, suffix: str = ".h", outname: str | None = None) -> None:
+def main(
+    fname: Path,
+    suffix: str = ".h",
+    outname: str | None = None,
+    apply_black: bool = True,
+    backend: Backend = Backend.numpy,
+) -> None:
     ode = load_ode(fname)
-    codegen = PythonCodeGenerator(ode)
+    codegen = PythonCodeGenerator(ode, apply_black=apply_black, backend=backend)
     code = "\n".join(
         [
-            "import math",
-            "import numpy as np",
+            "import numpy",
             codegen.parameter_index(),
             codegen.state_index(),
             codegen.initial_parameter_values(),

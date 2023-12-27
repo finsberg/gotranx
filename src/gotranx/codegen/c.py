@@ -9,6 +9,10 @@ from .base import CodeGenerator, RHS, RHSArgument
 
 
 class GotranCCodePrinter(C99CodePrinter):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._settings["contract"] = False
+
     def _print_Float(self, flt):
         return self._print(str(float(flt)))
 

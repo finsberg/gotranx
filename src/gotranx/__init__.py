@@ -10,6 +10,7 @@ from . import parser
 from . import codegen
 from . import transformer
 from . import units
+from . import sympytools
 from .load import load_ode
 from .ode import ODE
 from .ode_component import Component
@@ -40,4 +41,5 @@ __all__ = [
     "ODE",
     "units",
     "codecomponent",
+    "sympytools",
 ]
