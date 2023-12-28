@@ -1,19 +1,12 @@
 from __future__ import annotations
 from sympy.printing.pycode import PythonCodePrinter
-from sympy.printing.numpy import NumPyPrinter
 from sympy.codegen.ast import Assignment
 import sympy
 from functools import partial
-from enum import Enum
 
 from ..ode import ODE
 from .. import templates
 from .base import CodeGenerator, RHS, RHSArgument
-
-
-class Backend(str, Enum):
-    python = "python"
-    numpy = "numpy"
 
 
 class GotranPythonCodePrinter(PythonCodePrinter):
@@ -59,35 +52,10 @@ def squeeze_list_of_lists(lst):
     return [squeeze_list(item) for item in lst]
 
 
-class GotranNumPyCodePrinter(NumPyPrinter):
-    ...
-    # def _print_MatrixElement(self, expr):
-    #     breakpoint()
-
-    # def _print_ArrayElement(self, expr):
-    #     breakpoint()
-    #     return "%s[%s]" % (
-    #         self.parenthesize(expr.name, PRECEDENCE["Func"], True),
-    #         ", ".join([self._print(i) for i in expr.indices]),
-    #     )
-
-    # def _print_MatrixBase(self, expr):
-    #     breakpoint()
-
-    #     name = expr.__class__.__name__
-    #     func = self.known_functions.get(name, name)
-    #     breakpoint()
-    #     return "%s(%s)" % (func, self._print(squeeze_list_of_lists(expr.tolist())))
-
-
 class PythonCodeGenerator(CodeGenerator):
-    def __init__(
-        self, ode: ODE, apply_black: bool = True, backend: Backend = Backend.numpy
-    ) -> None:
+    def __init__(self, ode: ODE, apply_black: bool = True) -> None:
         super().__init__(ode)
-        # if backend == Backend.numpy:
-        #     self._printer = GotranNumPyCodePrinter()
-        # else:
+
         self._printer = GotranPythonCodePrinter()
 
         if apply_black:

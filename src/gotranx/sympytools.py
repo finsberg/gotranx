@@ -2,7 +2,7 @@ from __future__ import annotations
 import typing
 import sympy
 
-if typing.TYPE_CHECKING:
+if typing.TYPE_CHECKING:  # pragma: no cover
     from .ode import ODE
 
 
@@ -44,10 +44,10 @@ def Conditional(cond, true_value, false_value):
     cond = sympy.sympify(cond)
 
     from sympy.core.relational import Relational
-    from sympy.logic.boolalg import Boolean
+    from sympy.logic.boolalg import Boolean, BooleanFalse, BooleanTrue
 
     # If the conditional is a bool it is already evaluated
-    if isinstance(cond, bool):
+    if isinstance(cond, (BooleanFalse, BooleanTrue)):
         return true_value if cond else false_value
 
     if not isinstance(cond, (Relational, Boolean)):
@@ -81,14 +81,6 @@ def ContinuousConditional(cond, true_value, false_value, sigma=1.0):
     """
 
     cond = sympy.sympify(cond)
-    if not (hasattr(cond, "is_Relational") or hasattr(cond, "is_relational")):
-        TypeError("Expected sympy object to have is_{r,R}elational " "attribute.")
-
-    if (hasattr(cond, "is_Relational") and not cond.is_Relational) or (
-        hasattr(cond, "is_relational") and not cond.is_relational
-    ):
-        TypeError("Expected a Relational as first argument.")
-
     # FIXME: Use the rel_op for check, as some changes has been applied
     # FIXME: in latest sympy making comparision difficult
     if "<" not in cond.rel_op and ">" not in cond.rel_op:

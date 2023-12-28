@@ -15,6 +15,13 @@ class Scheme(typing.Protocol):
         ...
 
 
+def valid_schmemes() -> list[str]:
+    return [
+        "forward_explicit_euler",
+        "forward_generalized_rush_larsen",
+    ]
+
+
 def get_scheme(scheme: str) -> Scheme:
     """Get the scheme function from a string"""
     if scheme in ["forward_euler", "forward_explicit_euler", "euler", "explicit_euler"]:

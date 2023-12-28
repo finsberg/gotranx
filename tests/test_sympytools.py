@@ -1,4 +1,5 @@
 import pytest
+import sympy
 from gotranx.ode import make_ode
 from gotranx.ode import ODE
 from gotranx import sympytools
@@ -31,38 +32,26 @@ def ode(trans, parser) -> ODE:
 #     return SympyODE(ode)
 
 
-# def test_states(sym_ode):
-#     assert len(sym_ode.states) == 3
-#     assert str(sym_ode.states[0]) == "x(t)"
-#     assert str(sym_ode.states[1]) == "y(t)"
-#     assert str(sym_ode.states[2]) == "z(t)"
+def test_states(ode):
+    states = sympytools.states_matrix(ode)
+    assert len(states) == 3
+    assert str(states[0]) == "x"
+    assert str(states[1]) == "y"
+    assert str(states[2]) == "z"
 
 
-# def test_state_values(sym_ode):
-#     assert len(sym_ode.states) == 3
-#     assert str(sym_ode.states[0]) == "x(t)"
-#     assert str(sym_ode.states[1]) == "y(t)"
-#     assert str(sym_ode.states[2]) == "z(t)"
+def test_Conditional_boolean_condition():
+    assert sympytools.Conditional(True, 1, 2) == 1
 
 
-# def test_parameters(sym_ode):
-#     assert len(sym_ode.parameters) == 4
-#     assert str(sym_ode.parameters[0]) == "a"
-#     assert str(sym_ode.parameters[1]) == "beta"
-#     assert str(sym_ode.parameters[2]) == "rho"
-#     assert str(sym_ode.parameters[3]) == "sigma"
+def test_Conditional_invalid_condition():
+    with pytest.raises(TypeError):
+        sympytools.Conditional(sympy.Eq, 1, 2)
 
 
-# def test_state_derivatives_mat(sym_ode):
-#     assert len(sym_ode.state_derivatives_mat) == 3
-#     assert str(sym_ode.state_derivatives_mat[0]) == "dx_dt"
-#     assert str(sym_ode.state_derivatives_mat[1]) == "dy_dt"
-#     assert str(sym_ode.state_derivatives_mat[2]) == "dz_dt"
-
-
-# def test_state_derivatives(sym_ode):
-#     sym_ode.expressions()
-#     breakpoint()
+def test_ContinousConditional_invalid_condition():
+    with pytest.raises(TypeError):
+        sympytools.ContinuousConditional(sympy.Eq, 1, 2)
 
 
 def test_rhs_matrx(ode: ODE):
