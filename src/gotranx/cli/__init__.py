@@ -63,7 +63,11 @@ def main(
 ):
     if fname is None:
         return
-    if to in [".c", ".h"]:
+    if to in {".c", ".h"}:
         from . import gotran2c
 
         gotran2c.main(fname=fname, suffix=to, outname=outname)
+    if to in {".py"}:
+        from . import gotran2py
+
+        gotran2py.main(fname=fname, suffix=to, outname=outname)

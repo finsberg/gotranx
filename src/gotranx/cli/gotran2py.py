@@ -2,21 +2,31 @@ from __future__ import annotations
 from pathlib import Path
 from structlog import get_logger
 
-from ..codegen.c import CCodeGenerator
+from ..codegen.python import PythonCodeGenerator
 from ..load import load_ode
 
 logger = get_logger()
 
 
-def main(fname: Path, suffix: str = ".h", outname: str | None = None) -> None:
+def main(
+    fname: Path,
+    suffix: str = ".py",
+    outname: str | None = None,
+    apply_black: bool = True,
+) -> None:
     ode = load_ode(fname)
-    codegen = CCodeGenerator(ode)
+    codegen = PythonCodeGenerator(ode, apply_black=apply_black)
     code = "\n".join(
         [
-            "#include <math.h>",
+            "import math",
+            "import numpy",
+            codegen.parameter_index(),
+            codegen.state_index(),
             codegen.initial_parameter_values(),
             codegen.initial_state_values(),
             codegen.rhs(),
+            codegen.scheme("forward_euler"),
+            codegen.scheme("forward_generalized_rush_larsen"),
         ],
     )
     out = fname if outname is None else Path(outname)

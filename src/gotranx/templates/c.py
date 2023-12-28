@@ -1,42 +1,62 @@
-from textwrap import dedent
+from textwrap import dedent, indent
 
-INIT_STATE_VALUES = dedent(
-    """
+
+def init_state_values(name, state_names, state_values, code):
+    indented_code = indent(code, "    ")
+    indent_values = indent(", ".join(f"{n}={v}" for n, v in zip(state_names, state_values)), "    ")
+    return dedent(
+        f"""
 void init_state_values(double* {name}){{
     /*
-    {values}
+{indent_values}
     */
-    {code}
+{indented_code}
 }}
 """,
-)
+    )
 
 
-INIT_PARAMETER_VALUES = dedent(
-    """
+def init_parameter_values(name, parameter_names, parameter_values, code):
+    indented_code = indent(code, "    ")
+    indent_values = indent(
+        ", ".join(f"{n}={v}" for n, v in zip(parameter_names, parameter_values)), "    "
+    )
+    return dedent(
+        f"""
 void init_parameter_values(double* {name}){{
     /*
-    {values}
+{indent_values}
     */
-    {code}
+{indented_code}
 }}
 """,
-)
+    )
 
 
-METHOD = dedent(
-    """
+def method(
+    name: str,
+    args: str,
+    states: str,
+    parameters: str,
+    values: str,
+    return_name: None = None,
+    num_return_values: int = 0,
+):
+    indent_states = indent(states, "    ")
+    indent_parameters = indent(parameters, "    ")
+    indent_values = indent(values, "    ")
+    return dedent(
+        f"""
 void {name}({args}){{
 
     // Assign states
-    {states}
+{indent_states}
 
     // Assign parameters
-    {parameters}
+{indent_parameters}
 
     // Assign expressions
-    {values}
-
+{indent_values}
 }}
 """,
-)
+    )

@@ -5,6 +5,7 @@ from graphlib import TopologicalSorter
 from typing import Iterable
 from typing import Sequence
 from typing import TypeVar
+from typing import cast
 
 import sympy as sp
 
@@ -13,6 +14,7 @@ from . import exceptions
 from .ode_component import Component
 
 T = TypeVar("T")
+U = TypeVar("U", bound=atoms.Assignment)
 
 
 def check_components(components: Sequence[Component]):
@@ -151,7 +153,7 @@ def make_ode(
 
 def sort_assignments(
     assignments: Iterable[atoms.Assignment],
-    assignments_only: bool = False,
+    assignments_only: bool = True,
 ) -> tuple[str, ...]:
     sorter: TopologicalSorter = TopologicalSorter()
     assignment_names = set()
@@ -162,9 +164,9 @@ def sort_assignments(
     static_order = tuple(sorter.static_order())
 
     if assignments_only:
-        return tuple([name for name in static_order if name in assignment_names])
-    else:
-        return static_order
+        static_order = tuple([name for name in static_order if name in assignment_names])
+
+    return static_order
 
 
 class ODE:
@@ -258,9 +260,9 @@ class ODE:
     def __getitem__(self, name) -> atoms.Atom:
         return self._lookup[name]
 
-    @cached_property
-    def sorted_assignments(self) -> tuple[str, ...]:
-        return sort_assignments(
+    def sorted_assignments(self, assignments_only: bool = True) -> tuple[atoms.Assignment, ...]:
+        names = sort_assignments(
             self.intermediates + self.state_derivatives,
-            assignments_only=True,
+            assignments_only=assignments_only,
         )
+        return tuple([cast(atoms.Assignment, self[name]) for name in names])

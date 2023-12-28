@@ -22,6 +22,7 @@ requires-python = ">=3.8"
 dependencies = [
     "attrs",
     "clang-format-docs",
+    "black",
     "lark",
     "pint",
     "rich-click",
@@ -85,7 +86,7 @@ ignore_missing_imports = true
 exclude = "docs"
 
 [tool.coverage.run]
-omit = ["src/gotranx/__main__.py"]
+omit = ["src/gotranx/__main__.py", "src/gotranx/templates/__init__.py"]
 
 
 [tool.ruff]

@@ -135,7 +135,7 @@ class Assignment(Atom):
     """Assignments are object of the form `name = value`."""
 
     value: Expression = attr.ib()
-    expr: sp.Expr | None = attr.ib(None)
+    expr: sp.Expr = attr.ib(sp.S.Zero)
 
     def resolve_expression(self, symbols: dict[str, sp.Symbol]) -> Assignment:
         expr = self.value.resolve(symbols)
@@ -148,6 +148,7 @@ class Assignment(Atom):
             unit=self.unit,
             expr=expr,
             symbol=self.symbol,
+            description=self.description,
         )
 
     def to_intermediate(self) -> "Intermediate":
@@ -159,6 +160,8 @@ class Assignment(Atom):
             unit_str=self.unit_str,
             unit=self.unit,
             expr=self.expr,
+            description=self.description,
+            symbol=self.symbol,
         )
 
     def to_state_derivative(self, state: State) -> "StateDerivative":
@@ -171,6 +174,8 @@ class Assignment(Atom):
             unit=self.unit,
             state=state,
             expr=self.expr,
+            description=self.description,
+            symbol=self.symbol,
         )
 
 
@@ -200,4 +205,5 @@ class StateDerivative(Assignment):
             symbol=self.symbol,
             expr=expr,
             state=self.state,
+            description=self.description,
         )

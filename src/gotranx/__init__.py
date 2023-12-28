@@ -7,8 +7,12 @@ from . import load
 from . import ode
 from . import ode_component
 from . import parser
+from . import codegen
 from . import transformer
 from . import units
+from . import sympytools
+from . import schemes
+from . import templates
 from .load import load_ode
 from .ode import ODE
 from .ode_component import Component
@@ -27,6 +31,7 @@ __all__ = [
     "cli",
     "parser",
     "Parser",
+    "codegen",
     "transformer",
     "TreeToODE",
     "exceptions",
@@ -38,4 +43,7 @@ __all__ = [
     "ODE",
     "units",
     "codecomponent",
+    "sympytools",
+    "schemes",
+    "templates",
 ]
