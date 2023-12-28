@@ -16,12 +16,15 @@ def main(
     codegen = PythonCodeGenerator(ode, apply_black=apply_black, backend=backend)
     code = "\n".join(
         [
+            "import math",
             "import numpy",
             codegen.parameter_index(),
             codegen.state_index(),
             codegen.initial_parameter_values(),
             codegen.initial_state_values(),
             codegen.rhs(),
+            codegen.scheme("forward_euler"),
+            codegen.scheme("forward_generalized_rush_larsen"),
         ],
     )
     out = fname if outname is None else Path(outname)

@@ -1,3 +1,4 @@
+# flake8: noqa: E501
 import sys
 from unittest import mock
 
@@ -124,4 +125,68 @@ def test_c_codegen_rhs(order: str, arguments: str, codegen: CCodeGenerator):
         "    values[1] = x * (rho - z) - y;\n"
         "    values[2] = -beta * z + x * y;\n"
         "}\n"
+    )
+
+
+def test_c_codegen_forward_euler(codegen: CCodeGenerator):
+    assert codegen.scheme("forward_euler") == (
+        "\nvoid forward_euler(const double *__restrict states, const double t, const double *__restrict parameters, double *values,"
+        "\n                   dt)"
+        "\n{"
+        "\n"
+        "\n    // Assign states"
+        "\n    double x = states[0];"
+        "\n    double y = states[1];"
+        "\n    double z = states[2];"
+        "\n"
+        "\n    // Assign parameters"
+        "\n    double a = parameters[0];"
+        "\n    double beta = parameters[1];"
+        "\n    double rho = parameters[2];"
+        "\n    double sigma = parameters[3];"
+        "\n"
+        "\n    // Assign expressions"
+        "\n    dx_dt = sigma * (-x + y);"
+        "\n    values[0] = dt * dx_dt + x;"
+        "\n    dy_dt = x * (rho - z) - y;"
+        "\n    values[1] = dt * dy_dt + y;"
+        "\n    dz_dt = -beta * z + x * y;"
+        "\n    values[2] = dt * dz_dt + z;"
+        "\n}"
+        "\n"
+    )
+
+
+def test_c_codegen_forward_generalized_rush_larsen(codegen: CCodeGenerator):
+    assert codegen.scheme("forward_generalized_rush_larsen") == (
+        "\nvoid forward_generalized_rush_larsen(const double *__restrict states, const double t,"
+        "\n                                     const double *__restrict parameters, double *values, dt)"
+        "\n{"
+        "\n"
+        "\n    // Assign states"
+        "\n    double x = states[0];"
+        "\n    double y = states[1];"
+        "\n    double z = states[2];"
+        "\n"
+        "\n    // Assign parameters"
+        "\n    double a = parameters[0];"
+        "\n    double beta = parameters[1];"
+        "\n    double rho = parameters[2];"
+        "\n    double sigma = parameters[3];"
+        "\n"
+        "\n    // Assign expressions"
+        "\n    dx_dt = sigma * (-x + y);"
+        "\n    dx_dt_linearized = -sigma;"
+        "\n    values[0] = x + ((fabs(dx_dt_linearized) > 1e-08) ? (dx_dt * (exp(dt * dx_dt_linearized) - 1) / dx_dt_linearized)"
+        "\n                                                      : (dt * dx_dt));"
+        "\n    dy_dt = x * (rho - z) - y;"
+        "\n    dy_dt_linearized = -1;"
+        "\n    values[1] = y + ((fabs(dy_dt_linearized) > 1e-08) ? (dy_dt * (exp(dt * dy_dt_linearized) - 1) / dy_dt_linearized)"
+        "\n                                                      : (dt * dy_dt));"
+        "\n    dz_dt = -beta * z + x * y;"
+        "\n    dz_dt_linearized = -beta;"
+        "\n    values[2] = z + ((fabs(dz_dt_linearized) > 1e-08) ? (dz_dt * (exp(dt * dz_dt_linearized) - 1) / dz_dt_linearized)"
+        "\n                                                      : (dt * dz_dt));"
+        "\n}"
+        "\n"
     )
