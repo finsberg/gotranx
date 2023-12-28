@@ -1,57 +1,16 @@
 from __future__ import annotations
-
+import typing
 import sympy
 
-from . import atoms
-from .ode import ODE
+if typing.TYPE_CHECKING:
+    from .ode import ODE
 
 
-def forward_explicit_euler(ode: ODE, dt: sympy.Symbol, name: str = "values") -> list[sympy.Eq]:
-    """Generate forward Euler equations for the ODE"""
-    eqs = []
-    values = sympy.IndexedBase(name, shape=(len(ode.state_derivatives),))
-    i = 0
-    for x in ode.sorted_assignments():
-        # x: atoms.StateDerivative | atoms.Intermediate = ode[sym]
-        eqs.append(sympy.Eq(x.symbol, x.expr))
-        if isinstance(x, atoms.StateDerivative):
-            eqs.append(
-                sympy.Eq(
-                    values[i],
-                    x.state.symbol + dt * x.symbol,
-                )
-            )
-            i += 1
-
-    return eqs
-
-
-# def forward_generalized_rush_larsen(ode: ODE, dt: sympy.Symbol) -> list[sympy.Eq]:
-#     """Generate forward Generalized Rush Larsen equations for the ODE"""
-#     eqs = []
-#     states = sympy.IndexedBase("states", shape=(len(ode.state_derivatives),))
-#     for sym in ode.sorted_assignments:
-#         x = ode[sym]
-#         if isinstance(x, atoms.StateDerivative):
-#             expr_diff = x.expr.diff(x.state.symbol)
-#             breakpoint()
-#             if expr_diff.is_zero:
-#                 eqs.append(
-#                     sympy.Eq(
-#                         states[i],
-#                         x.state.symbol + dt * x.symbol,
-#                     )
-#                 )
-#         else:
-#             eqs.append(sympy.Eq(x.symbol, x.expr))
-#     return eqs
-
-
-def states_matrix(ode: ODE) -> sympy.Matrix:
+def states_matrix(ode: "ODE") -> sympy.Matrix:
     return sympy.Matrix([state_der.state.symbol for state_der in ode.state_derivatives])
 
 
-def rhs_matrix(ode: ODE, max_tries: int = 20) -> sympy.Matrix:
+def rhs_matrix(ode: "ODE", max_tries: int = 20) -> sympy.Matrix:
     intermediates = {x.symbol: x.expr for x in ode.intermediates}
     rhs = sympy.Matrix([state.expr for state in ode.state_derivatives])
 
@@ -65,5 +24,83 @@ def rhs_matrix(ode: ODE, max_tries: int = 20) -> sympy.Matrix:
     return rhs
 
 
-def jacobi_matrix(ode: ODE) -> sympy.Matrix:
+def jacobi_matrix(ode: "ODE") -> sympy.Matrix:
     return rhs_matrix(ode).jacobian(states_matrix(ode))
+
+
+def Conditional(cond, true_value, false_value):
+    """
+    Declares a conditional
+
+    Arguments
+    ---------
+    cond : A conditional
+        The conditional which should be evaluated
+    true_value : Any model expression
+        Model expression for a true evaluation of the conditional
+    false_value : Any model expression
+        Model expression for a false evaluation of the conditional
+    """
+    cond = sympy.sympify(cond)
+
+    from sympy.core.relational import Relational
+    from sympy.logic.boolalg import Boolean
+
+    # If the conditional is a bool it is already evaluated
+    if isinstance(cond, bool):
+        return true_value if cond else false_value
+
+    if not isinstance(cond, (Relational, Boolean)):
+        raise TypeError(
+            "Cond %s is of type %s, but must be a Relational" " or Boolean." % (cond, type(cond)),
+        )
+
+    return sympy.functions.Piecewise(
+        (true_value, cond),
+        (false_value, sympy.sympify(True)),
+        evaluate=True,
+    )
+
+
+def ContinuousConditional(cond, true_value, false_value, sigma=1.0):
+    """
+    Declares a continuous conditional. Instead of a either or result the
+    true and false values are weighted with a sigmoidal function which
+    either evaluates to 0 or 1 instead of the true or false.
+
+    Arguments
+    ---------
+    cond : An InEquality conditional
+        An InEquality conditional which should be evaluated
+    true_value : Any model expression
+        Model expression for a true evaluation of the conditional
+    false_value : Any model expression
+        Model expression for a false evaluation of the conditional
+    sigma : float (optional)
+        Determines the sharpness of the sigmoidal function
+    """
+
+    cond = sympy.sympify(cond)
+    if not (hasattr(cond, "is_Relational") or hasattr(cond, "is_relational")):
+        TypeError("Expected sympy object to have is_{r,R}elational " "attribute.")
+
+    if (hasattr(cond, "is_Relational") and not cond.is_Relational) or (
+        hasattr(cond, "is_relational") and not cond.is_relational
+    ):
+        TypeError("Expected a Relational as first argument.")
+
+    # FIXME: Use the rel_op for check, as some changes has been applied
+    # FIXME: in latest sympy making comparision difficult
+    if "<" not in cond.rel_op and ">" not in cond.rel_op:
+        TypeError(
+            "Expected a lesser or greater than relational for " "a continuous conditional .",
+        )
+
+    # Create Heaviside
+    H = 1 / (1 + sympy.exp((cond.args[0] - cond.args[1]) / sigma))
+
+    # Desides which should be weighted with 1 and 0
+    if ">" in cond.rel_op:
+        return true_value * (1 - H) + false_value * H
+
+    return true_value * H + false_value * (1 - H)

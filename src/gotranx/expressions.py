@@ -2,13 +2,29 @@ from __future__ import annotations
 
 import lark
 import sympy as sp
-
+from . import sympytools
 from .exceptions import InvalidTreeError
 
 BINARY_OPERATIONS = {"add", "mul", "sub", "div", "pow"}
 
 
 def binary_op(op: str, fst, snd):
+    """Binary operation
+
+    Parameters
+    ----------
+    op : str
+        Operation to perform
+    fst : sp.Expr
+        First argument
+    snd : sp.Expr
+        Second argument
+
+    Returns
+    -------
+    sp.Expr
+        The result of the operation
+    """
     if op == "add":
         return fst + snd
     if op == "sub":
@@ -27,6 +43,20 @@ def build_expression(
     root: lark.Tree,
     symbols: dict[str, sp.Symbol] | None = None,
 ) -> sp.Expr:
+    """Build a sympy expression from a lark tree
+
+    Parameters
+    ----------
+    root : lark.Tree
+        The root of the tree
+    symbols : dict[str, sp.Symbol], optional
+        A dictionary with symbols, by default None
+
+    Returns
+    -------
+    sp.Expr
+        The sympy expression
+    """
     symbols_: dict[str, sp.Symbol] = symbols or {}
 
     def expr2symbols(tree: lark.Tree):
@@ -64,22 +94,26 @@ def build_expression(
 
         if tree.data == "logicalfunc":
             if tree.children[0] == "Conditional":
-                return sp.Piecewise(
-                    (expr2symbols(tree.children[2]), expr2symbols(tree.children[1])),
-                    (expr2symbols(tree.children[3]), True),
+                return sympytools.Conditional(
+                    cond=expr2symbols(tree.children[1]),
+                    true_value=expr2symbols(tree.children[2]),
+                    false_value=expr2symbols(tree.children[3]),
                 )
+
             elif tree.children[0] == "ContinuousConditional":
                 rel_op, arg1, arg2 = tree.children[1].children
+                cond = sp.sympify(rel_op.value)(expr2symbols(arg1), expr2symbols(arg2))
+
                 true_value = expr2symbols(tree.children[2])
                 false_value = expr2symbols(tree.children[3])
                 sigma = expr2symbols(tree.children[4])
 
-                H = 1 / (1 + sp.exp((expr2symbols(arg1) - expr2symbols(arg2)) / sigma))
-
-                if rel_op.value == "Ge":
-                    return true_value * (1 - H) + false_value * H
-
-                return true_value * H + false_value * (1 - H)
+                return sympytools.ContinuousConditional(
+                    cond=cond,
+                    true_value=true_value,
+                    false_value=false_value,
+                    sigma=sigma,
+                )
 
             return getattr(sp, tree.children[0])(
                 expr2symbols(tree.children[1]),

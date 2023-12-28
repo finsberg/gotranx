@@ -1,5 +1,4 @@
 import pytest
-import sympy
 from gotranx.ode import make_ode
 from gotranx.ode import ODE
 from gotranx import sympytools
@@ -88,33 +87,3 @@ def test_jacobian_matrix(ode: ODE):
     assert str(jac[6]) == "y"
     assert str(jac[7]) == "x"
     assert str(jac[8]) == "-beta"
-
-
-def test_forward_explicit_euler(ode: ODE):
-    dt = sympy.Symbol("dt")
-    eqs = sympytools.forward_explicit_euler(ode, dt)
-    assert len(eqs) == 8
-    # breakpoint()
-    assert str(eqs[0]) == "Eq(y_int, x*(rho - z))"
-    assert str(eqs[1]) == "Eq(z_int, -beta*z)"
-    assert str(eqs[2]) == "Eq(dx_dt, sigma*(-x + y))"
-    assert str(eqs[3]) == "Eq(values[0], dt*dx_dt + x)"
-    assert str(eqs[4]) == "Eq(dy_dt, -y + y_int)"
-    assert str(eqs[5]) == "Eq(values[1], dt*dy_dt + y)"
-    assert str(eqs[6]) == "Eq(dz_dt, x*y + z_int)"
-    assert str(eqs[7]) == "Eq(values[2], dt*dz_dt + z)"
-
-    # assert str(eqs[2]) == "
-    # breakpoint()
-
-
-# def test_forward_explicit_euler(ode: ODE):
-#     dt = sympy.Symbol("dt")
-#     eqs = sympy_ode.forward_explicit_euler(ode, dt)
-#     breakpoint()
-
-
-# def test_forward_generalized_rush_larsen(ode: ODE):
-#     dt = sympy.Symbol("dt")
-#     eqs = sympy_ode.forward_generalized_rush_larsen(ode, dt)
-#     breakpoint()

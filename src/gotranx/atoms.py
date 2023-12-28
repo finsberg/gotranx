@@ -135,7 +135,7 @@ class Assignment(Atom):
     """Assignments are object of the form `name = value`."""
 
     value: Expression = attr.ib()
-    expr: sp.Expr | None = attr.ib(None)
+    expr: sp.Expr = attr.ib(sp.S.Zero)
 
     def resolve_expression(self, symbols: dict[str, sp.Symbol]) -> Assignment:
         expr = self.value.resolve(symbols)
