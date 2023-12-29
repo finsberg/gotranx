@@ -1,6 +1,11 @@
 import typing
 from pathlib import Path
 
+try:
+    from typing import Annotated
+except ImportError:
+    from typing_extensions import Annotated  # type: ignore
+
 import typer
 from ..schemes import Scheme
 
@@ -61,7 +66,7 @@ def main(
         is_eager=True,
         help="Show license",
     ),
-    scheme: typing.Annotated[typing.Optional[typing.List[Scheme]], typer.Option()] = None,
+    scheme: Annotated[typing.Optional[typing.List[Scheme]], typer.Option()] = None,
 ):
     if fname is None:
         return
