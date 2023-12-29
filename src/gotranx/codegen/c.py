@@ -5,7 +5,7 @@ import sympy
 
 from ..ode import ODE
 from .. import templates
-from .base import CodeGenerator, RHS, RHSArgument
+from .base import CodeGenerator, Func, RHSArgument, SchemeArgument
 
 
 class GotranCCodePrinter(C99CodePrinter):
@@ -56,7 +56,7 @@ class CCodeGenerator(CodeGenerator):
 
     def _rhs_arguments(
         self, order: RHSArgument | str = RHSArgument.stp, const_states: bool = True
-    ) -> RHS:
+    ) -> Func:
         value = RHSArgument.get_value(order)
         states_prefix = "const " if const_states else ""
         argument_dict = {
@@ -69,7 +69,32 @@ class CCodeGenerator(CodeGenerator):
         parameters = sympy.IndexedBase("parameters", shape=(self.ode.num_parameters,))
         values = sympy.IndexedBase("values", shape=(self.ode.num_states,))
 
-        return RHS(
+        return Func(
+            arguments=argument_list,
+            states=states,
+            parameters=parameters,
+            values=values,
+        )
+
+    def _scheme_arguments(
+        self,
+        order: SchemeArgument | str = SchemeArgument.stdp,
+        const_states: bool = True,
+    ) -> Func:
+        value = SchemeArgument.get_value(order)
+        states_prefix = "const " if const_states else ""
+        argument_dict = {
+            "s": states_prefix + "double *__restrict states",
+            "t": "const double t",
+            "d": "const double dt",
+            "p": "const double *__restrict parameters",
+        }
+        argument_list = [argument_dict[v] for v in value] + ["double* values"]
+        states = sympy.IndexedBase("states", shape=(self.ode.num_states,))
+        parameters = sympy.IndexedBase("parameters", shape=(self.ode.num_parameters,))
+        values = sympy.IndexedBase("values", shape=(self.ode.num_states,))
+
+        return Func(
             arguments=argument_list,
             states=states,
             parameters=parameters,

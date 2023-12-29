@@ -130,8 +130,8 @@ def test_c_codegen_rhs(order: str, arguments: str, codegen: CCodeGenerator):
 
 def test_c_codegen_forward_euler(codegen: CCodeGenerator):
     assert codegen.scheme("forward_euler") == (
-        "\nvoid forward_euler(const double *__restrict states, const double t, const double *__restrict parameters, double *values,"
-        "\n                   dt)"
+        "\nvoid forward_euler(const double *__restrict states, const double t, const double dt,"
+        "\n                   const double *__restrict parameters, double *values)"
         "\n{"
         "\n"
         "\n    // Assign states"
@@ -159,8 +159,8 @@ def test_c_codegen_forward_euler(codegen: CCodeGenerator):
 
 def test_c_codegen_forward_generalized_rush_larsen(codegen: CCodeGenerator):
     assert codegen.scheme("forward_generalized_rush_larsen") == (
-        "\nvoid forward_generalized_rush_larsen(const double *__restrict states, const double t,"
-        "\n                                     const double *__restrict parameters, double *values, dt)"
+        "\nvoid forward_generalized_rush_larsen(const double *__restrict states, const double t, const double dt,"
+        "\n                                     const double *__restrict parameters, double *values)"
         "\n{"
         "\n"
         "\n    // Assign states"

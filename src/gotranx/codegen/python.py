@@ -6,7 +6,7 @@ from functools import partial
 
 from ..ode import ODE
 from .. import templates
-from .base import CodeGenerator, RHS, RHSArgument
+from .base import CodeGenerator, Func, RHSArgument, SchemeArgument
 
 
 class GotranPythonCodePrinter(PythonCodePrinter):
@@ -78,7 +78,7 @@ class PythonCodeGenerator(CodeGenerator):
     def _rhs_arguments(
         self,
         order: RHSArgument | str = RHSArgument.stp,
-    ) -> RHS:
+    ) -> Func:
         value = RHSArgument.get_value(order)
 
         argument_dict = {
@@ -92,7 +92,34 @@ class PythonCodeGenerator(CodeGenerator):
         parameters = sympy.IndexedBase("parameters", shape=(self.ode.num_parameters,))
         values = sympy.IndexedBase("values", shape=(self.ode.num_states,))
 
-        return RHS(
+        return Func(
+            arguments=argument_list,
+            states=states,
+            parameters=parameters,
+            values=values,
+            return_name="values",
+            num_return_values=self.ode.num_states,
+        )
+
+    def _scheme_arguments(
+        self,
+        order: SchemeArgument | str = SchemeArgument.stdp,
+    ) -> Func:
+        value = SchemeArgument.get_value(order)
+
+        argument_dict = {
+            "s": "states",
+            "t": "t",
+            "d": "dt",
+            "p": "parameters",
+        }
+
+        argument_list = [argument_dict[v] for v in value]
+        states = sympy.IndexedBase("states", shape=(self.ode.num_states,))
+        parameters = sympy.IndexedBase("parameters", shape=(self.ode.num_parameters,))
+        values = sympy.IndexedBase("values", shape=(self.ode.num_states,))
+
+        return Func(
             arguments=argument_list,
             states=states,
             parameters=parameters,

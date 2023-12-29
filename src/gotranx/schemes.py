@@ -13,8 +13,10 @@ logger = get_logger()
 
 
 def default_printer(
-    lhs: sympy.Symbol | sympy.IndexedBase, rhs: sympy.Expr, use_variable_prefix=False
-):
+    lhs: sympy.Symbol | sympy.IndexedBase,
+    rhs: sympy.Expr,
+    use_variable_prefix: bool = False,
+) -> str:
     from sympy.codegen.ast import Assignment
     from sympy.printing import pycode
 
@@ -23,7 +25,10 @@ def default_printer(
 
 class printer_func(typing.Protocol):
     def __call__(
-        self, lhs: sympy.Symbol, rhs: sympy.Expr, use_variable_prefix: bool = False
+        self,
+        lhs: sympy.Symbol | sympy.IndexedBase,
+        rhs: sympy.Expr,
+        use_variable_prefix: bool = False,
     ) -> str:
         ...
 
