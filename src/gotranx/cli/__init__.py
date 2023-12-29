@@ -1,7 +1,13 @@
 import typing
 from pathlib import Path
 
+try:
+    from typing import Annotated
+except ImportError:
+    from typing_extensions import Annotated  # type: ignore
+
 import typer
+from ..schemes import Scheme
 
 
 app = typer.Typer()
@@ -60,14 +66,15 @@ def main(
         is_eager=True,
         help="Show license",
     ),
+    scheme: Annotated[typing.Optional[typing.List[Scheme]], typer.Option()] = None,
 ):
     if fname is None:
         return
     if to in {".c", ".h"}:
         from . import gotran2c
 
-        gotran2c.main(fname=fname, suffix=to, outname=outname)
+        gotran2c.main(fname=fname, suffix=to, outname=outname, scheme=scheme)
     if to in {".py"}:
         from . import gotran2py
 
-        gotran2py.main(fname=fname, suffix=to, outname=outname)
+        gotran2py.main(fname=fname, suffix=to, outname=outname, scheme=scheme)

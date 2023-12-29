@@ -30,6 +30,7 @@ dependencies = [
     "sympy",
     "typer",
     'graphlib-backport;python_version < "3.9"',
+    'typing_extensions;python_version < "3.9"',
 ]
 
 [project.readme]

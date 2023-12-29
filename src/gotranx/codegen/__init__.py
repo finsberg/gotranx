@@ -3,15 +3,16 @@ from . import c
 
 from .c import CCodeGenerator
 from .python import PythonCodeGenerator
-from .base import CodeGenerator, RHS, RHSArgument
+from .base import CodeGenerator, Func, RHSArgument, SchemeArgument
 
 __all__ = [
     "base",
     "c",
     "CCodeGenerator",
     "CodeGenerator",
-    "RHS",
+    "Func",
     "RHSArgument",
+    "SchemeArgument",
     "python",
     "PythonCodeGenerator",
 ]

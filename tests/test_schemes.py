@@ -32,14 +32,14 @@ def test_forward_explicit_euler(ode: ODE):
     eqs = schemes.forward_explicit_euler(ode, dt)
     assert len(eqs) == 8
 
-    assert str(eqs[0]) == "Eq(y_int, x*(rho - z))"
-    assert str(eqs[1]) == "Eq(z_int, -beta*z)"
-    assert str(eqs[2]) == "Eq(dx_dt, sigma*(-x + y))"
-    assert str(eqs[3]) == "Eq(values[0], dt*dx_dt + x)"
-    assert str(eqs[4]) == "Eq(dy_dt, -y + y_int)"
-    assert str(eqs[5]) == "Eq(values[1], dt*dy_dt + y)"
-    assert str(eqs[6]) == "Eq(dz_dt, x*y + z_int)"
-    assert str(eqs[7]) == "Eq(values[2], dt*dz_dt + z)"
+    assert eqs[0] == "y_int = x*(rho - z)"
+    assert eqs[1] == "z_int = -beta*z"
+    assert eqs[2] == "dx_dt = sigma*(-x + y)"
+    assert eqs[3] == "values[0] = dt*dx_dt + x"
+    assert eqs[4] == "dy_dt = -y + y_int"
+    assert eqs[5] == "values[1] = dt*dy_dt + y"
+    assert eqs[6] == "dz_dt = x*y + z_int"
+    assert eqs[7] == "values[2] = dt*dz_dt + z"
 
 
 def test_forward_generalized_rush_larsen(ode: ODE):
@@ -48,21 +48,21 @@ def test_forward_generalized_rush_larsen(ode: ODE):
 
     assert len(eqs) == 10
 
-    assert str(eqs[0]) == "Eq(y_int, x*(rho - z))"
-    assert str(eqs[1]) == "Eq(z_int, -beta*z)"
-    assert str(eqs[2]) == "Eq(dx_dt, sigma*(-x + y))"
-    assert str(eqs[3]) == "Eq(dx_dt_linearized, -sigma)"
+    assert str(eqs[0]) == "y_int = x*(rho - z)"
+    assert str(eqs[1]) == "z_int = -beta*z"
+    assert str(eqs[2]) == "dx_dt = sigma*(-x + y)"
+    assert str(eqs[3]) == "dx_dt_linearized = -sigma"
     assert str(eqs[4]) == (
-        "Eq(values[0], x + "
-        "Piecewise((dx_dt*(exp(dt*dx_dt_linearized) - 1)"
-        "/dx_dt_linearized, Abs(dx_dt_linearized) > 1.0e-8), "
-        "(dt*dx_dt, True)))"
+        "values[0] = x + "
+        "((dx_dt*(math.exp(dt*dx_dt_linearized) - 1)"
+        "/dx_dt_linearized) if (abs(dx_dt_linearized) > 1.0e-8) "
+        "else (dt*dx_dt))"
     )
-    assert str(eqs[5]) == "Eq(dy_dt, -y + y_int)"
-    assert str(eqs[6]) == "Eq(dy_dt_linearized, -1)"
+    assert str(eqs[5]) == "dy_dt = -y + y_int"
+    assert str(eqs[6]) == "dy_dt_linearized = -1"
     assert str(eqs[7]) == (
-        "Eq(values[1], y + "
-        "Piecewise((dy_dt*(exp(dt*dy_dt_linearized) - 1)"
-        "/dy_dt_linearized, Abs(dy_dt_linearized) > 1.0e-8), "
-        "(dt*dy_dt, True)))"
+        "values[1] = y + "
+        "((dy_dt*(math.exp(dt*dy_dt_linearized) - 1)"
+        "/dy_dt_linearized) if (abs(dy_dt_linearized) > 1.0e-8) "
+        "else (dt*dy_dt))"
     )
