@@ -32,7 +32,7 @@ class GotranCCodePrinter(C99CodePrinter):
 
 
 class CCodeGenerator(CodeGenerator):
-    variable_prefix = "double "
+    variable_prefix = "const double "
 
     def __init__(self, ode: ODE, apply_clang_format: bool = True) -> None:
         super().__init__(ode)
@@ -65,9 +65,9 @@ class CCodeGenerator(CodeGenerator):
             "p": "const double *__restrict parameters",
         }
         argument_list = [argument_dict[v] for v in value] + ["double* values"]
-        states = sympy.MatrixSymbol("states", self.ode.num_states, 1)
-        parameters = sympy.MatrixSymbol("parameters", self.ode.num_parameters, 1)
-        values = sympy.MatrixSymbol("values", self.ode.num_states, 1)
+        states = sympy.IndexedBase("states", shape=(self.ode.num_states,))
+        parameters = sympy.IndexedBase("parameters", shape=(self.ode.num_parameters,))
+        values = sympy.IndexedBase("values", shape=(self.ode.num_states,))
 
         return RHS(
             arguments=argument_list,

@@ -43,7 +43,6 @@ class CodeGenerator(abc.ABC):
 
     def __init__(self, ode: ODE) -> None:
         self.ode = ode
-        # self.sympy_ode = SympyODE(ode)
 
     def _formatter(self, code: str) -> str:
         """Alternative formatter that takes a code snippet
@@ -72,6 +71,11 @@ class CodeGenerator(abc.ABC):
 
         return formatted_code
 
+    def _doprint(self, lhs, rhs, use_variable_prefix: bool = False) -> str:
+        if use_variable_prefix:
+            return f"{self.variable_prefix}{self.printer.doprint(Assignment(lhs, rhs))}"
+        return self.printer.doprint(Assignment(lhs, rhs))
+
     def state_index(self) -> str:
         code = self.template.state_index(data={s.name: i for i, s in enumerate(self.ode.states)})
         return self._format(code)
@@ -95,10 +99,13 @@ class CodeGenerator(abc.ABC):
         str
             The generated code
         """
-        state_result = sympy.MatrixSymbol(name, self.ode.num_states, 1)
-        values = sympy.Matrix(([s.state.value for s in self.ode.state_derivatives]))
-
-        expr = self.printer.doprint(Assignment(state_result, values))
+        state_result = sympy.IndexedBase(name, shape=(self.ode.num_states,))
+        expr = "\n".join(
+            [
+                self._doprint(state_result[i], value)
+                for i, value in enumerate([s.state.value for s in self.ode.state_derivatives])
+            ]
+        )
 
         code = self.template.init_state_values(
             code=expr,
@@ -121,11 +128,14 @@ class CodeGenerator(abc.ABC):
         str
             The generated code
         """
+        parameter_result = sympy.IndexedBase(name, shape=(self.ode.num_parameters,))
 
-        parameter_result = sympy.MatrixSymbol(name, self.ode.num_parameters, 1)
-        values = sympy.Matrix(([s.value for s in self.ode.parameters]))
-        expr = self.printer.doprint(Assignment(parameter_result, values))
-
+        expr = "\n".join(
+            [
+                self._doprint(parameter_result[i], value)
+                for i, value in enumerate([p.value for p in self.ode.parameters])
+            ]
+        )
         code = self.template.init_parameter_values(
             code=expr,
             parameter_names=[s.name for s in self.ode.parameters],
@@ -134,23 +144,16 @@ class CodeGenerator(abc.ABC):
         )
         return self._format(code)
 
-    def _state_assignments(self, states: sympy.MatrixSymbol) -> str:
+    def _state_assignments(self, states: sympy.IndexedBase) -> str:
         return "\n".join(
-            [
-                f"{self.variable_prefix}{self.printer.doprint(Assignment(state.symbol, value))}"
-                for state, value in zip(self.ode.states, states)
-            ],
+            self._doprint(state.symbol, value, use_variable_prefix=True)
+            for state, value in zip(self.ode.states, states)
         )
 
-    def _parameter_assignments(self, parameters: sympy.MatrixSymbol) -> str:
+    def _parameter_assignments(self, parameters: sympy.IndexedBase) -> str:
         return "\n".join(
-            [
-                f"{self.variable_prefix}{self.printer.doprint(Assignment(param.symbol, value))}"
-                for param, value in zip(
-                    self.ode.parameters,
-                    parameters,
-                )
-            ],
+            self._doprint(param.symbol, value, use_variable_prefix=True)
+            for param, value in zip(self.ode.parameters, parameters)
         )
 
     def rhs(self, order: RHSArgument | str = RHSArgument.tsp, use_cse=False) -> str:
@@ -173,24 +176,28 @@ class CodeGenerator(abc.ABC):
         states = self._state_assignments(rhs.states)
         parameters = self._parameter_assignments(rhs.parameters)
 
-        lhs_lst = []
-        rhs_lst = []
+        # lhs_lst = []
+        # rhs_lst = []
+        values_lst = []
         index = 0
         values_idx = sympy.IndexedBase("values", shape=(len(self.ode.state_derivatives),))
 
         for x in self.ode.sorted_assignments():
-            rhs_lst.append(x.expr)
+            # rhs_lst.append(x.expr)
             if isinstance(x, atoms.Intermediate):
-                lhs_lst.append(x.symbol)
+                # lhs_lst.append(x.symbol)
+                values_lst.append(
+                    f"{self.variable_prefix}"
+                    f"{self.printer.doprint(Assignment(x.symbol, x.expr))}"
+                )
             elif isinstance(x, atoms.StateDerivative):
-                lhs_lst.append(values_idx[index])
+                # lhs_lst.append(values_idx[index])
+                values_lst.append(f"{self.printer.doprint(Assignment(values_idx[index], x.expr))}")
                 index += 1
             else:
                 raise RuntimeError(f"Unknown type {x}")
 
-        values = "\n".join(
-            [self.printer.doprint(Assignment(name, value)) for name, value in zip(lhs_lst, rhs_lst)]
-        )
+        values = "\n".join(values_lst)
         # breakpoint()
         code = self.template.method(
             name="rhs",
@@ -219,8 +226,8 @@ class CodeGenerator(abc.ABC):
 
         dt = sympy.Symbol("dt")
         f = schemes.get_scheme(name)
-        eqs = f(self.ode, dt, name=rhs.return_name)
-        values = "\n".join(self.printer.doprint(Assignment(eq.lhs, eq.rhs)) for eq in eqs)
+        eqs = f(self.ode, dt, name=rhs.return_name, printer=self._doprint)
+        values = "\n".join(eqs)
 
         code = self.template.method(
             name=name,

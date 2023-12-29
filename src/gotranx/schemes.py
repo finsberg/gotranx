@@ -1,6 +1,8 @@
 from __future__ import annotations
 import typing
 import sympy
+from enum import Enum
+
 from structlog import get_logger
 
 from . import atoms
@@ -10,19 +12,39 @@ from . import sympytools
 logger = get_logger()
 
 
-class Scheme(typing.Protocol):
-    def __call__(self, ode: ODE, dt: sympy.Symbol, name: str = "values") -> list[sympy.Eq]:
+def default_printer(
+    lhs: sympy.Symbol | sympy.IndexedBase, rhs: sympy.Expr, use_variable_prefix=False
+):
+    from sympy.codegen.ast import Assignment
+    from sympy.printing import pycode
+
+    return pycode(Assignment(lhs, rhs))
+
+
+class printer_func(typing.Protocol):
+    def __call__(
+        self, lhs: sympy.Symbol, rhs: sympy.Expr, use_variable_prefix: bool = False
+    ) -> str:
         ...
 
 
-def valid_schmemes() -> list[str]:
-    return [
-        "forward_explicit_euler",
-        "forward_generalized_rush_larsen",
-    ]
+class scheme_func(typing.Protocol):
+    def __call__(
+        self,
+        ode: ODE,
+        dt: sympy.Symbol,
+        name: str = "values",
+        printer: printer_func = default_printer,
+    ) -> list[str]:
+        ...
 
 
-def get_scheme(scheme: str) -> Scheme:
+class Scheme(str, Enum):
+    forward_explicit_euler = "forward_explicit_euler"
+    forward_generalized_rush_larsen = "forward_generalized_rush_larsen"
+
+
+def get_scheme(scheme: str) -> scheme_func:
     """Get the scheme function from a string"""
     if scheme in ["forward_euler", "forward_explicit_euler", "euler", "explicit_euler"]:
         return forward_explicit_euler
@@ -68,20 +90,26 @@ def fraction_numerator_is_nonzero(expr):
         return False
 
 
-def forward_explicit_euler(ode: ODE, dt: sympy.Symbol, name: str = "values") -> list[sympy.Eq]:
+def forward_explicit_euler(
+    ode: ODE,
+    dt: sympy.Symbol,
+    name: str = "values",
+    printer: printer_func = default_printer,
+) -> list[str]:
     """Generate forward Euler equations for the ODE"""
     eqs = []
     values = sympy.IndexedBase(name, shape=(len(ode.state_derivatives),))
     i = 0
     for x in ode.sorted_assignments():
-        eqs.append(sympy.Eq(x.symbol, x.expr))
+        eqs.append(printer(x.symbol, x.expr, use_variable_prefix=True))
         if isinstance(x, atoms.StateDerivative):
             eqs.append(
-                sympy.Eq(
+                printer(
                     values[i],
                     x.state.symbol + dt * x.symbol,
                 )
             )
+
             i += 1
 
     return eqs
@@ -91,14 +119,15 @@ def forward_generalized_rush_larsen(
     ode: ODE,
     dt: sympy.Symbol,
     name: str = "values",
+    printer: printer_func = default_printer,
     delta=1e-8,
-) -> list[sympy.Eq]:
+) -> list[str]:
     """Generate forward Generalized Rush Larsen equations for the ODE"""
     eqs = []
     values = sympy.IndexedBase(name, shape=(len(ode.state_derivatives),))
     i = 0
     for x in ode.sorted_assignments():
-        eqs.append(sympy.Eq(x.symbol, x.expr))
+        eqs.append(printer(x.symbol, x.expr, use_variable_prefix=True))
 
         if not isinstance(x, atoms.StateDerivative):
             continue
@@ -108,7 +137,7 @@ def forward_generalized_rush_larsen(
         if expr_diff.is_zero:
             # Use forward Euler
             eqs.append(
-                sympy.Eq(
+                printer(
                     values[i],
                     x.state.symbol + dt * x.symbol,
                 )
@@ -118,7 +147,7 @@ def forward_generalized_rush_larsen(
 
         linearized_name = x.name + "_linearized"
         linearized = sympy.Symbol(linearized_name)
-        eqs.append(sympy.Eq(linearized, expr_diff))
+        eqs.append(printer(linearized, expr_diff, use_variable_prefix=True))
 
         need_zero_div_check = not fraction_numerator_is_nonzero(expr_diff)
         if not need_zero_div_check:
@@ -132,7 +161,7 @@ def forward_generalized_rush_larsen(
                 dt * x.symbol,
             )
         eqs.append(
-            sympy.Eq(
+            printer(
                 values[i],
                 x.state.symbol + RL_term,
             )
