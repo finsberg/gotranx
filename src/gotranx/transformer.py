@@ -67,6 +67,23 @@ def find_assignments(
     return []
 
 
+def lark_list_to_parameters(
+    s: list[None | lark.tree.Tree | lark.lexer.Token],
+    cls: Type[T],
+) -> tuple[T, ...]:
+    component = s[0]
+    if component is not None:
+        component = remove_quotes(str(component))
+
+    info = s[1]
+    if info is not None:
+        info = remove_quotes(str(info))
+
+    return tuple(
+        [tree2parameter(p, component=component, info=info, cls=cls) for p in s[2:]],
+    )
+
+
 def tree2parameter(
     s: lark.Tree,
     component: str | None,
@@ -136,27 +153,13 @@ class TreeToODE(lark.Transformer):
     def comment(self, s):
         return atoms.Comment(" ".join(map(str, s)))
 
-    def states(self, s) -> tuple[atoms.State, ...]:
-        component = s[0]
-        if component is not None:
-            component = remove_quotes(str(component))
+    def states(self, s: list[None | lark.tree.Tree | lark.lexer.Token]) -> tuple[atoms.State, ...]:
+        return lark_list_to_parameters(s, cls=atoms.State)
 
-        info = s[1]
-        if info is not None:
-            info = remove_quotes(str(info))
-
-        return tuple(
-            [tree2parameter(p, component=component, info=info, cls=atoms.State) for p in s[2:]],
-        )
-
-    def parameters(self, s) -> tuple[atoms.Parameter, ...]:
-        component = s[0]
-        if component is not None:
-            component = remove_quotes(str(component))
-
-        return tuple(
-            [tree2parameter(p, component=component, cls=atoms.Parameter) for p in s[1:]],
-        )
+    def parameters(
+        self, s: list[None | lark.tree.Tree | lark.lexer.Token]
+    ) -> tuple[atoms.Parameter, ...]:
+        return lark_list_to_parameters(s, cls=atoms.Parameter)
 
     def expressions(self, s) -> tuple[atoms.Assignment, ...]:
         component = find_assignment_component(s[0])
