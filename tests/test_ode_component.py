@@ -49,6 +49,50 @@ def test_component_None(parser, trans):
     }
 
 
+def test_component_with_name_and_different_info(parser, trans):
+    tree = parser.parse(
+        'parameters("name", x=1, y=2)\n'
+        'states("name", "some info", a=1)\n'
+        'expressions("name", "some other info")\n'
+        "da_dt=0"
+    )
+    result = trans.transform(tree).components
+    assert len(result) == 1
+    assert result[0].name == "name"
+    assert result[0].info is None
+
+    for p in result[0].parameters:
+        assert p.component == "name"
+    for s in result[0].states:
+        assert s.component == "name"
+        assert s.info == "some info"
+    for a in result[0].assignments:
+        assert a.component == "name"
+        assert a.info == "some other info"
+
+
+def test_component_with_name_and_same_info(parser, trans):
+    tree = parser.parse(
+        'parameters("name", "some info", x=1, y=2)\n'
+        'states("name", "some info", a=1)\n'
+        'expressions("name", "some info")\n'
+        "da_dt=0"
+    )
+    result = trans.transform(tree).components
+    assert len(result) == 1
+    assert result[0].name == "name"
+    assert result[0].info == "some info"
+    for p in result[0].parameters:
+        assert p.component == "name"
+        assert p.info == "some info"
+    for s in result[0].states:
+        assert s.component == "name"
+        assert s.info == "some info"
+    for a in result[0].assignments:
+        assert a.component == "name"
+        assert a.info == "some info"
+
+
 def test_component_intermediates(parser, trans):
     tree = parser.parse(
         ("parameters(x=1, y=2)\n" "states(a=2, b=3)\n" "da_dt=0\n" "c=a+b\n" "db_dt=c - a"),

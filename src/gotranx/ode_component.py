@@ -29,9 +29,21 @@ class Component:
     assignments: frozenset[atoms.Assignment] = attr.ib()
     state_derivatives: frozenset[atoms.StateDerivative] = attr.ib(init=False)
     intermediates: frozenset[atoms.Intermediate] = attr.ib(init=False)
+    info: str | None = attr.ib(default=None)
 
     def __attrs_post_init__(self):
         self._handle_assignments()
+        self._check_info()
+
+    def _check_info(self):
+        # If we have the same info for all atoms, then we can set the
+        # same info for the component
+        infos = set()
+        for atom in self.atoms:
+            if atom.info:
+                infos.add(atom.info)
+        if len(infos) == 1:
+            object.__setattr__(self, "info", infos.pop())
 
     def _find_state(self, state_name: str) -> atoms.State:
         for state in self.states:
@@ -77,3 +89,9 @@ class Component:
     @property
     def states_without_derivatives(self) -> frozenset[atoms.State]:
         return self.states.difference(self.states_with_derivatives)
+
+    @property
+    def atoms(self) -> frozenset[atoms.Atom]:
+        return frozenset(
+            self.states.union(self.parameters).union(self.assignments).union(self.intermediates)
+        )

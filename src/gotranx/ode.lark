@@ -8,7 +8,7 @@
 ?unit: "#" UNIT
 
 comment : ("#" /.+/)+
-parameters : "parameters" "(" [ COMPONENT_NAME "," ] parameter ("," parameter)*  ")"
+parameters : "parameters" "(" [ COMPONENT_NAME "," ] [ INFO ","] parameter ("," parameter)*  ")"
 states : "states" "(" [ COMPONENT_NAME "," ] [ INFO ","] parameter ("," parameter)* ")"
 expressions: (assignment)+
     | "expressions" "(" COMPONENT_NAME [ "," INFO ] ")" (assignment)+
@@ -64,6 +64,7 @@ variable: VARIABLE
     | GE
     | AND
     | OR
+    | EQ
 
 
 CONTINUOUSCONDITIONAL: "ContinuousConditional"
@@ -86,6 +87,7 @@ GE: "Ge"
 LE: "Le"
 AND: "And"
 OR: "Or"
+EQ: "Eq"
 
 
 
