@@ -474,6 +474,35 @@ def test_stimulus_current(subs, expected, parser, trans):
     assert math.isclose(sympy_expr.subs(subs), expected)
 
 
+def test_stimulus_current_with_trailing_comma(parser, trans):
+    subs = {
+        "stim_period": 100,
+        "time": 0,
+        "stim_amplitude": 42,
+        "stim_start": 1,
+        "stim_duration": 10,
+    }
+    expected = 0
+    expr = """
+    i_Stim = Conditional(
+       And(
+              Ge(
+                     time - floor(time/stim_period)*stim_period, stim_start
+              ),
+              Le(
+                     time - floor(time/stim_period)*stim_period, stim_start + stim_duration
+              ),
+       ),
+        -stim_amplitude, 0) # pA*pF**-1
+    """
+    tree = parser.parse(expr)
+    result = trans.transform(tree)
+    symbols = {name: sp.Symbol(name) for name in result[0].value.dependencies}
+    sympy_expr = build_expression(result[0].value.tree, symbols=symbols)
+
+    assert math.isclose(sympy_expr.subs(subs), expected)
+
+
 @pytest.mark.parametrize(
     "subs, expected",
     [

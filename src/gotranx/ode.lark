@@ -40,7 +40,7 @@ scientific: SCIENTIFIC_NUMBER
 constant: PI
     | EULER
 variable: VARIABLE
-?func: funcname "(" expression ("," expression)* ")"
+?func: funcname "(" expression ("," expression)* (",")* ")"
 ?funcname: COS
     | TAN
     | SIN
@@ -54,7 +54,7 @@ variable: VARIABLE
     | ABS
     | FLOOR
 
-?logicalfunc: logicalfuncname "(" expression ("," expression)* ")"
+?logicalfunc: logicalfuncname "(" expression ("," expression)* (",")* ")"
 ?logicalfuncname: CONTINUOUSCONDITIONAL
     | CONDITIONAL
     | LT
