@@ -30,25 +30,24 @@ def test_parameter_arguments(parser, trans):
 
     tree = parser.parse(expr)
     result = trans.transform(tree)
-
-    assert result[0] == atoms.Parameter(name="y", value=1.0, component="My component")
-    assert result[1] == atoms.Parameter(name="x", value=42.0, component="My component")
+    assert result[0] == atoms.Parameter(name="y", value=sp.sympify(1.0), component="My component")
+    assert result[1] == atoms.Parameter(name="x", value=sp.sympify(42.0), component="My component")
     assert result[2] == atoms.Parameter(
         name="w",
-        value=10.2,
+        value=sp.sympify(10.2),
         component="My component",
         unit_str="mM",
     )
     assert result[3] == atoms.Parameter(
         name="v",
-        value=3.14,
+        value=sp.sympify(3.14),
         description="Description of v",
         component="My component",
         unit_str="mV",
     )
     assert result[4] == atoms.Parameter(
         name="z",
-        value=42.0,
+        value=sp.sympify(42.0),
         description="Description of z",
         component="My component",
     )
@@ -75,19 +74,20 @@ def test_states_arguments(parser, trans):
 
     comp1 = result.components[0]
     assert comp1.name == "My component"
+
     assert comp1.states == {
-        atoms.State(name="y", value=1.0, component="My component"),
-        atoms.State(name="x", value=42.0, component="My component"),
+        atoms.State(name="y", value=sp.sympify(1.0), component="My component"),
+        atoms.State(name="x", value=sp.sympify(42.0), component="My component"),
         atoms.State(
             name="w",
-            value=10.2,
+            value=sp.sympify(10.2),
             component="My component",
             unit_str="mM",
             info="Some info",
         ),
         atoms.State(
             name="v",
-            value=3.14,
+            value=sp.sympify(3.14),
             description="Description of v",
             component="My component",
             info="Some info",
@@ -100,7 +100,7 @@ def test_states_arguments(parser, trans):
     assert comp2.states == {
         atoms.State(
             name="z",
-            value=42.0,
+            value=sp.sympify(42.0),
             description="Description of z",
             component="My other component",
             info="other info",
@@ -125,7 +125,7 @@ def test_comment(parser, trans):
 
     comp = result.components
     assert len(comp) == 1
-    assert comp[0].parameters == {atoms.Parameter(name="y", value=2.0)}
+    assert comp[0].parameters == {atoms.Parameter(name="y", value=sp.sympify(2))}
 
     assert comp[0].assignments == {
         atoms.Assignment(

@@ -1,8 +1,8 @@
 ?start: ode
 
 ?ode: (parameters | states | expressions | comment) *
-?parameter: NAME "=" SIGNED_NUMBER  -> param
-    | NAME "=" "ScalarParam" "(" SIGNED_NUMBER ["," "unit" "=" UNIT_STR] ["," "description" "=" DESCRIPTION] ")" -> scalarparam
+?parameter: NAME "=" expression  -> param
+    | NAME "=" "ScalarParam" "(" expression ["," "unit" "=" UNIT_STR] ["," "description" "=" DESCRIPTION] ")" -> scalarparam
 
 ?assignment : VARIABLE "=" expression [ unit ]
 ?unit: "#" UNIT
@@ -39,7 +39,6 @@ expressions: (assignment)+
 scientific: SCIENTIFIC_NUMBER
 constant: PI
     | EULER
-    | I
 variable: VARIABLE
 ?func: funcname "(" expression ("," expression)* ")"
 ?funcname: COS
@@ -117,7 +116,6 @@ UNIT: NAME ("*" | "**" SIGN? NUMBER |NAME)*
 
 %import common.CNAME -> NAME
 %import common.NUMBER
-%import common.SIGNED_NUMBER
 %import common.WS
 %import common.NEWLINE
 %import common.WS_INLINE

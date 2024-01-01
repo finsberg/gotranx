@@ -52,10 +52,10 @@ class Atom:
     """Base class for atoms"""
 
     name: str = attr.ib()
-    value: float | Expression = attr.ib()
+    value: float | Expression | sp.core.Number = attr.ib()
     component: str | None = attr.ib(None)
     description: str | None = attr.ib(None)
-    info: str | None = attr.ib(None)
+    info: str | None = attr.ib(default=None)
     symbol: sp.Symbol = attr.ib(None)
     unit_str: str | None = attr.ib(None, repr=False)
     unit: pint.Unit | None = attr.ib(None)
@@ -71,7 +71,7 @@ class Atom:
 class Parameter(Atom):
     """A Parameter is a constant scalar value"""
 
-    value: float = attr.ib()
+    value: float | sp.core.Number = attr.ib()
 
 
 @attr.s(frozen=True, kw_only=True, slots=True)
@@ -80,7 +80,7 @@ class State(Atom):
     corresponding state derivative.
     """
 
-    value: float = attr.ib()
+    value: float | sp.core.Number = attr.ib()
 
     def to_TimeDependentState(self, t: sp.Symbol) -> "TimeDependentState":
         return TimeDependentState(

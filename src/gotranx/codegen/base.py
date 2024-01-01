@@ -143,7 +143,7 @@ class CodeGenerator(abc.ABC):
         code = self.template.init_state_values(
             code=expr,
             state_names=[s.name for s in self.ode.states],
-            state_values=[s.value for s in self.ode.states],
+            state_values=[self.printer.doprint(s.value) for s in self.ode.states],
             name=name,
         )
         return self._format(code)
@@ -172,7 +172,7 @@ class CodeGenerator(abc.ABC):
         code = self.template.init_parameter_values(
             code=expr,
             parameter_names=[s.name for s in self.ode.parameters],
-            parameter_values=[s.value for s in self.ode.parameters],
+            parameter_values=[self.printer.doprint(s.value) for s in self.ode.parameters],
             name=name,
         )
         return self._format(code)

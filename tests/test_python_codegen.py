@@ -139,9 +139,9 @@ def test_python_codegen_initial_parameter_values(codegen: PythonCodeGenerator):
     assert codegen.initial_parameter_values() == (
         "def init_parameter_values(**values):"
         '\n    """Initialize parameter values"""'
-        "\n    # a=0.0, beta=2.4, rho=21.0, sigma=12.0"
+        "\n    # a=0, beta=2.4, rho=21.0, sigma=12.0"
         "\n"
-        "\n    parameters = numpy.array([0.0, 2.4, 21.0, 12.0])"
+        "\n    parameters = numpy.array([0, 2.4, 21.0, 12.0])"
         "\n"
         "\n    for key, value in values.items():"
         "\n        parameters[parameter_index(key)] = value"

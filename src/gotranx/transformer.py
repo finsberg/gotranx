@@ -90,13 +90,15 @@ def tree2parameter(
     cls: Type[T],
     info: str | None = None,
 ) -> T:
+    from .expressions import build_expression
+
     kwargs = {}
     if info is not None:
         kwargs["info"] = info
     if s.data == "param":
         return cls(
             name=str(s.children[0]),
-            value=float(s.children[1]),
+            value=build_expression(s.children[1]),
             component=component,
             **kwargs,
         )
@@ -111,7 +113,7 @@ def tree2parameter(
 
         return cls(
             name=str(s.children[0]),
-            value=float(s.children[1]),
+            value=build_expression(s.children[1]),
             component=component,
             unit_str=unit,
             description=desc,
