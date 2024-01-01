@@ -63,7 +63,7 @@ def build_expression(
         if tree.data == "variable":
             return symbols_[str(tree.children[0])]
         if tree.data == "scientific":
-            return float(tree.children[0])
+            return sp.sympify(tree.children[0])
 
         if tree.data == "signedatom":
             if tree.children[0] == "-":

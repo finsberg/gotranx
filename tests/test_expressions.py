@@ -57,7 +57,7 @@ def test_build_two_expressions(parser, trans):
     x = ode["x"].symbol
     y = ode["y"].symbol
 
-    assert ode["x"].expr == (a + 1.0) / b
+    assert ode["x"].expr == (a + 1) / b
     assert ode["y"].expr == b * x
     assert ode["du_dt"].expr == x + y - u
 
@@ -77,3 +77,18 @@ def test_add_temporal_state(parser, trans):
     ode = gotranx.ode.ODE(components=components, t=t)
     assert str(ode["u"].symbol) == "u(t)"
     assert str(ode["du_dt"].symbol) == "Derivative(u(t), t)"
+
+
+def test_state_parameters_with_expression_values(parser, trans):
+    expr = """
+    states(u=2*4/3)
+    parameters(a=3*5**2, b=1/2)
+    x = (1 + a) / b
+    y = b  * x
+    du_dt = y + x - u
+    """
+    tree = parser.parse(expr)
+    result = trans.transform(tree).components[0]
+    assert result.find_state("u").value == sp.Rational(8, 3)
+    assert result.find_parameter("a").value == 75
+    assert result.find_parameter("b").value == sp.Rational(1, 2)

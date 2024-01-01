@@ -45,13 +45,23 @@ class Component:
         if len(infos) == 1:
             object.__setattr__(self, "info", infos.pop())
 
-    def _find_state(self, state_name: str) -> atoms.State:
+    def find_state(self, state_name: str) -> atoms.State:
         for state in self.states:
             if state.name == state_name:
                 return state
         else:
             raise exceptions.StateNotFoundInComponent(
                 state_name=state_name,
+                component_name=self.name,
+            )
+
+    def find_parameter(self, parameter_name: str) -> atoms.Parameter:
+        for parameter in self.parameters:
+            if parameter.name == parameter_name:
+                return parameter
+        else:
+            raise exceptions.ParameterNotFoundInComponent(
+                parameter_name=parameter_name,
                 component_name=self.name,
             )
 
@@ -65,7 +75,7 @@ class Component:
                 state_derivatives.add(assignment)
             else:
                 if state_name := STATE_DERIV_EXPR.match(assignment.name):
-                    state = self._find_state(state_name=state_name.groupdict()["state"])
+                    state = self.find_state(state_name=state_name.groupdict()["state"])
                     state_derivatives.add(assignment.to_state_derivative(state))
                 else:
                     intermediates.add(assignment.to_intermediate())
