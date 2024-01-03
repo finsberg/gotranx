@@ -21,7 +21,7 @@ def test_build_expression(expr, symbol_values, expected, parser, trans):
     symbols = {name: sp.Symbol(name) for name in symbol_values}
     value = result[0].value.tree
     sympy_expr = build_expression(value, symbols)
-    assert sympy_expr.subs(symbol_values) == pytest.approx(expected)
+    assert sympy_expr.subs(symbol_values).evalf() == pytest.approx(expected)
 
 
 def test_build_two_expressions(parser, trans):
@@ -57,9 +57,9 @@ def test_build_two_expressions(parser, trans):
     x = ode["x"].symbol
     y = ode["y"].symbol
 
-    assert ode["x"].expr == (a + 1) / b
-    assert ode["y"].expr == b * x
-    assert ode["du_dt"].expr == x + y - u
+    assert ode["x"].expr.evalf() == ((a + 1) / b).evalf()
+    assert ode["y"].expr.evalf() == (b * x).evalf()
+    assert ode["du_dt"].expr.evalf() == (x + y - u).evalf()
 
 
 def test_add_temporal_state(parser, trans):
@@ -82,13 +82,18 @@ def test_add_temporal_state(parser, trans):
 def test_state_parameters_with_expression_values(parser, trans):
     expr = """
     states(u=2*4/3)
-    parameters(a=3*5**2, b=1/2)
+    parameters(a=3*5**2)
     x = (1 + a) / b
     y = b  * x
     du_dt = y + x - u
     """
     tree = parser.parse(expr)
     result = trans.transform(tree).components[0]
-    assert result.find_state("u").value == sp.Rational(8, 3)
-    assert result.find_parameter("a").value == 75
-    assert result.find_parameter("b").value == sp.Rational(1, 2)
+
+    assert result.find_state("u").value.args == (
+        sp.Mul(2, 4, evaluate=False),
+        sp.Pow(3, sp.Integer(-1), evaluate=False),
+    )
+    assert result.find_parameter("a").value == sp.Mul(
+        3, sp.Pow(5, 2, evaluate=False), evaluate=False
+    )

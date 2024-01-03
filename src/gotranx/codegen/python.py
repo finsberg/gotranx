@@ -9,6 +9,7 @@ from .. import templates
 from .base import CodeGenerator, Func, RHSArgument, SchemeArgument
 
 
+# class GotranPythonCodePrinter(NumPyPrinter):
 class GotranPythonCodePrinter(PythonCodePrinter):
     def _traverse_matrix_indices(self, mat):
         rows, cols = mat.shape
@@ -32,9 +33,9 @@ class GotranPythonCodePrinter(PythonCodePrinter):
         if isinstance(fst[0], Assignment):
             value = (
                 f"{super()._print(fst[0].args[0])} = "
-                f"({super()._print(fst[1])}) ? "
-                f"{super()._print(fst[0].args[1])} : "
-                f"{super()._print(snd[0].args[1])};"
+                f"{super()._print(fst[0].args[1])} if "
+                f"{super()._print(fst[1])} else "
+                f"{super()._print(snd[0].args[1])}"
             )
         else:
             value = super()._print_Piecewise(expr)

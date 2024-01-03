@@ -110,7 +110,9 @@ class CodeGenerator(abc.ABC):
         return self.printer.doprint(Assignment(lhs, rhs))
 
     def state_index(self) -> str:
-        code = self.template.state_index(data={s.name: i for i, s in enumerate(self.ode.states)})
+        code = self.template.state_index(
+            data={s.name: i for i, s in enumerate(self.ode.sorted_states())}
+        )
         return self._format(code)
 
     def parameter_index(self) -> str:
@@ -136,14 +138,14 @@ class CodeGenerator(abc.ABC):
         expr = "\n".join(
             [
                 self._doprint(state_result[i], value)
-                for i, value in enumerate([s.state.value for s in self.ode.state_derivatives])
+                for i, value in enumerate([s.value for s in self.ode.sorted_states()])
             ]
         )
 
         code = self.template.init_state_values(
             code=expr,
-            state_names=[s.name for s in self.ode.states],
-            state_values=[self.printer.doprint(s.value) for s in self.ode.states],
+            state_names=[s.name for s in self.ode.sorted_states()],
+            state_values=[self.printer.doprint(s.value) for s in self.ode.sorted_states()],
             name=name,
         )
         return self._format(code)
@@ -180,7 +182,7 @@ class CodeGenerator(abc.ABC):
     def _state_assignments(self, states: sympy.IndexedBase) -> str:
         return "\n".join(
             self._doprint(state.symbol, states[i], use_variable_prefix=True)
-            for i, state in enumerate(self.ode.states)
+            for i, state in enumerate(self.ode.sorted_states())
         )
 
     def _parameter_assignments(self, parameters: sympy.IndexedBase) -> str:
@@ -214,16 +216,10 @@ class CodeGenerator(abc.ABC):
         values_idx = sympy.IndexedBase("values", shape=(len(self.ode.state_derivatives),))
 
         for x in self.ode.sorted_assignments():
-            if isinstance(x, atoms.Intermediate):
-                values_lst.append(
-                    f"{self.variable_prefix}"
-                    f"{self.printer.doprint(Assignment(x.symbol, x.expr))}"
-                )
-            elif isinstance(x, atoms.StateDerivative):
-                values_lst.append(f"{self.printer.doprint(Assignment(values_idx[index], x.expr))}")
+            values_lst.append(self._doprint(x.symbol, x.expr, use_variable_prefix=True))
+            if isinstance(x, atoms.StateDerivative):
+                values_lst.append(self._doprint(values_idx[index], x.symbol))
                 index += 1
-            else:
-                raise RuntimeError(f"Unknown type {x}")
 
         values = "\n".join(values_lst)
         code = self.template.method(
