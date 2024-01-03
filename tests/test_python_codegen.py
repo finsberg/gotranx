@@ -184,9 +184,12 @@ def test_python_codegen_rhs(order: str, arguments: str, codegen: PythonCodeGener
         "\n"
         "\n    # Assign expressions"
         "\n    values = numpy.zeros(3)"
-        "\n    values[0] = sigma * (-x + y)"
-        "\n    values[1] = x * (rho - z) - y"
-        "\n    values[2] = -beta * z + x * y"
+        "\n    dx_dt = sigma * (-x + y)"
+        "\n    values[0] = dx_dt"
+        "\n    dy_dt = x * (rho - z) - y"
+        "\n    values[1] = dy_dt"
+        "\n    dz_dt = (-beta) * z + x * y"
+        "\n    values[2] = dz_dt"
         "\n"
         "\n    return values"
         "\n"
@@ -213,7 +216,7 @@ def test_python_codegen_forward_explicit_euler(codegen: PythonCodeGenerator):
         "\n    values[0] = dt * dx_dt + x"
         "\n    dy_dt = x * (rho - z) - y"
         "\n    values[1] = dt * dy_dt + y"
-        "\n    dz_dt = -beta * z + x * y"
+        "\n    dz_dt = (-beta) * z + x * y"
         "\n    values[2] = dt * dz_dt + z"
         "\n"
         "\n    return values"
@@ -251,13 +254,41 @@ def test_python_codegen_forward_generalized_rush_larsen(codegen: PythonCodeGener
         "\n        if (abs(dy_dt_linearized) > 1e-08)"
         "\n        else (dt * dy_dt)"
         "\n    )"
-        "\n    dz_dt = -beta * z + x * y"
+        "\n    dz_dt = (-beta) * z + x * y"
         "\n    dz_dt_linearized = -beta"
         "\n    values[2] = z + ("
         "\n        (dz_dt * (math.exp(dt * dz_dt_linearized) - 1) / dz_dt_linearized)"
         "\n        if (abs(dz_dt_linearized) > 1e-08)"
         "\n        else (dt * dz_dt)"
         "\n    )"
+        "\n"
+        "\n    return values"
+        "\n"
+    )
+
+
+def test_python_conditional_expression(parser, trans):
+    expr = """
+    states(v=0)
+    ah = Conditional(Ge(v, -40), 0, 0.057*exp(-(v + 80)/6.8))
+    dv_dt = 0
+    """
+    tree = parser.parse(expr)
+    result = trans.transform(tree)
+    ode = make_ode(*result, name="conditional")
+    codegen = PythonCodeGenerator(ode)
+    assert codegen.rhs() == (
+        "def rhs(t, states, parameters):"
+        "\n    # Assign states"
+        "\n    v = states[0]"
+        "\n"
+        "\n    # Assign parameters"
+        "\n"
+        "\n    # Assign expressions"
+        "\n    values = numpy.zeros(1)"
+        "\n    dv_dt = 0"
+        "\n    values[0] = dv_dt"
+        "\n    ah = 0 if (v >= -40) else 0.057 * math.exp((-v - 80) / 6.8)"
         "\n"
         "\n    return values"
         "\n"

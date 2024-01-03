@@ -7,12 +7,12 @@ if typing.TYPE_CHECKING:  # pragma: no cover
 
 
 def states_matrix(ode: "ODE") -> sympy.Matrix:
-    return sympy.Matrix([state_der.state.symbol for state_der in ode.state_derivatives])
+    return sympy.Matrix([state.symbol for state in ode.sorted_states()])
 
 
 def rhs_matrix(ode: "ODE", max_tries: int = 20) -> sympy.Matrix:
     intermediates = {x.symbol: x.expr for x in ode.intermediates}
-    rhs = sympy.Matrix([state.expr for state in ode.state_derivatives])
+    rhs = sympy.Matrix([state.expr for state in ode.sorted_state_derivatives()])
 
     num_tries = 0
     while (any([rhs.has(k) for k in intermediates.keys()])) and num_tries < max_tries:

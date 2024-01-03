@@ -59,7 +59,7 @@ def test_rhs_matrx(ode: ODE):
     assert len(rhs) == 3
     assert str(rhs[0]) == "sigma*(-x + y)"
     assert str(rhs[1]) == "x*(rho - z) - y"
-    assert str(rhs[2]) == "-beta*z + x*y"
+    assert str(rhs[2]) == "(-beta)*z + x*y"
 
 
 def test_jacobian_matrix(ode: ODE):

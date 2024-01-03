@@ -33,7 +33,7 @@ def test_forward_explicit_euler(ode: ODE):
     assert len(eqs) == 8
 
     assert eqs[0] == "y_int = x*(rho - z)"
-    assert eqs[1] == "z_int = -beta*z"
+    assert eqs[1] == "z_int = (-beta)*z"
     assert eqs[2] == "dx_dt = sigma*(-x + y)"
     assert eqs[3] == "values[0] = dt*dx_dt + x"
     assert eqs[4] == "dy_dt = -y + y_int"
@@ -49,7 +49,7 @@ def test_forward_generalized_rush_larsen(ode: ODE):
     assert len(eqs) == 10
 
     assert str(eqs[0]) == "y_int = x*(rho - z)"
-    assert str(eqs[1]) == "z_int = -beta*z"
+    assert str(eqs[1]) == "z_int = (-beta)*z"
     assert str(eqs[2]) == "dx_dt = sigma*(-x + y)"
     assert str(eqs[3]) == "dx_dt_linearized = -sigma"
     assert str(eqs[4]) == (

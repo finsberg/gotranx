@@ -8,6 +8,15 @@ from .exceptions import InvalidTreeError
 BINARY_OPERATIONS = {"add", "mul", "sub", "div", "pow"}
 
 
+def relational_to_piecewise(expr: sp.Expr) -> sp.Piecewise:
+    if expr.is_Relational:
+        return sp.Piecewise(
+            (1, expr),
+            (0, True),
+        )
+    return expr
+
+
 def binary_op(op: str, fst, snd):
     """Binary operation
 
@@ -25,16 +34,19 @@ def binary_op(op: str, fst, snd):
     sp.Expr
         The result of the operation
     """
+    fst = relational_to_piecewise(fst)
+    snd = relational_to_piecewise(snd)
+
     if op == "add":
-        return fst + snd
+        return sp.Add(fst, snd, evaluate=False)
     if op == "sub":
-        return fst - snd
+        return sp.Add(fst, sp.Mul(sp.Integer(-1), snd, evaluate=False), evaluate=False)
     if op == "div":
-        return fst / snd
+        return sp.Mul(fst, sp.Pow(snd, sp.Integer(-1), evaluate=False), evaluate=False)
     if op == "mul":
-        return fst * snd
+        return sp.Mul(fst, snd, evaluate=False)
     if op == "pow":
-        return pow(fst, snd)
+        return sp.Pow(fst, snd, evaluate=False)
 
     raise RuntimeError(f"Invalid binary operation {op}")
 

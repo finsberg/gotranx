@@ -266,3 +266,9 @@ class ODE:
             assignments_only=assignments_only,
         )
         return tuple([cast(atoms.Assignment, self[name]) for name in names])
+
+    def sorted_state_derivatives(self) -> tuple[atoms.StateDerivative, ...]:
+        return tuple(s for s in self.sorted_assignments() if isinstance(s, atoms.StateDerivative))
+
+    def sorted_states(self) -> tuple[atoms.State, ...]:
+        return tuple(s.state for s in self.sorted_state_derivatives())
