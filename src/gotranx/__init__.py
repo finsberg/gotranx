@@ -13,6 +13,7 @@ from . import units
 from . import sympytools
 from . import schemes
 from . import templates
+from . import cellml
 from .load import load_ode
 from .ode import ODE
 from .ode_component import Component
@@ -46,4 +47,5 @@ __all__ = [
     "sympytools",
     "schemes",
     "templates",
+    "cellml",
 ]
