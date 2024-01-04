@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # Copyright (C) 2011-2012 Johan Hake
 #
 # This file is part of Gotran.
