@@ -16,6 +16,9 @@ logger = get_logger()
 
 
 def break_comment_at_80(acc, x):
+    if x == "#":
+        return acc + "\n#"
+
     if len(acc.split("\n")[-1]) + len(x) > 80:
         return acc + "\n# " + x
     else:
@@ -54,7 +57,7 @@ class GotranODECodePrinter(PythonCodeGenerator):
         text = ""
         for components, parameters in d.items():
             text += start_odeblock("parameters", names=components) + "\n"
-            text += ", ".join(
+            text += ",\n".join(
                 [print_ScalarParam(p, doprint=self.printer.doprint) for p in parameters]
             )
             text += "\n)\n\n"
@@ -92,14 +95,23 @@ def start_odeblock(case: str, names: tuple[str, ...] = (), is_expression: bool =
             return f"{case}({args},"
 
 
+def join(*args: str) -> str:
+    non_empty_args = [a for a in args if a != ""]
+    if len(non_empty_args) == 0:
+        return ""
+    elif len(non_empty_args) == 1:
+        return ", " + non_empty_args[0]
+    else:
+        return ", " + ", ".join(args)
+
+
 def print_ScalarParam(p: atoms.Atom, doprint: Callable[[str], str]) -> str:
     unit_str = "" if p.unit_str is None else f'unit="{p.unit_str}"'
     description = "" if p.description is None else f'description="{p.description}"'
-
     if unit_str == "" and description == "":
         ret = f"{p.name}={doprint(p.value)}"  # type: ignore
     else:
-        kwargs_str = ", ".join([unit_str, description])
+        kwargs_str = join(unit_str, description)
         ret = f"{p.name}=ScalarParam({doprint(p.value)}{kwargs_str})"  # type: ignore
 
     logger.debug(f"Saving parameters {p} as {ret!r}")
@@ -108,8 +120,8 @@ def print_ScalarParam(p: atoms.Atom, doprint: Callable[[str], str]) -> str:
 
 def print_assignment(a: atoms.Assignment) -> str:
     s = f"{a.name} = {a.expr}"
-    if a.unit is not None:
-        s += f" # {a.unit}"
+    if a.unit_str is not None:
+        s += f" # {a.unit_str}"
     return s
 
 
@@ -123,3 +135,4 @@ def write_ODE_to_ode_file(ode: ODE, path: Path) -> None:
     text += printer.print_parameters()
     text += printer.print_assignments()
     path.write_text(text)
+    logger.info(f"Wrote {path}")

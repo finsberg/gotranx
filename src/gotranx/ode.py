@@ -2,6 +2,7 @@ from __future__ import annotations
 from collections import defaultdict
 
 from functools import cached_property
+from pathlib import Path
 from graphlib import TopologicalSorter
 from typing import Iterable
 from typing import Sequence
@@ -291,3 +292,8 @@ class ODE:
 
     def sorted_states(self) -> tuple[atoms.State, ...]:
         return tuple(s.state for s in self.sorted_state_derivatives())
+
+    def save(self, path: Path) -> None:
+        from .save import write_ODE_to_ode_file
+
+        write_ODE_to_ode_file(self, path)
