@@ -2,78 +2,137 @@ from __future__ import annotations
 
 from collections import defaultdict
 from pathlib import Path
-from typing import Iterable
-from typing import TypeVar
+from typing import TypeVar, Callable
+from functools import reduce
 
 from structlog import get_logger
 
 from . import atoms
 from .ode import ODE
+from .codegen.python import PythonCodeGenerator
 
 T = TypeVar("T")
 logger = get_logger()
 
 
-def start_odeblock(case, name=None, info=None):
-    if name is None:
+def break_comment_at_80(acc, x):
+    if x == "#":
+        return acc + "\n#"
+
+    if len(acc.split("\n")[-1]) + len(x) > 80:
+        return acc + "\n# " + x
+    else:
+        return acc + " " + x
+
+
+class GotranODECodePrinter(PythonCodeGenerator):
+    def print_comments(self) -> str:
+        if len(self.ode.comments) == 0:
+            return ""
+        text = "# "
+
+        for comment in self.ode.comments:
+            text += reduce(break_comment_at_80, comment.text.split(" "))
+
+        text += "\n\n"
+        return text
+
+    def print_states(self) -> str:
+        d: dict[tuple[str, ...], list[atoms.State]] = defaultdict(list)
+        for state in self.ode.states:
+            d[state.components].append(state)
+
+        text = ""
+        for components, states in d.items():
+            text += start_odeblock("states", names=components) + "\n"
+            text += ", ".join([print_ScalarParam(s, doprint=self.printer.doprint) for s in states])
+            text += "\n)\n\n"
+        return text
+
+    def print_parameters(self) -> str:
+        d: dict[tuple[str, ...], list[atoms.Parameter]] = defaultdict(list)
+        for parameter in self.ode.parameters:
+            d[parameter.components].append(parameter)
+
+        text = ""
+        for components, parameters in d.items():
+            text += start_odeblock("parameters", names=components) + "\n"
+            text += ",\n".join(
+                [print_ScalarParam(p, doprint=self.printer.doprint) for p in parameters]
+            )
+            text += "\n)\n\n"
+
+        return text
+
+    def print_assignments(self) -> str:
+        d: dict[tuple[str, ...], list[atoms.Assignment]] = defaultdict(list)
+        for i in self.ode.intermediates + self.ode.state_derivatives:
+            d[i.components].append(i)
+
+        text = ""
+        for components, intermediates in d.items():
+            text += start_odeblock("expressions", names=components, is_expression=True) + "\n"
+            text += "\n".join([print_assignment(i) for i in intermediates])
+            text += "\n\n"
+
+        return text
+
+    def format(self, code: str) -> str:
+        return self._formatter(code)
+
+
+def start_odeblock(case: str, names: tuple[str, ...] = (), is_expression: bool = False):
+    if len(names) == 0 or (len(names) == 1 and names[0] == ""):
+        if is_expression:
+            return ""
         return f"{case}("
     else:
-        if info is None:
-            return f'{case}("{name}",'
+        args = ", ".join(f'"{n}"' for n in names)
+
+        if is_expression:
+            return f"{case}({args})"
         else:
-            return f'{case}("{name}", "{info}",'
+            return f"{case}({args},"
 
 
-def print_ScalarParam(p: atoms.Atom) -> str:
+def join(*args: str) -> str:
+    non_empty_args = [a for a in args if a != ""]
+    if len(non_empty_args) == 0:
+        return ""
+    elif len(non_empty_args) == 1:
+        return ", " + non_empty_args[0]
+    else:
+        return ", " + ", ".join(args)
+
+
+def print_ScalarParam(p: atoms.Atom, doprint: Callable[[str], str]) -> str:
     unit_str = "" if p.unit_str is None else f'unit="{p.unit_str}"'
     description = "" if p.description is None else f'description="{p.description}"'
-
     if unit_str == "" and description == "":
-        ret = f"{p.name}={p.value}"
+        ret = f"{p.name}={doprint(p.value)}"  # type: ignore
     else:
-        kwargs_str = ", ".join([unit_str, description])
-        ret = f"{p.name}=ScalarParam({p.value}{kwargs_str})"
+        kwargs_str = join(unit_str, description)
+        ret = f"{p.name}=ScalarParam({doprint(p.value)}{kwargs_str})"  # type: ignore
 
     logger.debug(f"Saving parameters {p} as {ret!r}")
     return ret
 
 
-def groupby_attribute(d: Iterable[T], attr: str) -> dict[str, list[T]]:
-    data = defaultdict(list)
-    for di in d:
-        data[getattr(di, attr)].append(di)
-    return dict(data)
-
-
 def print_assignment(a: atoms.Assignment) -> str:
     s = f"{a.name} = {a.expr}"
-    if a.unit is not None:
-        s += f" # {a.unit}"
+    if a.unit_str is not None:
+        s += f" # {a.unit_str}"
     return s
 
 
 def write_ODE_to_ode_file(ode: ODE, path: Path) -> None:
     # Just make sure it is a Path object
+    printer = GotranODECodePrinter(ode)
     path = Path(path)
     text = ""
-    for component in ode.components:
-        name = component.name
-        logger.debug(f"Saving component {name}")
-
-        for info, parameters in groupby_attribute(component.parameters, "info").items():
-            text += start_odeblock("parameters", name=name, info=info) + "\n"
-            text += ", ".join([print_ScalarParam(p) for p in parameters])
-            text += "\n)\n"
-
-        # FIXME: Add info
-        for info, states in groupby_attribute(component.states, "info").items():
-            text += start_odeblock("states", name=name, info=info) + "\n"
-            text += ", ".join([print_ScalarParam(s) for s in states])
-            text += "\n)\n"
-
-        if name is not None:
-            text += f'expressions("{name}")\n'
-
-        text += "\n".join([print_assignment(a) for a in component.assignments])
-
+    text += printer.print_comments()
+    text += printer.print_states()
+    text += printer.print_parameters()
+    text += printer.print_assignments()
     path.write_text(text)
+    logger.info(f"Wrote {path}")

@@ -207,13 +207,13 @@ def test_expressions_with_name_only(parser, trans):
     result = trans.transform(tree)
 
     assert len(result) == 2
-    assert result[0].component == "My Component"
+    assert result[0].components == ("My Component",)
     assert result[0].name == "x"
     assert result[0].value.tree == lark.Tree(
         "scientific",
         [lark.Token("SCIENTIFIC_NUMBER", "1")],
     )
-    assert result[1].component == "My Component"
+    assert result[1].components == ("My Component",)
     assert result[1].name == "y"
     assert result[1].value.tree == lark.Tree(
         "scientific",
@@ -231,15 +231,13 @@ def test_expressions_with_name_and_info(parser, trans):
     result = trans.transform(tree)
 
     assert len(result) == 2
-    assert result[0].component == "My Component"
-    assert result[0].info == "Some info"
+    assert result[0].components == ("My Component", "Some info")
     assert result[0].name == "x"
     assert result[0].value.tree == lark.Tree(
         "scientific",
         [lark.Token("SCIENTIFIC_NUMBER", "1")],
     )
-    assert result[1].component == "My Component"
-    assert result[1].info == "Some info"
+    assert result[1].components == ("My Component", "Some info")
     assert result[1].name == "y"
     assert result[1].value.tree == lark.Tree(
         "scientific",
@@ -257,16 +255,14 @@ def test_expressions_with_name_and_info_and_unit(parser, trans):
     result = trans.transform(tree)
 
     assert len(result) == 2
-    assert result[0].component == "My Component"
-    assert result[0].info == "Some info"
+    assert result[0].components == ("My Component", "Some info")
     assert result[0].name == "x"
     assert result[0].value.tree == lark.Tree(
         "scientific",
         [lark.Token("SCIENTIFIC_NUMBER", "1")],
     )
     assert result[0].unit == ureg.Unit("mV")
-    assert result[1].component == "My Component"
-    assert result[1].info == "Some info"
+    assert result[1].components == ("My Component", "Some info")
     assert result[1].name == "y"
     assert result[1].value.tree == lark.Tree(
         "scientific",

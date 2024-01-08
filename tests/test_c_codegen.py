@@ -17,7 +17,7 @@ def ode(trans, parser):
     rho=21.0,
     beta=2.4
     )
-    states("My component", "info about states", x=1.0, y=2.0,z=3.05)
+    states("My component", x=1.0, y=2.0,z=3.05)
 
     expressions("My component")
     dy_dt = x*(rho - z) - y # millivolt

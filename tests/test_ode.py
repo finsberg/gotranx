@@ -9,7 +9,7 @@ def test_ODE_with_incomplete_component_raises_ComponentNotCompleteError(parser, 
     result = trans.transform(tree)
     with pytest.raises(exceptions.ComponentNotCompleteError) as e:
         ode.ODE(result.components)
-    assert str(e.value) == "Component None is not complete. Missing state derivatives for ['x']"
+    assert str(e.value) == "Component '' is not complete. Missing state derivatives for ['x']"
 
 
 @pytest.mark.parametrize(
@@ -56,10 +56,14 @@ def test_make_ode(parser, trans):
     parameters("Second component", c=3)
 
     expressions("First component")
-    dx_dt=a+1
     d = a + b * 2 - 3 / c
-    dy_dt = 2 * d - 1
+
+    expressions("First component", "X-gate")
+    dx_dt=a+1
     dxr_dt = (x / b) - d * xr
+
+    expressions("First component", "Y-gate")
+    dy_dt = 2 * d - 1
 
     expressions("Second component")
     dz_dt = 1 + x - y
@@ -71,7 +75,7 @@ def test_make_ode(parser, trans):
     assert result.text == "This is an ODE. Here is another line."
     assert repr(result) == "ODE(TestODE, num_states=4, num_parameters=3)"
 
-    assert result.num_components == 2
+    assert result.num_components == 4
 
     states = result.states
     assert len(states) == result.num_states == 4

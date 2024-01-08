@@ -49,6 +49,7 @@ def main(
     ),
     outname: typing.Optional[str] = typer.Option(
         None,
+        "-o",
         "--outname",
         help="Output name",
     ),
@@ -69,7 +70,15 @@ def main(
     scheme: Annotated[typing.Optional[typing.List[Scheme]], typer.Option()] = None,
 ):
     if fname is None:
-        return
+        return typer.echo("No file specified")
+
+    if to == "":
+        # Check if outname is specified
+        if outname is None:
+            return typer.echo("No output name specified")
+        else:
+            to = Path(outname).suffix
+
     if to in {".c", ".h"}:
         from . import gotran2c
 
@@ -78,3 +87,8 @@ def main(
         from . import gotran2py
 
         gotran2py.main(fname=fname, suffix=to, outname=outname, scheme=scheme)
+
+    if to in {".ode"}:
+        from .cellml2ode import main as cellml2ode
+
+        cellml2ode(fname=fname, outname=outname)

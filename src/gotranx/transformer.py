@@ -23,20 +23,6 @@ def remove_quotes(s: str) -> str:
     return s.replace("'", "").replace('"', "")
 
 
-def find_assignment_component(s) -> str | None:
-    component = None
-    if isinstance(s, lark.Token) and s.type == "COMPONENT_NAME":
-        component = remove_quotes(str(s))
-    return component
-
-
-def find_assignment_info(s) -> str | None:
-    info = None
-    if len(s) > 1 and isinstance(s[1], lark.Token) and s[1].type == "INFO":
-        info = remove_quotes(str(s[1]))
-    return info
-
-
 def get_unit_from_assignment(s: lark.Tree) -> str | None:
     if len(s.children) >= 3:
         unit = s.children[2]
@@ -50,16 +36,14 @@ def get_unit_from_assignment(s: lark.Tree) -> str | None:
 
 def find_assignments(
     s,
-    component: str | None = None,
-    info: str | None = None,
+    components: tuple[str, ...],
 ) -> list[atoms.Assignment]:
     if isinstance(s, lark.Tree):
         return [
             atoms.Assignment(
                 name=str(s.children[0]),
                 value=atoms.Expression(tree=s.children[1]),
-                component=component,
-                info=info,
+                components=tuple(components),
                 unit_str=get_unit_from_assignment(s),
             ),
         ]
@@ -67,40 +51,48 @@ def find_assignments(
     return []
 
 
+def find_components(
+    s: list[None | lark.tree.Tree | lark.lexer.Token],
+) -> tuple[int, tuple[str, ...]]:
+    i = 0
+    components = []
+
+    while (
+        isinstance(s[i], lark.lexer.Token)
+        and hasattr(s[i], "type")
+        and s[i].type == "COMPONENT_NAME"  # type:ignore
+    ):
+        components.append(remove_quotes(str(s[i])))
+        i += 1
+
+    # If no components are found, add an empty string
+    if len(components) == 0:
+        components.append("")
+    return i, tuple(components)
+
+
 def lark_list_to_parameters(
     s: list[None | lark.tree.Tree | lark.lexer.Token],
     cls: Type[T],
 ) -> tuple[T, ...]:
-    component = s[0]
-    if component is not None:
-        component = remove_quotes(str(component))
-
-    info = s[1]
-    if info is not None:
-        info = remove_quotes(str(info))
-
+    i, components = find_components(s)
     return tuple(
-        [tree2parameter(p, component=component, info=info, cls=cls) for p in s[2:]],
+        [tree2parameter(p, components=components, cls=cls) for p in s[i:]],
     )
 
 
 def tree2parameter(
     s: lark.Tree,
-    component: str | None,
+    components: tuple[str, ...],
     cls: Type[T],
-    info: str | None = None,
 ) -> T:
     from .expressions import build_expression
 
-    kwargs = {}
-    if info is not None:
-        kwargs["info"] = info
     if s.data == "param":
         return cls(
             name=str(s.children[0]),
             value=build_expression(s.children[1]),
-            component=component,
-            **kwargs,
+            components=tuple(components),
         )
     elif s.data == "scalarparam":
         unit = None
@@ -114,10 +106,9 @@ def tree2parameter(
         return cls(
             name=str(s.children[0]),
             value=build_expression(s.children[1]),
-            component=component,
+            components=tuple(components),
             unit_str=unit,
             description=desc,
-            **kwargs,
         )
     else:
         raise exceptions.UnknownTreeTypeError(datatype=s.data, atom="Parameter")
@@ -164,12 +155,12 @@ class TreeToODE(lark.Transformer):
         return lark_list_to_parameters(s, cls=atoms.Parameter)
 
     def expressions(self, s) -> tuple[atoms.Assignment, ...]:
-        component = find_assignment_component(s[0])
-        info = find_assignment_info(s)
+        i, components = find_components(s)
+
         assignments = []
 
-        for si in s:
-            assignments.extend(find_assignments(si, component=component, info=info))
+        for si in s[i:]:
+            assignments.extend(find_assignments(si, components=components))
 
         return tuple(assignments)
 
@@ -181,9 +172,12 @@ class TreeToODE(lark.Transformer):
             atoms.State: "states",
         }
 
-        components: dict[str | None, dict[str, set[atoms.Atom]]] = defaultdict(
+        components: dict[str, dict[str, set[atoms.Atom]]] = defaultdict(
             lambda: {atom: set() for atom in mapping.values()},
         )
+
+        # breakpoint()
+
         comments = []
         for line in s:  # Each line in the block
             if isinstance(line, atoms.Comment):
@@ -191,10 +185,11 @@ class TreeToODE(lark.Transformer):
                 continue
 
             for atom in line:  # State, Parameters or Assignment
-                components[atom.component][mapping[type(atom)]].add(atom)
+                for component in atom.components:
+                    components[component][mapping[type(atom)]].add(atom)
 
         # Make sets frozen
-        frozen_components: dict[str | None, dict[str, frozenset[atoms.Atom]]] = {}
+        frozen_components: dict[str, dict[str, frozenset[atoms.Atom]]] = {}
         for component_name, component_values in components.items():
             frozen_components[component_name] = {}
             for atom_name, atom_values in component_values.items():

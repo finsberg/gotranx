@@ -53,9 +53,8 @@ class Atom:
 
     name: str = attr.ib()
     value: float | Expression | sp.core.Number = attr.ib()
-    component: str | None = attr.ib(None)
+    components: tuple[str, ...] = attr.ib(default=("",))
     description: str | None = attr.ib(None)
-    info: str | None = attr.ib(default=None)
     symbol: sp.Symbol = attr.ib(None)
     unit_str: str | None = attr.ib(None, repr=False)
     unit: pint.Unit | None = attr.ib(None)
@@ -87,8 +86,7 @@ class State(Atom):
             name=self.name,
             value=self.value,
             symbol=sp.Function(self.symbol)(t),
-            component=self.component,
-            info=self.info,
+            components=self.components,
             description=self.description,
             unit_str=self.unit_str,
             unit=self.unit,
@@ -112,7 +110,7 @@ class Expression:
     An Expression is typically a right hand side of
     an assignment."""
 
-    tree: lark.Tree = attr.ib()
+    tree: lark.Tree = attr.ib(cmp=False)  # Different trees can give same expression
     dependencies: frozenset[str] = attr.ib(init=False)
 
     def __attrs_post_init__(self):
@@ -142,8 +140,7 @@ class Assignment(Atom):
         return type(self)(
             name=self.name,
             value=self.value,
-            component=self.component,
-            info=self.info,
+            components=self.components,
             unit_str=self.unit_str,
             unit=self.unit,
             expr=expr,
@@ -155,8 +152,7 @@ class Assignment(Atom):
         return Intermediate(
             name=self.name,
             value=self.value,
-            component=self.component,
-            info=self.info,
+            components=self.components,
             unit_str=self.unit_str,
             unit=self.unit,
             expr=self.expr,
@@ -168,12 +164,23 @@ class Assignment(Atom):
         return StateDerivative(
             name=self.name,
             value=self.value,
-            component=self.component,
-            info=self.info,
+            components=self.components,
             unit_str=self.unit_str,
             unit=self.unit,
             state=state,
             expr=self.expr,
+            description=self.description,
+            symbol=self.symbol,
+        )
+
+    def simplify(self) -> "Assignment":
+        return type(self)(
+            name=self.name,
+            value=self.value,
+            components=self.components,
+            unit_str=self.unit_str,
+            unit=self.unit,
+            expr=self.expr.simplify(),
             description=self.description,
             symbol=self.symbol,
         )
@@ -198,8 +205,7 @@ class StateDerivative(Assignment):
         return StateDerivative(
             name=self.name,
             value=self.value,
-            component=self.component,
-            info=self.info,
+            components=self.components,
             unit_str=self.unit_str,
             unit=self.unit,
             symbol=self.symbol,

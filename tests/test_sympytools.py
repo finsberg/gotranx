@@ -14,7 +14,7 @@ def ode(trans, parser) -> ODE:
     rho=21.0,
     beta=2.4
     )
-    states("My component", "info about states", x=1.0, z=3.05, y=2.0)
+    states("My component", x=1.0, z=3.05, y=2.0)
 
     expressions("My component")
     dx_dt = sigma*(-x + y)

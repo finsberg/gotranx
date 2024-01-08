@@ -15,7 +15,7 @@ def test_component_None(parser, trans):
     result = trans.transform(tree).components
     assert len(result) == 1  # Only one component
     comp = result[0]
-    assert comp.name is None
+    assert comp.name == ""
     assert comp.parameters == {
         atoms.Parameter(name="x", value=1),
         atoms.Parameter(name="y", value=2),
@@ -49,48 +49,39 @@ def test_component_None(parser, trans):
     }
 
 
-def test_component_with_name_and_different_info(parser, trans):
+@pytest.mark.parametrize(
+    "index, name, num_parameters, num_states, num_assignments",
+    [
+        (0, "name", 2, 2, 2),
+        (1, "a component", 0, 1, 1),
+        (2, "b component", 0, 1, 1),
+    ],
+)
+def test_component_with_multiple_component_names(
+    index, name, num_parameters, num_states, num_assignments, parser, trans
+):
     tree = parser.parse(
         'parameters("name", x=1, y=2)\n'
-        'states("name", "some info", a=1)\n'
-        'expressions("name", "some other info")\n'
+        'states("name", "a component", a=1)\n'
+        'expressions("name", "a component")\n'
         "da_dt=0"
+        'states("name", "b component", b=2)\n'
+        'expressions("name", "b component")\n'
+        "db_dt=0"
     )
     result = trans.transform(tree).components
-    assert len(result) == 1
-    assert result[0].name == "name"
-    assert result[0].info is None
+    assert len(result) == 3
 
-    for p in result[0].parameters:
-        assert p.component == "name"
-    for s in result[0].states:
-        assert s.component == "name"
-        assert s.info == "some info"
-    for a in result[0].assignments:
-        assert a.component == "name"
-        assert a.info == "some other info"
-
-
-def test_component_with_name_and_same_info(parser, trans):
-    tree = parser.parse(
-        'parameters("name", "some info", x=1, y=2)\n'
-        'states("name", "some info", a=1)\n'
-        'expressions("name", "some info")\n'
-        "da_dt=0"
-    )
-    result = trans.transform(tree).components
-    assert len(result) == 1
-    assert result[0].name == "name"
-    assert result[0].info == "some info"
-    for p in result[0].parameters:
-        assert p.component == "name"
-        assert p.info == "some info"
-    for s in result[0].states:
-        assert s.component == "name"
-        assert s.info == "some info"
-    for a in result[0].assignments:
-        assert a.component == "name"
-        assert a.info == "some info"
+    assert result[index].name == name
+    assert len(result[index].parameters) == num_parameters
+    for p in result[index].parameters:
+        assert name in p.components
+    assert len(result[index].states) == num_states
+    for s in result[index].states:
+        assert name in s.components
+    assert len(result[index].assignments) == num_assignments
+    for a in result[index].assignments:
+        assert name in a.components
 
 
 def test_component_intermediates(parser, trans):
@@ -112,7 +103,7 @@ def test_component_intermediates(parser, trans):
                     ],
                 ),
             ),
-            component=None,
+            components=("",),
         ),
     }
 
@@ -122,8 +113,8 @@ def test_component_intermediates(parser, trans):
             value=atoms.Expression(
                 tree=lark.Tree("scientific", [lark.Token("SCIENTIFIC_NUMBER", "0")]),
             ),
-            component=None,
-            state=atoms.State(name="a", value=2.0, component=None, info=None),
+            components=("",),
+            state=atoms.State(name="a", value=2.0, components=("",)),
         ),
         atoms.StateDerivative(
             name="db_dt",
@@ -136,8 +127,8 @@ def test_component_intermediates(parser, trans):
                     ],
                 ),
             ),
-            component=None,
-            state=atoms.State(name="b", value=3.0, component=None, info=None),
+            components=("",),
+            state=atoms.State(name="b", value=3.0, components=("",)),
         ),
     }
 
@@ -160,7 +151,7 @@ def test_StateNotFound(parser, trans):
     with pytest.raises(exceptions.StateNotFoundInComponent) as e:
         trans.transform(tree)
 
-    assert str(e.value) == "State with name 'y' not found in component None"
+    assert str(e.value) == "State with name 'y' not found in component ''"
 
 
 def test_state_with_and_without_derivatives(parser, trans):
@@ -169,10 +160,10 @@ def test_state_with_and_without_derivatives(parser, trans):
     result = trans.transform(tree)
     comp = result.components[0]
     assert comp.states_with_derivatives == {
-        atoms.State(name="y", value=2, component=None, info=None),
+        atoms.State(name="y", value=2, components=("",)),
     }
     assert comp.states_without_derivatives == {
-        atoms.State(name="x", value=1, component=None, info=None),
+        atoms.State(name="x", value=1, components=("",)),
     }
     assert comp.is_complete() is False
 

@@ -22,23 +22,32 @@ def test_load_ode(path):
         """
     states("First component", "X-gate", x = 1, xr=3.14)
     states("First component", "Y-gate", y = 1)
-    states("Second component", z=1, zi=0.0)
+    states("Second component", z=1)
     parameters("First component", a=1, b=2)
     parameters("Second component", c=3)
 
     expressions("First component")
-    dx_dt=a+1
     d = a + b * 2 - 3 / c
-    dxr_dt= -x + xr
+
+    expressions("First component", "X-gate")
+    dx_dt=a+1
+    dxr_dt = (x / b) - d * xr
+
+    expressions("First component", "Y-gate")
     dy_dt = 2 * d - 1
 
     expressions("Second component")
     dz_dt = 1 + x - y
-    dzi_dt = z + zi
     """,
     )
 
     ode = load_ode(path)
-    assert ode.num_components == 2
-    assert ode.components[0].name == "First component"
-    assert ode.components[1].name == "Second component"
+    assert ode.num_components == 4
+    assert set([c.name for c in ode.components]) == {
+        "First component",
+        "Second component",
+        "X-gate",
+        "Y-gate",
+    }
+    assert ode.num_states == 4
+    assert ode.num_parameters == 3
