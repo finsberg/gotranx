@@ -408,8 +408,6 @@ class CellMLParser(object):
         return {
             "change_state_names": [],
             "grouping": "encapsulation",
-            "use_sympy_integers": False,
-            "strip_parent_name": True,
         }
 
     def __init__(self, model_source, params=None, targets=None):
@@ -446,7 +444,7 @@ class CellMLParser(object):
         self.model_source = model_source
         self.name = self.cellml.attrib["name"]
         logger.info(f"Parsing CellML model: {self.name}")
-        self.mathmlparser = MathMLBaseParser(self._params["use_sympy_integers"])
+        self.mathmlparser = MathMLBaseParser()
         self.cellml_namespace = self.cellml.tag.split("}")[0] + "}"
         self.parse_units()
         self.components = self.parse_components(targets)
@@ -1440,7 +1438,7 @@ class CellMLParser(object):
                 comp.parent = components[parent_name]
 
                 # If parent name in child name, reduce child name length
-                if self._params["strip_parent_name"] and parent_name in comp.name:
+                if parent_name in comp.name:
                     old_name = comp.name
                     new_name = old_name.replace(parent_name, "").strip("_")
                     if new_name not in all_component_names:

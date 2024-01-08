@@ -1,4 +1,5 @@
 from __future__ import annotations
+from collections import defaultdict
 
 from functools import cached_property
 from graphlib import TopologicalSorter
@@ -6,6 +7,7 @@ from typing import Iterable
 from typing import Sequence
 from typing import TypeVar
 from typing import cast
+from typing import Any
 
 import sympy as sp
 
@@ -28,28 +30,32 @@ def check_components(components: Sequence[Component]):
 
 def gather_atoms(
     components: Sequence[Component],
-) -> tuple[list[str], dict[str, sp.Symbol], dict[str, atoms.Atom]]:
+) -> tuple[list[str], dict[str, set[Any]], dict[str, sp.Symbol], dict[str, atoms.Atom]]:
     symbol_names = []
     symbols = {}
+    symbol_values = defaultdict(set)
     lookup: dict[str, atoms.Atom] = {}
     for component in components:
         for p in component.parameters:
             symbol_names.append(p.name)
             symbols[p.name] = p.symbol
             lookup[p.name] = p
+            symbol_values[p.name].add(p.value)
         for s in component.states:
             symbol_names.append(s.name)
             symbols[s.name] = s.symbol
             lookup[s.name] = s
+            symbol_values[s.name].add(s.value)
         for i in component.intermediates:
             symbol_names.append(i.name)
             symbols[i.name] = i.symbol
             lookup[i.name] = i
+            symbol_values[i.name].add(i.expr)
         for st in component.state_derivatives:
             symbol_names.append(st.name)
             symbols[st.name] = st.symbol
             lookup[st.name] = st
-    return symbol_names, symbols, lookup
+    return symbol_names, symbol_values, symbols, lookup
 
 
 def find_duplicates(x: Iterable[T]) -> set[T]:
@@ -91,9 +97,8 @@ def add_temporal_state(
                 atoms.StateDerivative(
                     name=state_derivative.name,
                     value=state_derivative.value,
-                    component=state_derivative.component,
+                    components=state_derivative.components,
                     description=state_derivative.description,
-                    info=state_derivative.info,
                     unit_str=state_derivative.unit_str,
                     unit=state_derivative.unit,
                     state=new_state,
@@ -142,11 +147,13 @@ def make_ode(
     t = sp.Symbol("t")
     # components = add_temporal_state(components, t)
     check_components(components=components)
-    symbol_names, symbols, lookup = gather_atoms(components=components)
+    _, symbol_values, symbols, lookup = gather_atoms(components=components)
     symbols["time"] = t
 
-    if not len(symbol_names) == len(set(symbol_names)):
-        raise exceptions.DuplicateSymbolError(find_duplicates(symbol_names))
+    if any(x > 1 for x in map(len, symbol_values.values())):
+        raise exceptions.DuplicateSymbolError(
+            set(k for k, v in symbol_values.items() if len(v) > 1)
+        )
     components = resolve_expressions(components=components, symbols=symbols)
     return ODE(components=components, t=t, name=name, comments=comments)
 
@@ -178,11 +185,14 @@ class ODE:
         comments: Sequence[atoms.Comment] | None = None,
     ):
         check_components(components)
-        symbol_names, symbols, lookup = gather_atoms(components=components)
-        if not len(symbol_names) == len(set(symbol_names)):
-            raise exceptions.DuplicateSymbolError(find_duplicates(symbol_names))
-        if t is None:
-            t = sp.Symbol("t")
+        _, symbol_values, symbols, lookup = gather_atoms(components=components)
+
+        if any(x > 1 for x in map(len, symbol_values.values())):
+            raise exceptions.DuplicateSymbolError(
+                set(k for k, v in symbol_values.items() if len(v) > 1)
+            )
+
+        t = sp.Symbol("t")
         self.t = t
         symbols["time"] = t
 
@@ -211,6 +221,15 @@ class ODE:
             __o.comments == self.comments
             and __o.components == self.components
             and __o.name == self.name
+        )
+
+    def simplify(self) -> ODE:
+        """Run sympy's simplify function on all expressions in the ODE"""
+        return ODE(
+            components=tuple([comp.simplify() for comp in self.components]),
+            t=self.t,
+            name=self.name,
+            comments=self.comments,
         )
 
     @property

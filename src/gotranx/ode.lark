@@ -8,11 +8,11 @@
 ?unit: "#" UNIT
 
 comment : ("#" /.+/)+
-parameters : "parameters" "(" [ COMPONENT_NAME "," ] [ INFO ","] parameter ("," parameter)*  ")"
-states : "states" "(" [ COMPONENT_NAME "," ] [ INFO ","] parameter ("," parameter)* ")"
+parameters : "parameters" "("  (COMPONENT_NAME ",")* parameter ("," parameter)*  ")"
+states : "states" "("  (COMPONENT_NAME ",")* parameter ("," parameter)* ")"
 expressions: (assignment)+
-    | "expressions" "(" COMPONENT_NAME [ "," INFO ] ")" (assignment)+
-    | "component" "(" COMPONENT_NAME [ "," INFO ] ")" (assignment)+
+    | "expressions" "(" COMPONENT_NAME ("," COMPONENT_NAME)* ")" (assignment)+
+    | "component" "(" COMPONENT_NAME ("," COMPONENT_NAME)* ")" (assignment)+
 
 
 ?expression: multiplyingexpression

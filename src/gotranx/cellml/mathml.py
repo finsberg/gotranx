@@ -27,11 +27,10 @@ _all_keywords: list[str] = []
 
 
 class MathMLBaseParser(object):
-    def __init__(self, use_sympy_integers=False):
+    def __init__(self):
         self._state_variable = None
         self._derivative = None
         self.variables_names = set()
-        self.use_sympy_integers = use_sympy_integers
 
         self._precedence = {
             "piecewise": 0,
@@ -261,16 +260,6 @@ class MathMLBaseParser(object):
         else:
             exponent = ""
         value += exponent
-
-        if self.use_sympy_integers:
-            # Fix possible strangeness with integer division in Python...
-            nums = [1.0, 2.0, 3.0, 4.0, 5.0, 10.0]
-            num_strs = ["one", "two", "three", "four", "five", "ten"]
-
-            if eval(value) in nums:
-                value = dict(t for t in zip(nums, num_strs))[eval(value)]
-        # elif "." not in value and "e" not in value:
-        #    value += ".0"
 
         return [value]
 

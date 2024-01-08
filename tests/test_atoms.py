@@ -30,26 +30,34 @@ def test_parameter_arguments(parser, trans):
 
     tree = parser.parse(expr)
     result = trans.transform(tree)
-    assert result[0] == atoms.Parameter(name="y", value=sp.sympify(1.0), component="My component")
-    assert result[1] == atoms.Parameter(name="x", value=sp.sympify(42.0), component="My component")
+    assert result[0] == atoms.Parameter(
+        name="y",
+        value=sp.sympify(1.0),
+        components=("My component",),
+    )
+    assert result[1] == atoms.Parameter(
+        name="x",
+        value=sp.sympify(42.0),
+        components=("My component",),
+    )
     assert result[2] == atoms.Parameter(
         name="w",
         value=sp.sympify(10.2),
-        component="My component",
+        components=("My component",),
         unit_str="mM",
     )
     assert result[3] == atoms.Parameter(
         name="v",
         value=sp.sympify(3.14),
         description="Description of v",
-        component="My component",
+        components=("My component",),
         unit_str="mV",
     )
     assert result[4] == atoms.Parameter(
         name="z",
         value=sp.sympify(42.0),
         description="Description of z",
-        component="My component",
+        components=("My component",),
     )
 
 
@@ -70,40 +78,37 @@ def test_states_arguments(parser, trans):
 
     tree = parser.parse(expr)
     result = trans.transform(tree)
-    assert len(result.components) == 2
+    assert len(result.components) == 4
 
     comp1 = result.components[0]
     assert comp1.name == "My component"
 
     assert comp1.states == {
-        atoms.State(name="y", value=sp.sympify(1.0), component="My component"),
-        atoms.State(name="x", value=sp.sympify(42.0), component="My component"),
+        atoms.State(name="y", value=sp.sympify(1.0), components=("My component",)),
+        atoms.State(name="x", value=sp.sympify(42.0), components=("My component",)),
         atoms.State(
             name="w",
             value=sp.sympify(10.2),
-            component="My component",
+            components=("My component", "Some info"),
             unit_str="mM",
-            info="Some info",
         ),
         atoms.State(
             name="v",
             value=sp.sympify(3.14),
             description="Description of v",
-            component="My component",
-            info="Some info",
+            components=("My component", "Some info"),
             unit_str="mV",
         ),
     }
 
-    comp2 = result.components[1]
+    comp2 = result.components[2]
     assert comp2.name == "My other component"
     assert comp2.states == {
         atoms.State(
             name="z",
             value=sp.sympify(42.0),
             description="Description of z",
-            component="My other component",
-            info="other info",
+            components=("My other component", "other info"),
         ),
     }
 

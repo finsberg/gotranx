@@ -49,8 +49,8 @@ def test_parameters_with_component(parser, trans):
     tree = parser.parse(expr)
     result = trans.transform(tree)
     assert len(result) == 2
-    assert result[0] == atoms.Parameter(name="x", value=1, component="My Component")
-    assert result[1] == atoms.Parameter(name="y", value=2, component="My Component")
+    assert result[0] == atoms.Parameter(name="x", value=1, components=("My Component",))
+    assert result[1] == atoms.Parameter(name="y", value=2, components=("My Component",))
 
 
 def test_different_sets_of_parameters(parser, trans):
@@ -65,20 +65,20 @@ def test_different_sets_of_parameters(parser, trans):
     first_component = result[0]
     assert first_component.name == "First component"
     assert first_component.parameters == {
-        atoms.Parameter(name="x", value=1, component="First component"),
-        atoms.Parameter(name="y", value=2, component="First component"),
+        atoms.Parameter(name="x", value=1, components=("First component",)),
+        atoms.Parameter(name="y", value=2, components=("First component",)),
     }
 
     second_component = result[1]
     assert second_component.name == "Second component"
     assert second_component.parameters == {
-        atoms.Parameter(name="z", value=3, component="Second component"),
+        atoms.Parameter(name="z", value=3, components=("Second component",)),
     }
 
     third_component = result[2]
-    assert third_component.name is None
+    assert third_component.name == ""
     assert third_component.parameters == {
-        atoms.Parameter(name="w", value=4, component=None),
+        atoms.Parameter(name="w", value=4, components=("",)),
     }
 
 
