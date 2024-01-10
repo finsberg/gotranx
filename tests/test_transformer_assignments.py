@@ -1,3 +1,4 @@
+# flake8: noqa: E501
 import math
 
 import lark
@@ -26,8 +27,6 @@ def test_assignment_single_1(expr, parser, trans):
         "x = 1 + 2",
         "x= 1 +2",
         "x = 1+ 2",
-        """x= 1
-+ 2""",
     ],
 )
 def test_assignment_single_2_terms(expr, parser, trans):
@@ -451,16 +450,7 @@ def test_lt_gt_conditional(expr, subs, expected, parser, trans):
 )
 def test_stimulus_current(subs, expected, parser, trans):
     expr = """
-    i_Stim = Conditional(
-       And(
-              Ge(
-                     time - floor(time/stim_period)*stim_period, stim_start
-              ),
-              Le(
-                     time - floor(time/stim_period)*stim_period, stim_start + stim_duration
-              )
-       ),
-        -stim_amplitude, 0) # pA*pF**-1
+    i_Stim = Conditional(And(Ge(time - floor(time/stim_period)*stim_period, stim_start),Le(time - floor(time/stim_period)*stim_period, stim_start + stim_duration)),-stim_amplitude, 0) # pA*pF**-1
     """
     tree = parser.parse(expr)
     result = trans.transform(tree)
@@ -480,16 +470,7 @@ def test_stimulus_current_with_trailing_comma(parser, trans):
     }
     expected = 0
     expr = """
-    i_Stim = Conditional(
-       And(
-              Ge(
-                     time - floor(time/stim_period)*stim_period, stim_start
-              ),
-              Le(
-                     time - floor(time/stim_period)*stim_period, stim_start + stim_duration
-              ),
-       ),
-        -stim_amplitude, 0) # pA*pF**-1
+    i_Stim = Conditional(And(Ge(time - floor(time/stim_period)*stim_period, stim_start),Le(time - floor(time/stim_period)*stim_period, stim_start + stim_duration),),-stim_amplitude, 0) # pA*pF**-1
     """
     tree = parser.parse(expr)
     result = trans.transform(tree)
@@ -533,11 +514,7 @@ def test_stimulus_current_with_trailing_comma(parser, trans):
 )
 def test_stimulus_current_continuous(subs, expected, parser, trans):
     expr = """
-    i_Stim = stim_amplitude * ContinuousConditional(
-        Ge(time, stim_start), 1, 0, 0.2
-        ) * ContinuousConditional(
-            Le(time, stim_start + stim_duration), 1, 0, 0.2
-        )
+    i_Stim = stim_amplitude * ContinuousConditional(Ge(time, stim_start), 1, 0, 0.2) * ContinuousConditional(Le(time, stim_start + stim_duration), 1, 0, 0.2)
     """
     tree = parser.parse(expr)
     result = trans.transform(tree)

@@ -150,6 +150,7 @@ def make_ode(
     check_components(components=components)
     _, symbol_values, symbols, lookup = gather_atoms(components=components)
     symbols["time"] = t
+    symbols["t"] = t
 
     if any(x > 1 for x in map(len, symbol_values.values())):
         raise exceptions.DuplicateSymbolError(
