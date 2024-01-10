@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "gotranx"
 version = "0.1.0"
-description = "Sync local directories with dropbox"
+description = "A declarative language describing ordinary differential equations"
 authors = [{name = "Henrik Finsberg", email = "henriknf@simula.no"}]
 license = {text = "MIT"}
 classifiers = [
