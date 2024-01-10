@@ -1,0 +1,9 @@
+parameters(
+sigma=12.0,
+rho=21.0,
+beta=2.4
+)
+states(x=1.0, y=2.0,z=3.05)
+dx_dt = sigma * (y - x)
+dy_dt = x * (rho - z) - y
+dz_dt = x * y - beta * z

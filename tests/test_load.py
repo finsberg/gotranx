@@ -4,6 +4,8 @@ import pytest
 from gotranx import load_ode
 from gotranx.exceptions import ODEFileNotFound
 
+here = Path(__file__).absolute().parent
+
 
 @pytest.fixture
 def path():
@@ -51,3 +53,10 @@ def test_load_ode(path):
     }
     assert ode.num_states == 4
     assert ode.num_parameters == 3
+
+
+@pytest.mark.parametrize("path", (here / "odefiles").iterdir(), ids=lambda p: p.name)
+def test_load_odefiles(path):
+    print(path)
+    ode = load_ode(path)
+    assert ode is not None
