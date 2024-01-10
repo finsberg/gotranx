@@ -77,7 +77,11 @@ def lark_list_to_parameters(
 ) -> tuple[T, ...]:
     i, components = find_components(s)
     return tuple(
-        [tree2parameter(p, components=components, cls=cls) for p in s[i:]],
+        [
+            tree2parameter(p, components=components, cls=cls)
+            for p in s[i:]
+            if isinstance(p, lark.Tree)
+        ],
     )
 
 
@@ -144,7 +148,7 @@ class TreeToODE(lark.Transformer):
                 raise
 
     def comment(self, s):
-        return atoms.Comment(" ".join(map(str, s)))
+        return atoms.Comment(" ".join(map(str.lstrip, map(lambda x: x.lstrip("#"), map(str, s)))))
 
     def states(self, s: list[None | lark.tree.Tree | lark.lexer.Token]) -> tuple[atoms.State, ...]:
         return lark_list_to_parameters(s, cls=atoms.State)
