@@ -39,7 +39,7 @@ content-type = "text/markdown"
 
 [project.optional-dependencies]
 dev = [
-    "bump2version",
+    "bump-my-version",
     "ipython",
     "pdbpp",
     "pre-commit",
@@ -135,3 +135,20 @@ target-version = "py310"
 [tool.ruff.mccabe]
 # Unlike Flake8, default to a complexity level of 10.
 max-complexity = 10
+
+
+[tool.bumpversion]
+allow_dirty = false
+commit = true
+message = "Bump version: {current_version} → {new_version}"
+tag = true
+sign_tags = false
+tag_name = "v{new_version}"
+tag_message = "Bump version: {current_version} → {new_version}"
+current_version = "0.0.1"
+
+
+[[tool.bumpversion.files]]
+filename = "pyproject.toml"
+search = 'version = "{current_version}"'
+replace = 'version = "{new_version}"'
