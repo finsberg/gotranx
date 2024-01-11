@@ -74,7 +74,7 @@ class SchemeArgument(str, Enum):
 class CodeGenerator(abc.ABC):
     variable_prefix = ""
 
-    def __init__(self, ode: ODE, remove_unused: bool = True) -> None:
+    def __init__(self, ode: ODE, remove_unused: bool = False) -> None:
         self.ode = ode
         self.remove_unused = remove_unused
         if remove_unused:
