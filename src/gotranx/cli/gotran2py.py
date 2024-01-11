@@ -15,9 +15,10 @@ def main(
     outname: str | None = None,
     apply_black: bool = True,
     scheme: list[Scheme] | None = None,
+    remove_unused: bool = False,
 ) -> None:
     ode = load_ode(fname)
-    codegen = PythonCodeGenerator(ode, apply_black=apply_black)
+    codegen = PythonCodeGenerator(ode, apply_black=apply_black, remove_unused=remove_unused)
     comp = [
         "import math",
         "import numpy",

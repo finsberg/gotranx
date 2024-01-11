@@ -335,27 +335,8 @@ def test_python_exponential_with_power(parser, trans):
     )
 
 
-def test_python_remove_unused_rhs(parser, trans):
-    expr = """
-    parameters(a=0)
-    parameters("My component",
-    sigma=ScalarParam(12.0, description="Some description"),
-    rho=21.0,
-    beta=2.4,
-    unused_parameter=1.0
-    )
-    states("My component", x=1.0, y=2.0,z=3.05, unused_state=1.0)
-
-    expressions("My component")
-    dunused_state_dt = 0
-    unused_expression = 0
-    dy_dt = x*(rho - z) - y # millivolt
-    dx_dt = sigma*(-x + y)
-    dz_dt = -beta*z + x*y
-    """
-    tree = parser.parse(expr)
-    ode = make_ode(*trans.transform(tree))
-    codegen_orig = PythonCodeGenerator(ode)
+def test_python_remove_unused_rhs(ode_unused):
+    codegen_orig = PythonCodeGenerator(ode_unused)
     assert codegen_orig.rhs() == (
         "def rhs(t, states, parameters):"
         "\n    # Assign states"
@@ -386,7 +367,7 @@ def test_python_remove_unused_rhs(parser, trans):
         "\n    return values"
         "\n"
     )
-    codegen_remove = PythonCodeGenerator(ode, remove_unused=True)
+    codegen_remove = PythonCodeGenerator(ode_unused, remove_unused=True)
     assert codegen_remove.rhs() == (
         "def rhs(t, states, parameters):"
         "\n    # Assign states"
@@ -415,27 +396,8 @@ def test_python_remove_unused_rhs(parser, trans):
     )
 
 
-def test_python_remove_unused_forward_explicit_euler(parser, trans):
-    expr = """
-    parameters(a=0)
-    parameters("My component",
-    sigma=ScalarParam(12.0, description="Some description"),
-    rho=21.0,
-    beta=2.4,
-    unused_parameter=1.0
-    )
-    states("My component", x=1.0, y=2.0,z=3.05, unused_state=1.0)
-
-    expressions("My component")
-    dunused_state_dt = 0
-    unused_expression = 0
-    dy_dt = x*(rho - z) - y # millivolt
-    dx_dt = sigma*(-x + y)
-    dz_dt = -beta*z + x*y
-    """
-    tree = parser.parse(expr)
-    ode = make_ode(*trans.transform(tree))
-    codegen_orig = PythonCodeGenerator(ode)
+def test_python_remove_unused_forward_explicit_euler(ode_unused):
+    codegen_orig = PythonCodeGenerator(ode_unused)
     assert codegen_orig.scheme("forward_explicit_euler") == (
         "def forward_explicit_euler(states, t, dt, parameters):"
         "\n    # Assign states"
@@ -466,7 +428,7 @@ def test_python_remove_unused_forward_explicit_euler(parser, trans):
         "\n    return values"
         "\n"
     )
-    codegen_remove = PythonCodeGenerator(ode, remove_unused=True)
+    codegen_remove = PythonCodeGenerator(ode_unused, remove_unused=True)
     assert codegen_remove.scheme("forward_explicit_euler") == (
         "def forward_explicit_euler(states, t, dt, parameters):"
         "\n    # Assign states"
@@ -496,27 +458,8 @@ def test_python_remove_unused_forward_explicit_euler(parser, trans):
     )
 
 
-def test_python_remove_unused_forward_generalized_rush_larsen(parser, trans):
-    expr = """
-    parameters(a=0)
-    parameters("My component",
-    sigma=ScalarParam(12.0, description="Some description"),
-    rho=21.0,
-    beta=2.4,
-    unused_parameter=1.0
-    )
-    states("My component", x=1.0, y=2.0,z=3.05, unused_state=1.0)
-
-    expressions("My component")
-    dunused_state_dt = 0
-    unused_expression = 0
-    dy_dt = x*(rho - z) - y # millivolt
-    dx_dt = sigma*(-x + y)
-    dz_dt = -beta*z + x*y
-    """
-    tree = parser.parse(expr)
-    ode = make_ode(*trans.transform(tree))
-    codegen_orig = PythonCodeGenerator(ode)
+def test_python_remove_unused_forward_generalized_rush_larsen(ode_unused):
+    codegen_orig = PythonCodeGenerator(ode_unused)
     assert codegen_orig.scheme("forward_generalized_rush_larsen") == (
         "def forward_generalized_rush_larsen(states, t, dt, parameters):"
         "\n    # Assign states"
@@ -571,7 +514,7 @@ def test_python_remove_unused_forward_generalized_rush_larsen(parser, trans):
         "\n    return values"
         "\n"
     )
-    codegen_remove = PythonCodeGenerator(ode, remove_unused=True)
+    codegen_remove = PythonCodeGenerator(ode_unused, remove_unused=True)
     assert codegen_remove.scheme("forward_generalized_rush_larsen") == (
         "def forward_generalized_rush_larsen(states, t, dt, parameters):"
         "\n    # Assign states"
