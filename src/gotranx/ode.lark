@@ -15,16 +15,14 @@ expressions: (assignment)+
     | "component" "(" COMPONENT_NAME ("," COMPONENT_NAME)* ")" (assignment)+
 
 
-?expression: multiplyingexpression
-    | expression "+" multiplyingexpression -> add
-    | expression "-" multiplyingexpression -> sub
+?expression: term (_add_op term)*
+?term: factor (_mul_op factor)*
+?factor: _unary_op factor | power
+!_unary_op: "+"|"-"|"~"
+!_add_op: "+"|"-"
+!_mul_op: "*"|"/"
+?power: signedatom ("**" factor)?
 
-?multiplyingexpression: powexpression
-    | multiplyingexpression "*" powexpression -> mul
-    | multiplyingexpression "/" powexpression -> div
-
-?powexpression: signedatom
-    | signedatom "**" signedatom -> pow
 
 ?signedatom: SIGN signedatom
     | func
@@ -91,7 +89,7 @@ EQ: "Eq"
 
 
 POINT: "."
-POW: "^"
+POW: "^" | "**"
 PI: "pi"
 EULER: E2
 I: "i"

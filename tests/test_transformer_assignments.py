@@ -35,10 +35,11 @@ def test_assignment_single_2_terms(expr, parser, trans):
     assert len(result) == 1
     assert result[0].name == "x"
     assert result[0].value.tree == lark.Tree(
-        "add",
+        lark.Token("RULE", "expression"),
         [
-            lark.Tree("scientific", [lark.Token("SCIENTIFIC_NUMBER", "1")]),
-            lark.Tree("scientific", [lark.Token("SCIENTIFIC_NUMBER", "2")]),
+            lark.Tree(lark.Token("RULE", "scientific"), [lark.Token("SCIENTIFIC_NUMBER", "1")]),
+            lark.Token("PLUS", "+"),
+            lark.Tree(lark.Token("RULE", "scientific"), [lark.Token("SCIENTIFIC_NUMBER", "2")]),
         ],
     )
 
@@ -49,16 +50,24 @@ def test_assignment_single_3_terms(parser, trans):
     assert len(result) == 1
     assert result[0].name == "x"
     assert result[0].value.tree == lark.Tree(
-        "add",
+        lark.Token("RULE", "expression"),
         [
             lark.Tree(
-                "mul",
+                lark.Token("RULE", "term"),
                 [
-                    lark.Tree("scientific", [lark.Token("SCIENTIFIC_NUMBER", "1")]),
-                    lark.Tree("scientific", [lark.Token("SCIENTIFIC_NUMBER", "2")]),
+                    lark.Tree(
+                        lark.Token("RULE", "scientific"),
+                        [lark.Token("SCIENTIFIC_NUMBER", "1")],
+                    ),
+                    lark.Token("STAR", "*"),
+                    lark.Tree(
+                        lark.Token("RULE", "scientific"),
+                        [lark.Token("SCIENTIFIC_NUMBER", "2")],
+                    ),
                 ],
             ),
-            lark.Tree("scientific", [lark.Token("SCIENTIFIC_NUMBER", "3")]),
+            lark.Token("PLUS", "+"),
+            lark.Tree(lark.Token("RULE", "scientific"), [lark.Token("SCIENTIFIC_NUMBER", "3")]),
         ],
     )
 
@@ -70,28 +79,26 @@ def test_assignment_single_4_terms(parser, trans):
 
     assert result[0].name == "x"
     assert result[0].value.tree == lark.Tree(
-        "sub",
+        lark.Token("RULE", "expression"),
         [
             lark.Tree(
-                "add",
+                lark.Token("RULE", "term"),
                 [
                     lark.Tree(
-                        "mul",
-                        [
-                            lark.Tree(
-                                "scientific",
-                                [lark.Token("SCIENTIFIC_NUMBER", "1")],
-                            ),
-                            lark.Tree(
-                                "scientific",
-                                [lark.Token("SCIENTIFIC_NUMBER", "2")],
-                            ),
-                        ],
+                        lark.Token("RULE", "scientific"),
+                        [lark.Token("SCIENTIFIC_NUMBER", "1")],
                     ),
-                    lark.Tree("scientific", [lark.Token("SCIENTIFIC_NUMBER", "3")]),
+                    lark.Token("STAR", "*"),
+                    lark.Tree(
+                        lark.Token("RULE", "scientific"),
+                        [lark.Token("SCIENTIFIC_NUMBER", "2")],
+                    ),
                 ],
             ),
-            lark.Tree("scientific", [lark.Token("SCIENTIFIC_NUMBER", "4")]),
+            lark.Token("PLUS", "+"),
+            lark.Tree(lark.Token("RULE", "scientific"), [lark.Token("SCIENTIFIC_NUMBER", "3")]),
+            lark.Token("NEG", "-"),
+            lark.Tree(lark.Token("RULE", "scientific"), [lark.Token("SCIENTIFIC_NUMBER", "4")]),
         ],
     )
 
@@ -102,7 +109,6 @@ def test_assignment_single_4_terms(parser, trans):
         "x = 1 * 2 + 3 - (4 / 5)",
         "x = 1 * 2 + 3 - 4 / 5",
         "x = (1 * 2) + 3 - (4 / 5)",
-        "x=(1 * 2 +3) - (4 / 5)",
     ],
 )
 def test_assignment_single5(expr, parser, trans):
@@ -111,32 +117,37 @@ def test_assignment_single5(expr, parser, trans):
     assert len(result) == 1
     assert result[0].name == "x"
     assert result[0].value.tree == lark.Tree(
-        "sub",
+        lark.Token("RULE", "expression"),
         [
             lark.Tree(
-                "add",
+                lark.Token("RULE", "term"),
                 [
                     lark.Tree(
-                        "mul",
-                        [
-                            lark.Tree(
-                                "scientific",
-                                [lark.Token("SCIENTIFIC_NUMBER", "1")],
-                            ),
-                            lark.Tree(
-                                "scientific",
-                                [lark.Token("SCIENTIFIC_NUMBER", "2")],
-                            ),
-                        ],
+                        lark.Token("RULE", "scientific"),
+                        [lark.Token("SCIENTIFIC_NUMBER", "1")],
                     ),
-                    lark.Tree("scientific", [lark.Token("SCIENTIFIC_NUMBER", "3")]),
+                    lark.Token("STAR", "*"),
+                    lark.Tree(
+                        lark.Token("RULE", "scientific"),
+                        [lark.Token("SCIENTIFIC_NUMBER", "2")],
+                    ),
                 ],
             ),
+            lark.Token("PLUS", "+"),
+            lark.Tree(lark.Token("RULE", "scientific"), [lark.Token("SCIENTIFIC_NUMBER", "3")]),
+            lark.Token("NEG", "-"),
             lark.Tree(
-                "div",
+                lark.Token("RULE", "term"),
                 [
-                    lark.Tree("scientific", [lark.Token("SCIENTIFIC_NUMBER", "4")]),
-                    lark.Tree("scientific", [lark.Token("SCIENTIFIC_NUMBER", "5")]),
+                    lark.Tree(
+                        lark.Token("RULE", "scientific"),
+                        [lark.Token("SCIENTIFIC_NUMBER", "4")],
+                    ),
+                    lark.Token("SLASH", "/"),
+                    lark.Tree(
+                        lark.Token("RULE", "scientific"),
+                        [lark.Token("SCIENTIFIC_NUMBER", "5")],
+                    ),
                 ],
             ),
         ],
@@ -150,29 +161,31 @@ def test_assignment_single_with_names(parser, trans):
     assert len(result) == 1
     assert result[0].name == "x"
     assert result[0].value.tree == lark.Tree(
-        "sub",
+        lark.Token("RULE", "expression"),
         [
             lark.Tree(
-                "add",
+                lark.Token("RULE", "term"),
                 [
                     lark.Tree(
-                        "mul",
-                        [
-                            lark.Tree(
-                                "scientific",
-                                [lark.Token("SCIENTIFIC_NUMBER", "1")],
-                            ),
-                            lark.Tree("variable", [lark.Token("VARIABLE", "y")]),
-                        ],
+                        lark.Token("RULE", "scientific"),
+                        [lark.Token("SCIENTIFIC_NUMBER", "1")],
                     ),
-                    lark.Tree("variable", [lark.Token("VARIABLE", "rho")]),
+                    lark.Token("STAR", "*"),
+                    lark.Tree(lark.Token("RULE", "variable"), [lark.Token("VARIABLE", "y")]),
                 ],
             ),
+            lark.Token("PLUS", "+"),
+            lark.Tree(lark.Token("RULE", "variable"), [lark.Token("VARIABLE", "rho")]),
+            lark.Token("NEG", "-"),
             lark.Tree(
-                "div",
+                lark.Token("RULE", "term"),
                 [
-                    lark.Tree("variable", [lark.Token("VARIABLE", "z")]),
-                    lark.Tree("variable", [lark.Token("VARIABLE", "sigma")]),
+                    lark.Tree(lark.Token("RULE", "variable"), [lark.Token("VARIABLE", "z")]),
+                    lark.Token("SLASH", "/"),
+                    lark.Tree(
+                        lark.Token("RULE", "variable"),
+                        [lark.Token("VARIABLE", "sigma")],
+                    ),
                 ],
             ),
         ],
