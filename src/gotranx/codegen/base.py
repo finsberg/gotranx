@@ -74,8 +74,14 @@ class SchemeArgument(str, Enum):
 class CodeGenerator(abc.ABC):
     variable_prefix = ""
 
-    def __init__(self, ode: ODE) -> None:
+    def __init__(self, ode: ODE, remove_unused: bool = True) -> None:
         self.ode = ode
+        self.remove_unused = remove_unused
+        if remove_unused:
+            self.deps = self.ode.dependents()
+            self._condition = lambda x: x in self.deps
+        else:
+            self._condition = lambda x: True
 
     def _formatter(self, code: str) -> str:
         """Alternative formatter that takes a code snippet
@@ -135,6 +141,7 @@ class CodeGenerator(abc.ABC):
             The generated code
         """
         state_result = sympy.IndexedBase(name, shape=(self.ode.num_states,))
+
         expr = "\n".join(
             [
                 self._doprint(state_result[i], value)
@@ -179,16 +186,18 @@ class CodeGenerator(abc.ABC):
         )
         return self._format(code)
 
-    def _state_assignments(self, states: sympy.IndexedBase) -> str:
+    def _state_assignments(self, states: sympy.IndexedBase, remove_unused: bool) -> str:
         return "\n".join(
             self._doprint(state.symbol, states[i], use_variable_prefix=True)
             for i, state in enumerate(self.ode.sorted_states())
+            if not remove_unused or self._condition(state.name)
         )
 
     def _parameter_assignments(self, parameters: sympy.IndexedBase) -> str:
         return "\n".join(
             self._doprint(param.symbol, parameters[i], use_variable_prefix=True)
             for i, param in enumerate(self.ode.parameters)
+            if self._condition(param.name)
         )
 
     def rhs(self, order: RHSArgument | str = RHSArgument.tsp, use_cse=False) -> str:
@@ -208,14 +217,14 @@ class CodeGenerator(abc.ABC):
         """
 
         rhs = self._rhs_arguments(order)
-        states = self._state_assignments(rhs.states)
+        states = self._state_assignments(rhs.states, remove_unused=self.remove_unused)
         parameters = self._parameter_assignments(rhs.parameters)
 
         values_lst = []
         index = 0
         values_idx = sympy.IndexedBase("values", shape=(len(self.ode.state_derivatives),))
 
-        for x in self.ode.sorted_assignments():
+        for x in self.ode.sorted_assignments(remove_unused=self.remove_unused):
             values_lst.append(self._doprint(x.symbol, x.expr, use_variable_prefix=True))
             if isinstance(x, atoms.StateDerivative):
                 values_lst.append(self._doprint(values_idx[index], x.symbol))
@@ -251,12 +260,18 @@ class CodeGenerator(abc.ABC):
         """
 
         rhs = self._scheme_arguments(order)
-        states = self._state_assignments(rhs.states)
+        states = self._state_assignments(rhs.states, remove_unused=False)
         parameters = self._parameter_assignments(rhs.parameters)
 
         dt = sympy.Symbol("dt")
         f = schemes.get_scheme(name)
-        eqs = f(self.ode, dt, name=rhs.return_name, printer=self._doprint)
+        eqs = f(
+            self.ode,
+            dt,
+            name=rhs.return_name,
+            printer=self._doprint,
+            remove_unused=self.remove_unused,
+        )
         values = "\n".join(eqs)
 
         code = self.template.method(

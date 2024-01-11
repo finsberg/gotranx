@@ -40,6 +40,7 @@ class scheme_func(typing.Protocol):
         dt: sympy.Symbol,
         name: str = "values",
         printer: printer_func = default_printer,
+        remove_unused: bool = False,
     ) -> list[str]:
         ...
 
@@ -100,12 +101,13 @@ def forward_explicit_euler(
     dt: sympy.Symbol,
     name: str = "values",
     printer: printer_func = default_printer,
+    remove_unused: bool = False,
 ) -> list[str]:
     """Generate forward Euler equations for the ODE"""
     eqs = []
     values = sympy.IndexedBase(name, shape=(len(ode.state_derivatives),))
     i = 0
-    for x in ode.sorted_assignments():
+    for x in ode.sorted_assignments(remove_unused=remove_unused):
         eqs.append(printer(x.symbol, x.expr, use_variable_prefix=True))
         if isinstance(x, atoms.StateDerivative):
             eqs.append(
@@ -125,13 +127,14 @@ def forward_generalized_rush_larsen(
     dt: sympy.Symbol,
     name: str = "values",
     printer: printer_func = default_printer,
+    remove_unused: bool = False,
     delta=1e-8,
 ) -> list[str]:
     """Generate forward Generalized Rush Larsen equations for the ODE"""
     eqs = []
     values = sympy.IndexedBase(name, shape=(len(ode.state_derivatives),))
     i = 0
-    for x in ode.sorted_assignments():
+    for x in ode.sorted_assignments(remove_unused=remove_unused):
         eqs.append(printer(x.symbol, x.expr, use_variable_prefix=True))
 
         if not isinstance(x, atoms.StateDerivative):

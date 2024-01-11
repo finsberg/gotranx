@@ -141,3 +141,23 @@ def test_sort_assignment(assignments_only, expected, parser, trans):
         assignments_only=assignments_only,
     )
     assert tuple([x.name for x in sorted_assignments]) == expected
+
+
+def test_ode_dependents(parser, trans):
+    expr = """
+    states(V=0)
+    dV_dt = x * z
+    x = y + z + V
+    z = 2
+    a = y + 3
+    y = 2 * V
+    """
+    tree = parser.parse(expr)
+    result = ode.make_ode(*trans.transform(tree), name="TestODE")
+    deps = result.dependents()
+    assert deps["V"] == {"x", "y"}
+    assert deps["x"] == {"dV_dt"}
+    assert deps["z"] == {"dV_dt", "x"}
+    assert deps["y"] == {"a", "x"}
+    assert "dV_dt" not in deps
+    assert "a" not in deps

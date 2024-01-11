@@ -87,8 +87,8 @@ class GotranPythonCodePrinter(PythonCodePrinter):
 
 
 class PythonCodeGenerator(CodeGenerator):
-    def __init__(self, ode: ODE, apply_black: bool = True) -> None:
-        super().__init__(ode)
+    def __init__(self, ode: ODE, apply_black: bool = True, remove_unused: bool = False) -> None:
+        super().__init__(ode, remove_unused=remove_unused)
 
         self._printer = GotranPythonCodePrinter()
 

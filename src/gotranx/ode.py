@@ -281,9 +281,16 @@ class ODE:
     def __getitem__(self, name) -> atoms.Atom:
         return self._lookup[name]
 
-    def sorted_assignments(self, assignments_only: bool = True) -> tuple[atoms.Assignment, ...]:
+    def sorted_assignments(
+        self, assignments_only: bool = True, remove_unused: bool = False
+    ) -> tuple[atoms.Assignment, ...]:
+        intermediates = self.intermediates
+        if remove_unused:
+            deps = self.dependents()
+            intermediates = tuple([a for a in intermediates if a.name in deps])
+
         names = sort_assignments(
-            self.intermediates + self.state_derivatives,
+            assignments=intermediates + self.state_derivatives,
             assignments_only=assignments_only,
         )
         return tuple([cast(atoms.Assignment, self[name]) for name in names])
@@ -298,3 +305,13 @@ class ODE:
         from .save import write_ODE_to_ode_file
 
         write_ODE_to_ode_file(self, path)
+
+    def dependents(self) -> dict[str, set[str]]:
+        """Get a dictionary of dependents for each component"""
+        dependencies = defaultdict(set)
+        for component in self.components:
+            for assignment in component.assignments:
+                for dependency in assignment.value.dependencies:
+                    dependencies[dependency].add(assignment.name)
+
+        return dict(dependencies)
