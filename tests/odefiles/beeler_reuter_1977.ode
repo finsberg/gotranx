@@ -70,9 +70,9 @@ states("Time dependent outward current", "Time dependent outward current x1 gate
 parameters("Stimulus protocol",
            IstimStart = ScalarParam(1, unit="ms"),
            IstimEnd = ScalarParam(50000, unit="ms"),
-           IstimAmplitude = ScalarParam(0.0, unit="uA*mm**-2"),
+           IstimAmplitude = ScalarParam(0.5, unit="uA*mm**-2"),
            IstimPeriod = ScalarParam(1000, unit="ms"),
-           IstimPulseDuration = ScalarParam(1, unit="ms"))
+           IstimPulseDuration = ScalarParam(2, unit="ms"))
 
 states("Membrane",
        V = ScalarParam(-84.624, unit="mV"))

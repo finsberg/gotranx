@@ -5,8 +5,6 @@ import sympy as sp
 from . import sympytools
 from .exceptions import InvalidTreeError
 
-BINARY_OPERATIONS = {"add", "mul", "sub", "div", "pow"}
-
 
 def relational_to_piecewise(expr: sp.Expr) -> sp.Piecewise:
     if expr.is_Relational:
@@ -37,18 +35,43 @@ def binary_op(op: str, fst, snd):
     fst = relational_to_piecewise(fst)
     snd = relational_to_piecewise(snd)
 
-    if op == "add":
+    # breakpoint()
+
+    if op == "+":
         return sp.Add(fst, snd, evaluate=False)
-    if op == "sub":
+    if op == "-":
         return sp.Add(fst, sp.Mul(sp.Integer(-1), snd, evaluate=False), evaluate=False)
-    if op == "div":
+    if op == "/":
         return sp.Mul(fst, sp.Pow(snd, sp.Integer(-1), evaluate=False), evaluate=False)
-    if op == "mul":
+    if op == "*":
         return sp.Mul(fst, snd, evaluate=False)
-    if op == "pow":
+    if op == "**":
         return sp.Pow(fst, snd, evaluate=False)
 
     raise RuntimeError(f"Invalid binary operation {op}")
+
+
+def uniary_op(op: str, arg):
+    """Uniary operation
+
+    Parameters
+    ----------
+    op : str
+        Operation to perform
+    arg : sp.Expr
+        The argument
+
+    Returns
+    -------
+    sp.Expr
+        The result of the operation
+    """
+    if op == "-":
+        return sp.Mul(sp.Integer(-1), arg, evaluate=False)
+    if op == "+":
+        return arg
+
+    raise RuntimeError(f"Invalid uniary operation {op}")
 
 
 def build_expression(
@@ -72,23 +95,31 @@ def build_expression(
     symbols_: dict[str, sp.Symbol] = symbols or {}
 
     def expr2symbols(tree: lark.Tree):
+        if tree.data in ("expression", "term"):
+            fst = expr2symbols(tree.children[0])
+            # It is always an odd number of children
+            # and at least one
+            for i in range(1, len(tree.children), 2):
+                fst = binary_op(
+                    tree.children[i],
+                    fst,
+                    expr2symbols(tree.children[i + 1]),
+                )
+            return fst
+
+        if tree.data == "factor":
+            return uniary_op(tree.children[0], expr2symbols(tree.children[1]))
+        if tree.data == "power":
+            return binary_op(
+                "**",
+                expr2symbols(tree.children[0]),
+                expr2symbols(tree.children[1]),
+            )
+
         if tree.data == "variable":
             return symbols_[str(tree.children[0])]
         if tree.data == "scientific":
             return sp.sympify(tree.children[0])
-
-        if tree.data == "signedatom":
-            if tree.children[0] == "-":
-                return -expr2symbols(tree.children[1])
-            else:  # +
-                return expr2symbols(tree.children[1])
-
-        if tree.data in BINARY_OPERATIONS:
-            return binary_op(
-                tree.data,
-                expr2symbols(tree.children[0]),
-                expr2symbols(tree.children[1]),
-            )
 
         if tree.data == "constant":
             if tree.children[0] == "pi":

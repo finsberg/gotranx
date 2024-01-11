@@ -21,6 +21,7 @@ def test_build_expression(expr, symbol_values, expected, parser, trans):
     symbols = {name: sp.Symbol(name) for name in symbol_values}
     value = result[0].value.tree
     sympy_expr = build_expression(value, symbols)
+
     assert sympy_expr.subs(symbol_values).evalf() == pytest.approx(expected)
 
 
