@@ -5,9 +5,6 @@ import sympy as sp
 from . import sympytools
 from .exceptions import InvalidTreeError
 
-# BINARY_OPERATIONS = {"add", "mul", "sub", "div", "pow"}
-BINARY_OPERATIONS = {"+", "*", "-", "/", "**"}
-
 
 def relational_to_piecewise(expr: sp.Expr) -> sp.Piecewise:
     if expr.is_Relational:
@@ -111,31 +108,18 @@ def build_expression(
             return fst
 
         if tree.data == "factor":
-            if len(tree.children) == 1:
-                return expr2symbols(tree.children[0])
-            else:
-                return uniary_op(tree.children[0], expr2symbols(tree.children[1]))
+            return uniary_op(tree.children[0], expr2symbols(tree.children[1]))
         if tree.data == "power":
-            if len(tree.children) == 1:
-                return expr2symbols(tree.children[0])
-            else:
-                return binary_op(
-                    "**",
-                    expr2symbols(tree.children[0]),
-                    expr2symbols(tree.children[1]),
-                )
+            return binary_op(
+                "**",
+                expr2symbols(tree.children[0]),
+                expr2symbols(tree.children[1]),
+            )
 
         if tree.data == "variable":
             return symbols_[str(tree.children[0])]
         if tree.data == "scientific":
             return sp.sympify(tree.children[0])
-
-        if tree.data in BINARY_OPERATIONS:
-            return binary_op(
-                tree.data,
-                expr2symbols(tree.children[0]),
-                expr2symbols(tree.children[1]),
-            )
 
         if tree.data == "constant":
             if tree.children[0] == "pi":

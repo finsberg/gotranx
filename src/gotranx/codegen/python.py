@@ -16,10 +16,6 @@ class GotranPythonCodePrinter(PythonCodePrinter):
     _kf = {k: f"numpy.{v.replace('math.', '')}" for k, v in PythonCodePrinter._kf.items()}
     _kc = {k: f"numpy.{v.replace('math.', '')}" for k, v in PythonCodePrinter._kc.items()}
 
-    def _traverse_matrix_indices(self, mat):
-        rows, cols = mat.shape
-        return ((i, j) for i in range(rows) for j in range(cols))
-
     def _print_MatrixElement(self, expr):
         if expr.parent.shape[1] == 1:
             # Then this is a colum vector
@@ -88,16 +84,6 @@ class GotranPythonCodePrinter(PythonCodePrinter):
             value = f"numpy.logical_or.reduce(({args}))"
 
         return value
-
-
-def squeeze_list(lst):
-    if len(lst) == 1:
-        return lst[0]
-    return lst
-
-
-def squeeze_list_of_lists(lst):
-    return [squeeze_list(item) for item in lst]
 
 
 class PythonCodeGenerator(CodeGenerator):
