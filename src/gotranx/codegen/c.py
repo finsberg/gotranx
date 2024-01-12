@@ -34,8 +34,10 @@ class GotranCCodePrinter(C99CodePrinter):
 class CCodeGenerator(CodeGenerator):
     variable_prefix = "const double "
 
-    def __init__(self, ode: ODE, apply_clang_format: bool = True) -> None:
-        super().__init__(ode)
+    def __init__(
+        self, ode: ODE, apply_clang_format: bool = True, remove_unused: bool = False
+    ) -> None:
+        super().__init__(ode, remove_unused=remove_unused)
         self._printer = GotranCCodePrinter()
 
         if apply_clang_format:

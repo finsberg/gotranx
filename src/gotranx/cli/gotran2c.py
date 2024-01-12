@@ -14,9 +14,10 @@ def main(
     suffix: str = ".h",
     outname: str | None = None,
     scheme: list[Scheme] | None = None,
+    remove_unused: bool = False,
 ) -> None:
     ode = load_ode(fname)
-    codegen = CCodeGenerator(ode)
+    codegen = CCodeGenerator(ode, remove_unused=remove_unused)
     comp = [
         "#include <math.h>",
         codegen.initial_parameter_values(),

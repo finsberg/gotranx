@@ -53,6 +53,11 @@ def main(
         "--outname",
         help="Output name",
     ),
+    remove_unused: bool = typer.Option(
+        False,
+        "--remove-unused",
+        help="Remove unused variables",
+    ),
     version: bool = typer.Option(
         None,
         "--version",
@@ -82,11 +87,23 @@ def main(
     if to in {".c", ".h"}:
         from . import gotran2c
 
-        gotran2c.main(fname=fname, suffix=to, outname=outname, scheme=scheme)
+        gotran2c.main(
+            fname=fname,
+            suffix=to,
+            outname=outname,
+            scheme=scheme,
+            remove_unused=remove_unused,
+        )
     if to in {".py"}:
         from . import gotran2py
 
-        gotran2py.main(fname=fname, suffix=to, outname=outname, scheme=scheme)
+        gotran2py.main(
+            fname=fname,
+            suffix=to,
+            outname=outname,
+            scheme=scheme,
+            remove_unused=remove_unused,
+        )
 
     if to in {".ode"}:
         from .cellml2ode import main as cellml2ode
