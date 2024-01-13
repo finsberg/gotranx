@@ -8,7 +8,7 @@ from functools import partial
 
 from ..ode import ODE
 from .. import templates
-from .base import CodeGenerator, Func, RHSArgument, SchemeArgument
+from .base import CodeGenerator, Func, RHSArgument, SchemeArgument, _print_Piecewise
 
 
 # class GotranPythonCodePrinter(NumPyPrinter):
@@ -34,35 +34,14 @@ class GotranPythonCodePrinter(PythonCodePrinter):
         if isinstance(fst[0], Assignment):
             value = (
                 f"{super()._print(fst[0].lhs)} = "
-                f"({super()._print(fst[0].rhs)}) * {super()._print(fst[1])} "
-                f"+ ({super()._print(snd[0].rhs)}) * numpy.logical_not({super()._print(fst[1])})"
+                f"numpy.where({super()._print(fst[1])}, "
+                f"{super()._print(fst[0].rhs)}, "
+                f"{super()._print(snd[0].rhs)})"
             )
-            # value = (
-            #     f"{super()._print(fst[0].args[0])} = "
-            #     f"{super()._print(fst[0].args[1])} if "
-            #     f"{super()._print(fst[1])} else "
-            #     f"{super()._print(snd[0].args[1])}"
-            # )
 
         else:
-            from sympy.logic.boolalg import ITE, simplify_logic
-
-            def print_cond(cond):
-                """Problem having an ITE in the cond."""
-                if cond.has(ITE):
-                    return self._print(simplify_logic(cond))
-                else:
-                    return self._print(cond)
-
-            exprs = [self._print(arg.expr) for arg in expr.args]
-            conds = [print_cond(arg.cond) for arg in expr.args]
-            assert len(exprs) == 2
-            assert len(conds) == 2
-            if conds[-1] == "True":
-                conds[-1] = "(~" + conds[-2] + ")"
-
-            value = f"{exprs[0]} * {conds[0]} + {exprs[1]} * {conds[1]}"
-            # value = super()._print_Piecewise(expr)
+            conds, exprs = _print_Piecewise(self, expr)
+            value = f"numpy.where({conds[0]}, {exprs[0]}, {exprs[1]})"
 
         return value
 

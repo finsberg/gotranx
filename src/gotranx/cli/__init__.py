@@ -72,6 +72,12 @@ def main(
         is_eager=True,
         help="Show license",
     ),
+    verbose: bool = typer.Option(
+        False,
+        "--verbose",
+        "-v",
+        help="Verbose output",
+    ),
     scheme: Annotated[typing.Optional[typing.List[Scheme]], typer.Option()] = None,
 ):
     if fname is None:
@@ -93,6 +99,7 @@ def main(
             outname=outname,
             scheme=scheme,
             remove_unused=remove_unused,
+            verbose=verbose,
         )
     if to in {".py"}:
         from . import gotran2py
@@ -103,9 +110,10 @@ def main(
             outname=outname,
             scheme=scheme,
             remove_unused=remove_unused,
+            verbose=verbose,
         )
 
     if to in {".ode"}:
         from .cellml2ode import main as cellml2ode
 
-        cellml2ode(fname=fname, outname=outname)
+        cellml2ode(fname=fname, outname=outname, verbose=verbose)

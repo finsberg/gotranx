@@ -8,6 +8,10 @@ from .. import templates
 from .base import CodeGenerator, Func, RHSArgument, SchemeArgument
 
 
+def bool_to_int(expr: str) -> str:
+    return expr.replace("false", "0").replace("true", "1")
+
+
 class GotranCCodePrinter(C99CodePrinter):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -26,7 +30,7 @@ class GotranCCodePrinter(C99CodePrinter):
                 f"{super()._print(snd[0].args[1])};"
             )
         else:
-            value = super()._print_Piecewise(expr)
+            value = bool_to_int(super()._print_Piecewise(expr))
 
         return value
 
