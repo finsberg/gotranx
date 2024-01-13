@@ -5,7 +5,16 @@ import sympy
 
 from ..ode import ODE
 from .. import templates
-from .base import CodeGenerator, Func, RHSArgument, SchemeArgument
+from .base import CodeGenerator, Func, RHSArgument, SchemeArgument, _print_Piecewise
+
+
+def bool_to_int(expr: str) -> str:
+    if expr == "true":
+        return "1"
+    elif expr == "false":
+        return "0"
+    else:
+        return expr
 
 
 class GotranCCodePrinter(C99CodePrinter):
@@ -26,7 +35,8 @@ class GotranCCodePrinter(C99CodePrinter):
                 f"{super()._print(snd[0].args[1])};"
             )
         else:
-            value = super()._print_Piecewise(expr)
+            conds, exprs = _print_Piecewise(self, expr)
+            value = f"({conds[0]}) ? ({bool_to_int(exprs[0])}) : ({bool_to_int(exprs[1])})"
 
         return value
 

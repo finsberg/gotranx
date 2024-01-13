@@ -36,7 +36,6 @@ expressions: (assignment)+
 
 scientific: SCIENTIFIC_NUMBER
 constant: PI
-    | EULER
 variable: VARIABLE
 ?func: funcname "(" expression ("," expression)* (",")* ")"
 ?funcname: COS
@@ -87,9 +86,6 @@ OR: "Or"
 EQ: "Eq"
 
 
-
-POINT: "."
-POW: "^" | "**"
 PI: "pi"
 EULER: E2
 I: "i"

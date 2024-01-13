@@ -71,6 +71,27 @@ class SchemeArgument(str, Enum):
         return str(order)
 
 
+def _print_Piecewise(
+    printer: CodePrinter, expr: sympy.Piecewise, **kwargs
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    from sympy.logic.boolalg import ITE, simplify_logic
+
+    def print_cond(cond):
+        """Problem having an ITE in the cond."""
+        if cond.has(ITE):
+            return printer._print(simplify_logic(cond))
+        else:
+            return printer._print(cond)
+
+    expr = sympy.simplify(expr)
+
+    exprs = [printer._print(arg.expr) for arg in expr.args]
+    conds = [print_cond(arg.cond) for arg in expr.args]
+    assert len(exprs) == 2
+    assert len(conds) == 2
+    return tuple(conds), tuple(exprs)
+
+
 class CodeGenerator(abc.ABC):
     variable_prefix = ""
 

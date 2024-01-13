@@ -115,11 +115,26 @@ def init_parameter_values(**values):
     )
 
 
-def method(name, args, states, parameters, values, return_name: str, num_return_values: int):
+def method(
+    name,
+    args,
+    states,
+    parameters,
+    values,
+    return_name: str,
+    num_return_values: int,
+    nan_to_num: bool = False,
+):
     indent_states = indent(states, "    ")
     indent_parameters = indent(parameters, "    ")
     indent_values = indent(values, "    ")
-    indent_return = indent("return " + return_name, "    ")
+    if nan_to_num:
+        indent_return = indent(
+            f"return numpy.nan_to_num({return_name}, nan=0.0)",
+            "    ",
+        )
+    else:
+        indent_return = indent(f"return {return_name}", "    ")
     return dedent(
         f"""
 def {name}({args}):
@@ -131,7 +146,7 @@ def {name}({args}):
 {indent_parameters}
 
     # Assign expressions
-    {return_name} = numpy.zeros({num_return_values})
+    {return_name} = numpy.zeros_like(states)
 {indent_values}
 
 {indent_return}
