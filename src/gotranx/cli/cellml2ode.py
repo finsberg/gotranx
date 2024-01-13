@@ -1,16 +1,22 @@
 from __future__ import annotations
 from pathlib import Path
-from structlog import get_logger
+import logging
+import structlog
 
 from ..cellml import cellml_to_gotran
 
-logger = get_logger()
+logger = structlog.get_logger()
 
 
 def main(
     fname: Path,
     outname: str | None = None,
+    verbose: bool = False,
 ) -> None:
+    loglevel = logging.DEBUG if verbose else logging.INFO
+    structlog.configure(
+        wrapper_class=structlog.make_filtering_bound_logger(loglevel),
+    )
     assert fname.suffix == ".cellml", f"File {fname} must be a cellml file"
     assert fname.exists(), f"File {fname} does not exist"
     logger.info(f"Converting {fname} to gotran ode file")

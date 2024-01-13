@@ -41,6 +41,7 @@ def method(
     values: str,
     return_name: None = None,
     num_return_values: int = 0,
+    **kwargs,
 ):
     indent_states = indent(states, "    ")
     indent_parameters = indent(parameters, "    ")

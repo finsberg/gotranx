@@ -1,12 +1,13 @@
 from __future__ import annotations
 from pathlib import Path
-from structlog import get_logger
+import logging
+import structlog
 
 from ..codegen.python import PythonCodeGenerator
 from ..load import load_ode
 from ..schemes import Scheme
 
-logger = get_logger()
+logger = structlog.get_logger()
 
 
 def main(
@@ -16,7 +17,13 @@ def main(
     apply_black: bool = True,
     scheme: list[Scheme] | None = None,
     remove_unused: bool = False,
+    verbose: bool = True,
 ) -> None:
+    loglevel = logging.DEBUG if verbose else logging.INFO
+    structlog.configure(
+        wrapper_class=structlog.make_filtering_bound_logger(loglevel),
+    )
+
     ode = load_ode(fname)
     codegen = PythonCodeGenerator(ode, apply_black=apply_black, remove_unused=remove_unused)
     comp = [
