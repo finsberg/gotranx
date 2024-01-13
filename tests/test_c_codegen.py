@@ -394,3 +394,64 @@ def test_c_remove_unused_forward_generalized_rush_larsen(ode_unused):
         "\n}"
         "\n"
     )
+
+
+def test_c_conditional_expression_assignment(parser, trans):
+    expr = """
+    states(v=0)
+    ah = Conditional(Ge(v, -40), 0, 0.057*exp(-(v + 80)/6.8))
+    dv_dt = 0
+    """
+    tree = parser.parse(expr)
+    result = trans.transform(tree)
+    ode = make_ode(*result, name="conditional")
+    codegen = CCodeGenerator(ode)
+    assert codegen.rhs() == (
+        "\nvoid rhs(const double t, const double *__restrict states, const double *__restrict parameters, double *values)"
+        "\n{"
+        "\n"
+        "\n    // Assign states"
+        "\n    const double v = states[0];"
+        "\n"
+        "\n    // Assign parameters"
+        "\n"
+        "\n    // Assign expressions"
+        "\n    const double dv_dt = 0;"
+        "\n    values[0] = dv_dt;"
+        "\n    const double ah = (v >= -40) ? 0 : 0.057 * exp((-(v + 80)) / 6.8);"
+        "\n}"
+        "\n"
+    )
+
+
+def test_c_conditional_expression_advanced(parser, trans):
+    expr = """
+    states(v=0.5)
+    parameters(g=1)
+    gammasu  = g*Conditional(Gt(Gt(v,0)*v, Lt(v, -1)*(-v-1)), Gt(v,0)*v, Lt(v, -1)*(-v-1))
+    dv_dt = 0
+    """
+    tree = parser.parse(expr)
+    result = trans.transform(tree)
+    ode = make_ode(*result, name="conditional")
+    codegen = CCodeGenerator(ode)
+    assert codegen.rhs() == (
+        "\nvoid rhs(const double t, const double *__restrict states, const double *__restrict parameters, double *values)"
+        "\n{"
+        "\n"
+        "\n    // Assign states"
+        "\n    const double v = states[0];"
+        "\n"
+        "\n    // Assign parameters"
+        "\n    const double g = parameters[0];"
+        "\n"
+        "\n    // Assign expressions"
+        "\n    const double dv_dt = 0;"
+        "\n    values[0] = dv_dt;"
+        "\n    const double gammasu ="
+        "\n        g * ((((v > 0 && v < -1) ? (v > -v - 1) : (((v > 0) ? (v > 0) : (((v < -1) ? (v > -1) : (0)))))))"
+        "\n                 ? (v * ((v > 0) ? (1) : (0)))"
+        "\n                 : ((-v - 1) * ((v < -1) ? (1) : (0))));"
+        "\n}"
+        "\n"
+    )
