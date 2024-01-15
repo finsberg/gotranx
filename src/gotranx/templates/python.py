@@ -17,7 +17,7 @@ def state_index(data: dict[str, int]) -> str:
     logger.debug(f"Generating state_index with {len(data)} values")
     return dedent(
         f'''
-def state_index(name: str) -> float:
+def state_index(name: str) -> int:
     """Return the index of the state with the given name
 
     Arguments
@@ -27,7 +27,7 @@ def state_index(name: str) -> float:
 
     Returns
     -------
-    float
+    int
         The index of the state
 
     Raises
@@ -71,7 +71,7 @@ def parameter_index(data: dict[str, int]) -> str:
     logger.debug(f"Generating parameter_index with {len(data)} values")
     return dedent(
         f'''
-def parameter_index(name: str) -> float:
+def parameter_index(name: str) -> int:
     """Return the index of the parameter with the given name
 
     Arguments
@@ -81,7 +81,7 @@ def parameter_index(name: str) -> float:
 
     Returns
     -------
-    float
+    int
         The index of the parameter
 
     Raises

@@ -40,7 +40,7 @@ def codegen_no_black(ode) -> PythonCodeGenerator:
 
 def test_python_codegen_state_index_no_black(codegen: PythonCodeGenerator):
     assert codegen.state_index() == (
-        "def state_index(name: str) -> float:"
+        "def state_index(name: str) -> int:"
         '\n    """Return the index of the state with the given name'
         "\n"
         "\n    Arguments"
@@ -50,7 +50,7 @@ def test_python_codegen_state_index_no_black(codegen: PythonCodeGenerator):
         "\n"
         "\n    Returns"
         "\n    -------"
-        "\n    float"
+        "\n    int"
         "\n        The index of the state"
         "\n"
         "\n    Raises"
@@ -83,7 +83,7 @@ def test_python_codegen_initial_state_values(codegen: PythonCodeGenerator):
 
 def test_python_codegen_parameter_index_no_black(codegen_no_black: PythonCodeGenerator):
     assert codegen_no_black.parameter_index() == (
-        "\ndef parameter_index(name: str) -> float:"
+        "\ndef parameter_index(name: str) -> int:"
         '\n    """Return the index of the parameter with the given name'
         "\n"
         "\n    Arguments"
@@ -93,7 +93,7 @@ def test_python_codegen_parameter_index_no_black(codegen_no_black: PythonCodeGen
         "\n"
         "\n    Returns"
         "\n    -------"
-        "\n    float"
+        "\n    int"
         "\n        The index of the parameter"
         "\n"
         "\n    Raises"
@@ -110,7 +110,7 @@ def test_python_codegen_parameter_index_no_black(codegen_no_black: PythonCodeGen
 
 def test_python_codegen_parameter_index(codegen: PythonCodeGenerator):
     assert codegen.parameter_index() == (
-        "def parameter_index(name: str) -> float:"
+        "def parameter_index(name: str) -> int:"
         '\n    """Return the index of the parameter with the given name'
         "\n"
         "\n    Arguments"
@@ -120,7 +120,7 @@ def test_python_codegen_parameter_index(codegen: PythonCodeGenerator):
         "\n"
         "\n    Returns"
         "\n    -------"
-        "\n    float"
+        "\n    int"
         "\n        The index of the parameter"
         "\n"
         "\n    Raises"
