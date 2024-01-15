@@ -9,6 +9,7 @@ except ImportError:
 import typer
 from ..schemes import Scheme
 
+from . import gotran2c, gotran2py, cellml2ode
 
 app = typer.Typer()
 
@@ -91,8 +92,6 @@ def main(
             to = Path(outname).suffix
 
     if to in {".c", ".h"}:
-        from . import gotran2c
-
         gotran2c.main(
             fname=fname,
             suffix=to,
@@ -102,8 +101,6 @@ def main(
             verbose=verbose,
         )
     if to in {".py"}:
-        from . import gotran2py
-
         gotran2py.main(
             fname=fname,
             suffix=to,
@@ -114,6 +111,4 @@ def main(
         )
 
     if to in {".ode"}:
-        from .cellml2ode import main as cellml2ode
-
-        cellml2ode(fname=fname, outname=outname, verbose=verbose)
+        cellml2ode.main(fname=fname, outname=outname, verbose=verbose)
