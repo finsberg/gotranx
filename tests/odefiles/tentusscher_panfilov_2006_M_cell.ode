@@ -193,9 +193,9 @@ parameters("Membrane",
            F = ScalarParam(96485.3415, unit="C*mmole**-1"),
            Cm = ScalarParam(0.185, unit="uF", description="Faraday\\'s constant"),
            V_c = ScalarParam(0.016404, unit="um**3", description="Volume cytosole"),
-           stim_start = ScalarParam(10, unit="ms", description="Start time for stimulation"),
+           stim_start = ScalarParam(1, unit="ms", description="Start time for stimulation"),
            stim_period = ScalarParam(1000, unit="ms", description="Timer period for stimulation"),
-           stim_duration = ScalarParam(1, unit="ms", description="Duration time for stimulation"),
+           stim_duration = ScalarParam(5, unit="ms", description="Duration time for stimulation"),
            stim_amplitude = ScalarParam(52, unit="pA*pF**-1", description="Amplitude for stimulation"))
 
 states("Potassium dynamics",
