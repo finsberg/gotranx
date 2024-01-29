@@ -78,3 +78,12 @@ class InvalidTreeError(GotranParserError):
 
     def __str__(self) -> str:
         return f"Invaild tree with data attribute {self.tree.data!r} \n{self.tree.pretty()}"
+
+
+@dataclass
+class MissingSymbolError(GotranParserError, KeyError):
+    symbol: str
+    line_no: int
+
+    def __str__(self) -> str:
+        return f"Symbol {self.symbol!r} not found in line {self.line_no}"

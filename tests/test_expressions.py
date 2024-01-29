@@ -98,3 +98,12 @@ def test_state_parameters_with_expression_values(parser, trans):
     assert result.find_parameter("a").value == sp.Mul(
         3, sp.Pow(5, 2, evaluate=False), evaluate=False
     )
+
+
+def test_expression_missing_symbol(parser, trans):
+    expr = "x = a + 1"
+    tree = parser.parse(expr)
+    result = trans.transform(tree)
+    with pytest.raises(gotranx.expressions.MissingSymbolError) as e:
+        build_expression(result[0].value.tree, symbols={})
+    assert str(e.value) == "Symbol 'a' not found in line 1"

@@ -3,7 +3,7 @@ from __future__ import annotations
 import lark
 import sympy as sp
 from . import sympytools
-from .exceptions import InvalidTreeError
+from .exceptions import InvalidTreeError, MissingSymbolError
 
 
 def relational_to_piecewise(expr: sp.Expr) -> sp.Piecewise:
@@ -117,7 +117,13 @@ def build_expression(
             )
 
         if tree.data == "variable":
-            return symbols_[str(tree.children[0])]
+            try:
+                return symbols_[str(tree.children[0])]
+            except KeyError as e:
+                raise MissingSymbolError(
+                    symbol=str(tree.children[0]), line_no=tree.meta.line
+                ) from e
+
         if tree.data == "scientific":
             return sp.sympify(tree.children[0])
 

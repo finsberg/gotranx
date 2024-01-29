@@ -6,7 +6,7 @@ from gotranx.ode import make_ode
 
 @pytest.fixture(scope="module")
 def parser() -> Parser:
-    return Parser(parser="lalr", debug=True)
+    return Parser(parser="lalr", debug=True, propagate_positions=True)
 
 
 @pytest.fixture(scope="module")
