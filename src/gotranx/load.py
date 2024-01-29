@@ -13,7 +13,7 @@ logger = get_logger()
 
 
 def ode_from_string(text: str, name="ode") -> ODE:
-    parser = Parser(parser="lalr", transformer=TreeToODE())
+    parser = Parser(parser="lalr", transformer=TreeToODE(), propagate_positions=True)
     result = parser.parse(text)
     ode = make_ode(
         components=result.components,
