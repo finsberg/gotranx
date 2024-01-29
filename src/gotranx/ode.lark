@@ -61,6 +61,7 @@ variable: VARIABLE
     | AND
     | OR
     | EQ
+    | NOT
 
 
 CONTINUOUSCONDITIONAL: "ContinuousConditional"
@@ -84,6 +85,7 @@ LE: "Le"
 AND: "And"
 OR: "Or"
 EQ: "Eq"
+NOT: "Not"
 
 
 PI: "pi"

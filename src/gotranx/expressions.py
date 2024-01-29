@@ -159,8 +159,7 @@ def build_expression(
                 )
 
             return getattr(sp, tree.children[0])(
-                expr2symbols(tree.children[1]),
-                expr2symbols(tree.children[2]),
+                *[expr2symbols(c) for c in tree.children[1:]],
             )
 
         raise InvalidTreeError(tree=tree)
