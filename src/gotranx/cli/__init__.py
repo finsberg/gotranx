@@ -9,7 +9,7 @@ except ImportError:
 import typer
 from ..schemes import Scheme
 
-from . import gotran2c, gotran2py, cellml2ode
+from . import gotran2c, gotran2py, cellml2ode, inspect
 
 app = typer.Typer()
 
@@ -33,7 +33,7 @@ def license_callback(show_license: bool):
 
 
 @app.command()
-def main(
+def convert(
     fname: typing.Optional[Path] = typer.Argument(
         None,
         exists=True,
@@ -112,3 +112,6 @@ def main(
 
     if to in {".ode"}:
         cellml2ode.main(fname=fname, outname=outname, verbose=verbose)
+
+
+app.add_typer(inspect.app, name="run")
