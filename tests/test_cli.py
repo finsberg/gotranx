@@ -43,7 +43,9 @@ def test_cli_license():
 
 def test_gotran2py(odefile):
     outfile = odefile.with_suffix(".py")
-    result = runner.invoke(gotranx.cli.app, [str(odefile), "--to", ".py", "-o", str(outfile)])
+    result = runner.invoke(
+        gotranx.cli.app, ["convert", str(odefile), "--to", ".py", "-o", str(outfile)]
+    )
     assert result.exit_code == 0
     assert "lorentz.py" in result.stdout
     assert "lorentz" in result.stdout
@@ -53,7 +55,9 @@ def test_gotran2py(odefile):
 
 def test_gotran2c(odefile):
     outfile = odefile.with_suffix(".h")
-    result = runner.invoke(gotranx.cli.app, [str(odefile), "--to", ".h", "-o", str(outfile)])
+    result = runner.invoke(
+        gotranx.cli.app, ["convert", str(odefile), "--to", ".h", "-o", str(outfile)]
+    )
     assert result.exit_code == 0
     assert "lorentz.h" in result.stdout
     assert "lorentz" in result.stdout
@@ -64,7 +68,10 @@ def test_gotran2c(odefile):
 def test_cellml2ode():
     cellmlfile = here / "cellml_files" / "noble_1962.cellml"
     out_odefile = cellmlfile.with_suffix(".ode")
-    result = runner.invoke(gotranx.cli.app, [str(cellmlfile), "-o", cellmlfile.with_suffix(".ode")])
+    result = runner.invoke(
+        gotranx.cli.app,
+        ["convert", str(cellmlfile), "-o", cellmlfile.with_suffix(".ode")],
+    )
     assert result.exit_code == 0
 
     assert f"Wrote {out_odefile}" in result.stdout

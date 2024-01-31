@@ -32,6 +32,26 @@ def license_callback(show_license: bool):
         raise typer.Exit()
 
 
+@app.callback()
+def main(
+    version: bool = typer.Option(
+        None,
+        "--version",
+        callback=version_callback,
+        is_eager=True,
+        help="Show version",
+    ),
+    license: bool = typer.Option(
+        None,
+        "--license",
+        callback=license_callback,
+        is_eager=True,
+        help="Show license",
+    ),
+):
+    ...
+
+
 @app.command()
 def convert(
     fname: typing.Optional[Path] = typer.Argument(
