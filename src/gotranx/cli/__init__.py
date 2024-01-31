@@ -7,9 +7,9 @@ except ImportError:
     from typing_extensions import Annotated  # type: ignore
 
 import typer
-from ..schemes import Scheme
 
-from . import gotran2c, gotran2py, cellml2ode, inspect
+from ..schemes import Scheme
+from . import gotran2c, gotran2py, cellml2ode
 
 app = typer.Typer()
 
@@ -114,4 +114,16 @@ def convert(
         cellml2ode.main(fname=fname, outname=outname, verbose=verbose)
 
 
-app.add_typer(inspect.app, name="run")
+@app.command()
+def inspect(
+    fname: typing.Optional[Path] = typer.Argument(
+        None,
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        writable=False,
+        readable=True,
+        resolve_path=True,
+    ),
+):
+    typer.echo("Hello from inspect")
