@@ -13,6 +13,17 @@ def test_cellml_to_gotran(cellml_file, num_states, num_parameters):
     ode = gotranx.myokit.cellml_to_gotran(
         filename=here / "cellml_files" / cellml_file,
     )
-    # ode = gotranx.load.ode_from_string(text)
+    assert ode.num_states == num_states
+    assert ode.num_parameters == num_parameters
+
+
+@pytest.mark.parametrize(
+    "mmt_file, num_states, num_parameters",
+    [("example.mmt", 8, 18)],
+)
+def test_mmt_to_gotran(mmt_file, num_states, num_parameters):
+    ode = gotranx.myokit.mmt_to_gotran(
+        filename=here / "mmt_files" / mmt_file,
+    )
     assert ode.num_states == num_states
     assert ode.num_parameters == num_parameters
