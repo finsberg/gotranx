@@ -14,13 +14,13 @@ import sympy as sp
 
 from . import atoms
 from . import exceptions
-from .ode_component import Component
+from .ode_component import BaseComponent, Component
 
 T = TypeVar("T")
 U = TypeVar("U", bound=atoms.Assignment)
 
 
-def check_components(components: Sequence[Component]):
+def check_components(components: Sequence[BaseComponent]):
     for comp in components:
         if not comp.is_complete():
             raise exceptions.ComponentNotCompleteError(
@@ -30,7 +30,7 @@ def check_components(components: Sequence[Component]):
 
 
 def gather_atoms(
-    components: Sequence[Component],
+    components: Sequence[BaseComponent],
 ) -> tuple[list[str], dict[str, set[Any]], dict[str, sp.Symbol], dict[str, atoms.Atom]]:
     symbol_names = []
     symbols = {}
@@ -85,7 +85,7 @@ def find_duplicates(x: Iterable[T]) -> set[T]:
 
 
 def add_temporal_state(
-    components: Sequence[Component],
+    components: Sequence[BaseComponent],
     t: sp.Symbol,
 ) -> tuple[Component, ...]:
     new_components = []
@@ -168,6 +168,12 @@ def sort_assignments(
     assignment_names = set()
     for assignment in assignments:
         assignment_names.add(assignment.name)
+        if assignment.value is None:
+            msg = (
+                "Unable to sort assignments with None value"
+                "Try to save the ODE to an .ode file first and load it again"
+            )
+            raise exceptions.GotranxError(msg)
         sorter.add(assignment.name, *assignment.value.dependencies)
 
     static_order = tuple(sorter.static_order())
@@ -181,7 +187,7 @@ def sort_assignments(
 class ODE:
     def __init__(
         self,
-        components: Sequence[Component],
+        components: Sequence[BaseComponent],
         t: sp.Symbol | None = None,
         name: str = "ODE",
         comments: Sequence[atoms.Comment] | None = None,
@@ -311,6 +317,12 @@ class ODE:
         dependencies = defaultdict(set)
         for component in self.components:
             for assignment in component.assignments:
+                if assignment.value is None:
+                    msg = (
+                        "Unable to sort assignments with None value"
+                        "Try to save the ODE to an .ode file first and load it again"
+                    )
+                    raise exceptions.GotranxError(msg)
                 for dependency in assignment.value.dependencies:
                     dependencies[dependency].add(assignment.name)
 

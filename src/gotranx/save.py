@@ -4,12 +4,12 @@ from collections import defaultdict
 from pathlib import Path
 from typing import TypeVar, Callable
 from functools import reduce
-
+from sympy.printing.str import StrPrinter
 from structlog import get_logger
 
 from . import atoms
 from .ode import ODE
-from .codegen.python import PythonCodeGenerator
+from .codegen.base import _print_Piecewise
 
 T = TypeVar("T")
 logger = get_logger()
@@ -25,16 +25,54 @@ def break_comment_at_80(acc, x):
         return acc + " " + x
 
 
-class GotranODECodePrinter(PythonCodeGenerator):
+class GotranODECodePrinter(StrPrinter):
+    def __init__(self, ode: ODE, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.ode = ode
+
+    def _print_Relational(self, expr):
+        # v = super()._print_Relational(expr)
+        lhs = self._print(expr.lhs)
+        rhs = self._print(expr.rhs)
+
+        relop2str = {
+            "<": "Lt",
+            "<=": "Le",
+            ">": "Gt",
+            ">=": "Ge",
+            "==": "Eq",
+            "!=": "Ne",
+        }
+        relop = relop2str[expr.rel_op]
+        print(expr, f"{relop}({lhs}, {rhs})")
+        return f"{relop}({lhs}, {rhs})"
+
+    def _print_BooleanFalse(self, expr):
+        return "0"
+
+    def _print_BooleanTrue(self, expr):
+        return "1"
+
+    def _print_Piecewise(self, expr):
+        conds, exprs = _print_Piecewise(self, expr)
+
+        return (
+            "Conditional("
+            f"{self._print(conds[0])}, {self._print(exprs[0])}, {self._print(exprs[1])}"
+            ")"
+        )
+
     def print_comments(self) -> str:
         if len(self.ode.comments) == 0:
             return ""
-        text = "# "
+        text = ""
 
         for comment in self.ode.comments:
             text += reduce(break_comment_at_80, comment.text.split(" "))
 
-        text += "\n\n"
+        if len(text) > 0:
+            text = "# " + "\n# ".join(text.strip().split("\n"))
+            text += "\n\n"
         return text
 
     def print_states(self) -> str:
@@ -45,7 +83,7 @@ class GotranODECodePrinter(PythonCodeGenerator):
         text = ""
         for components, states in d.items():
             text += start_odeblock("states", names=components) + "\n"
-            text += ", ".join([print_ScalarParam(s, doprint=self.printer.doprint) for s in states])
+            text += ", ".join([print_ScalarParam(s, doprint=self.doprint) for s in states])
             text += "\n)\n\n"
         return text
 
@@ -57,9 +95,7 @@ class GotranODECodePrinter(PythonCodeGenerator):
         text = ""
         for components, parameters in d.items():
             text += start_odeblock("parameters", names=components) + "\n"
-            text += ",\n".join(
-                [print_ScalarParam(p, doprint=self.printer.doprint) for p in parameters]
-            )
+            text += ",\n".join([print_ScalarParam(p, doprint=self.doprint) for p in parameters])
             text += "\n)\n\n"
 
         return text
@@ -72,13 +108,10 @@ class GotranODECodePrinter(PythonCodeGenerator):
         text = ""
         for components, intermediates in d.items():
             text += start_odeblock("expressions", names=components, is_expression=True) + "\n"
-            text += "\n".join([print_assignment(i) for i in intermediates])
+            text += "\n".join([print_assignment(i, doprint=self.doprint) for i in intermediates])
             text += "\n\n"
 
         return text
-
-    def format(self, code: str) -> str:
-        return self._formatter(code)
 
 
 def start_odeblock(case: str, names: tuple[str, ...] = (), is_expression: bool = False):
@@ -118,9 +151,9 @@ def print_ScalarParam(p: atoms.Atom, doprint: Callable[[str], str]) -> str:
     return ret
 
 
-def print_assignment(a: atoms.Assignment) -> str:
-    s = f"{a.name} = {a.expr}"
-    if a.unit_str is not None:
+def print_assignment(a: atoms.Assignment, doprint: Callable[[str], str]) -> str:
+    s = f"{a.name} = {doprint(a.expr)}"
+    if a.unit_str is not None and a.unit_str != "1":
         s += f" # {a.unit_str}"
     return s
 

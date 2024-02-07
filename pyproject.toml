@@ -29,6 +29,7 @@ dependencies = [
     "structlog",
     "sympy",
     "typer",
+    "myokit",
     'graphlib-backport;python_version < "3.9"',
     'typing_extensions;python_version < "3.9"',
 ]

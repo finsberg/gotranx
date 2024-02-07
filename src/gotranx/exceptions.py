@@ -6,17 +6,17 @@ from pathlib import Path
 import lark
 
 
-class GotranParserError(Exception):
+class GotranxError(Exception):
     pass
 
 
 @dataclass
-class ODEFileNotFound(GotranParserError):
+class ODEFileNotFound(GotranxError):
     fname: Path
 
 
 @dataclass
-class StateNotFoundInComponent(GotranParserError):
+class StateNotFoundInComponent(GotranxError):
     state_name: str
     component_name: str
 
@@ -28,7 +28,7 @@ class StateNotFoundInComponent(GotranParserError):
 
 
 @dataclass
-class ParameterNotFoundInComponent(GotranParserError):
+class ParameterNotFoundInComponent(GotranxError):
     parameter_name: str
     component_name: str
 
@@ -40,7 +40,7 @@ class ParameterNotFoundInComponent(GotranParserError):
 
 
 @dataclass
-class ComponentNotCompleteError(GotranParserError):
+class ComponentNotCompleteError(GotranxError):
     component_name: str
     missing_state_derivatives: list[str]
 
@@ -52,7 +52,7 @@ class ComponentNotCompleteError(GotranParserError):
 
 
 @dataclass
-class DuplicateSymbolError(GotranParserError):
+class DuplicateSymbolError(GotranxError):
     duplicates: set[str]
 
     def __str__(self) -> str:
@@ -64,7 +64,7 @@ class DuplicateSymbolError(GotranParserError):
 
 
 @dataclass
-class UnknownTreeTypeError(GotranParserError):
+class UnknownTreeTypeError(GotranxError):
     datatype: str
     atom: str
 
@@ -73,7 +73,7 @@ class UnknownTreeTypeError(GotranParserError):
 
 
 @dataclass
-class InvalidTreeError(GotranParserError):
+class InvalidTreeError(GotranxError):
     tree: lark.Tree
 
     def __str__(self) -> str:
@@ -81,9 +81,17 @@ class InvalidTreeError(GotranParserError):
 
 
 @dataclass
-class MissingSymbolError(GotranParserError, KeyError):
+class MissingSymbolError(GotranxError, KeyError):
     symbol: str
     line_no: int
 
     def __str__(self) -> str:
         return f"Symbol {self.symbol!r} not found in line {self.line_no}"
+
+
+@dataclass
+class ResolveExpressionError(GotranxError, ValueError):
+    name: str
+
+    def __str__(self) -> str:
+        return f"Unable to resolve expression for {self.name!r}"

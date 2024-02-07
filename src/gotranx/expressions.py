@@ -139,7 +139,7 @@ def build_expression(
                 # Only exceptions is 'abs' which is 'Abs'
                 funcname = "Abs"
 
-            return getattr(sp, funcname)(expr2symbols(tree.children[1]))
+            return getattr(sp, funcname)(*[expr2symbols(c) for c in tree.children[1:]])
 
         if tree.data == "logicalfunc":
             if tree.children[0] == "Conditional":
