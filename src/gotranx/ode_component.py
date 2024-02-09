@@ -12,7 +12,7 @@ STATE_DERIV_EXPR = re.compile(r"^d(?P<state>\w+)_dt$")
 
 
 @attr.s(frozen=True, slots=True)
-class Component:
+class BaseComponent:
     """A Component is a collection of states, parameters and
     assignments that are given the same tag. This is useful if
     you have a complicated set of equations and need to group them together.
@@ -26,12 +26,9 @@ class Component:
     name: str = attr.ib()
     states: frozenset[atoms.State] = attr.ib()
     parameters: frozenset[atoms.Parameter] = attr.ib()
-    assignments: frozenset[atoms.Assignment] = attr.ib()
+    assignments: frozenset[atoms.Assignment] = attr.ib(init=False)
     state_derivatives: frozenset[atoms.StateDerivative] = attr.ib(init=False)
     intermediates: frozenset[atoms.Intermediate] = attr.ib(init=False)
-
-    def __attrs_post_init__(self):
-        self._handle_assignments()
 
     def simplify(self) -> Component:
         """Run sympy's simplify function on all expressions in the ODE"""
@@ -97,25 +94,6 @@ class Component:
                 component_name=self.name,
             )
 
-    def _handle_assignments(self):
-        state_derivatives = set()
-        intermediates = set()
-        for assignment in self.assignments:
-            if isinstance(assignment, atoms.Intermediate):
-                intermediates.add(assignment)
-            elif isinstance(assignment, atoms.StateDerivative):
-                state_derivatives.add(assignment)
-            else:
-                if state_name := STATE_DERIV_EXPR.match(assignment.name):
-                    state = self.find_state(state_name=state_name.groupdict()["state"])
-                    state_derivatives.add(assignment.to_state_derivative(state))
-                else:
-                    intermediates.add(assignment.to_intermediate())
-
-        # https://docs.python.org/3/library/dataclasses.html#frozen-instances
-        object.__setattr__(self, "intermediates", intermediates)
-        object.__setattr__(self, "state_derivatives", state_derivatives)
-
     def is_complete(self) -> bool:
         """Returns true if all states have a corresponding state derivative"""
 
@@ -157,4 +135,64 @@ class Component:
         """
         return frozenset(
             self.states.union(self.parameters).union(self.assignments).union(self.intermediates)
+        )
+
+
+@attr.s(frozen=True, slots=True)
+class Component(BaseComponent):
+    """A Component is a collection of states, parameters and
+    assignments that are given the same tag. This is useful if
+    you have a complicated set of equations and need to group them together.
+
+    Raises
+    ------
+    StateNotFound
+        If component contains a state derivative but not the State
+    """
+
+    assignments: frozenset[atoms.Assignment] = attr.ib()
+
+    def __attrs_post_init__(self):
+        self._handle_assignments()
+
+    def _handle_assignments(self):
+        state_derivatives = set()
+        intermediates = set()
+        for assignment in self.assignments:
+            if isinstance(assignment, atoms.Intermediate):
+                intermediates.add(assignment)
+            elif isinstance(assignment, atoms.StateDerivative):
+                state_derivatives.add(assignment)
+            else:
+                if state_name := STATE_DERIV_EXPR.match(assignment.name):
+                    state = self.find_state(state_name=state_name.groupdict()["state"])
+                    state_derivatives.add(assignment.to_state_derivative(state))
+                else:
+                    intermediates.add(assignment.to_intermediate())
+
+        # https://docs.python.org/3/library/dataclasses.html#frozen-instances
+        object.__setattr__(self, "intermediates", intermediates)
+        object.__setattr__(self, "state_derivatives", state_derivatives)
+
+
+@attr.s(frozen=True, slots=True)
+class MyokitComponent(BaseComponent):
+    """A Component is a collection of states, parameters and
+    assignments that are given the same tag. This is useful if
+    you have a complicated set of equations and need to group them together.
+
+    Raises
+    ------
+    StateNotFound
+        If component contains a state derivative but not the State
+    """
+
+    state_derivatives: frozenset[atoms.StateDerivative] = attr.ib()
+    intermediates: frozenset[atoms.Intermediate] = attr.ib()
+
+    def __attrs_post_init__(self):
+        object.__setattr__(
+            self,
+            "assignments",
+            frozenset(tuple(self.intermediates) + tuple(self.state_derivatives)),
         )

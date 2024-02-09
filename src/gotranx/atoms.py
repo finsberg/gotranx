@@ -8,6 +8,7 @@ from structlog import get_logger
 
 from .expressions import build_expression
 from .units import ureg
+from . import exceptions
 
 logger = get_logger()
 
@@ -52,7 +53,7 @@ class Atom:
     """Base class for atoms"""
 
     name: str = attr.ib()
-    value: float | Expression | sp.core.Number = attr.ib()
+    value: float | Expression | sp.core.Number | None = attr.ib()
     components: tuple[str, ...] = attr.ib(default=("",))
     description: str | None = attr.ib(None)
     symbol: sp.Symbol = attr.ib(None)
@@ -132,10 +133,12 @@ class Expression:
 class Assignment(Atom):
     """Assignments are object of the form `name = value`."""
 
-    value: Expression = attr.ib()
+    value: Expression | None = attr.ib()
     expr: sp.Expr = attr.ib(sp.S.Zero)
 
     def resolve_expression(self, symbols: dict[str, sp.Symbol]) -> Assignment:
+        if self.value is None:
+            raise exceptions.ResolveExpressionError(name=self.name)
         expr = self.value.resolve(symbols)
         return type(self)(
             name=self.name,
@@ -201,6 +204,8 @@ class StateDerivative(Assignment):
     state: State = attr.ib()
 
     def resolve_expression(self, symbols: dict[str, sp.Symbol]) -> Assignment:
+        if self.value is None:
+            raise exceptions.ResolveExpressionError(name=self.name)
         expr = self.value.resolve(symbols)
         return StateDerivative(
             name=self.name,

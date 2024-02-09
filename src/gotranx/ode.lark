@@ -50,6 +50,7 @@ variable: VARIABLE
     | EXP
     | ABS
     | FLOOR
+    | MOD
 
 ?logicalfunc: logicalfuncname "(" expression ("," expression)* (",")?  ")"
 ?logicalfuncname: CONTINUOUSCONDITIONAL
@@ -86,6 +87,7 @@ AND: "And"
 OR: "Or"
 EQ: "Eq"
 NOT: "Not"
+MOD: "Mod"
 
 
 PI: "pi"
@@ -105,7 +107,7 @@ COMPONENT_NAME: ESCAPED_STRING
 INFO: ESCAPED_STRING
 DESCRIPTION: ESCAPED_STRING
 UNIT_STR: ESCAPED_STRING
-UNIT: NAME ("*" | "**" SIGN? NUMBER |NAME)*
+UNIT: NAME ("/" | "*" | "**" SIGN? NUMBER |NAME)*
 
 %ignore WS
 %ignore WS_INLINE
