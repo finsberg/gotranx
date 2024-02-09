@@ -65,7 +65,7 @@ def myokit_to_gotran(model: myokit.Model, protocol=None) -> ODE:
     initial_values = model.initial_values()
     components = []
     for component in model.components():
-        print(f"Component: {component.name()}")
+        # print(f"Component: {component.name()}")
 
         states = []
         parameters = []
@@ -73,7 +73,8 @@ def myokit_to_gotran(model: myokit.Model, protocol=None) -> ODE:
         derivatives = []
         for var in component.variables(deep=True):
             name = var.uname()
-            print(name)
+            if name in reserved_names:
+                name = f"{name}_"
 
             if name == "time":
                 # Skip time variable
@@ -152,6 +153,65 @@ def myokit_to_gotran(model: myokit.Model, protocol=None) -> ODE:
     )
 
 
+def gotran_to_myokit(ode: ODE) -> myokit.Model:
+    model = myokit.Model(ode.name)
+    model.meta["author"] = "GotranX API"
+    comp = model.add_component("engine")
+    # breakpoint()
+    time = comp.add_variable("time", binding="time")
+    time.set_rhs(0)
+    model._bindings["time"] = time
+    # model._register_binding("time")
+
+    # First we need to add all variables to the model
+    global_var_map = {sp.Symbol("time"): sp.Symbol("engine.time")}
+    for component in ode.components:
+        comp = model.add_component(component.name)
+        for state_derivative in component.state_derivatives:
+            state = state_derivative.state
+            print(state.name, state_derivative.expr)
+            var = comp.add_variable(state.name)
+            global_var_map[sp.Symbol(state.name)] = sp.Symbol(var.qname())
+
+        for parameter in component.parameters:
+            var = comp.add_variable(parameter.name)
+            var.set_rhs(parameter.value)
+            global_var_map[sp.Symbol(parameter.name)] = sp.Symbol(var.qname())
+
+        for intermediate in component.intermediates:
+            var = comp.add_variable(intermediate.name)
+            global_var_map[sp.Symbol(intermediate.name)] = sp.Symbol(var.qname())
+
+    sympy_reader = myokit.formats.sympy.SymPyExpressionReader(model=model)
+    # Then we can add expressions
+    for component in ode.components:
+        comp = model[component.name]
+
+        for state_derivative in component.state_derivatives:
+            state = state_derivative.state
+            v = comp[state.name]
+
+            expr = state_derivative.expr.xreplace(global_var_map)
+            expr = sympy_reader.ex(expr)
+            v.set_rhs(expr)
+
+            v.promote(state.value)
+
+        for intermediate in component.intermediates:
+            v = comp[intermediate.name]
+            expr = intermediate.expr.xreplace(global_var_map)
+            expr = sympy_reader.ex(expr)
+            v.set_rhs(expr)
+
+    model.validate()
+    return model
+
+
 def cellml_to_gotran(filename: str | Path) -> ODE:
     myokit_model = myokit.formats.cellml.CellMLImporter().model(filename)
     return myokit_to_gotran(myokit_model)
+
+
+def gotran_to_cellml(ode: ODE, filename: str | Path) -> None:
+    model = gotran_to_myokit(ode)
+    myokit.formats.cellml.CellMLExporter().model(filename, model, version="1.0")
