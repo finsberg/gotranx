@@ -1,5 +1,6 @@
 import pytest
 from gotranx.expressions import build_expression
+from gotranx import codegen
 import sympy as sp
 
 
@@ -27,3 +28,50 @@ def test_Conditional_expr(expr, expected, parser, trans):
     assert sympy_expr.subs({"time": 0}) == expected[0]
     assert sympy_expr.subs({"time": 1}) == expected[1]
     assert sympy_expr.subs({"time": -1}) == expected[2]
+
+
+@pytest.mark.parametrize(
+    "Printer, expected",
+    [
+        (codegen.BaseGotranODECodePrinter, "Conditional(Lt(t, 0), a, b)"),
+        (codegen.GotranPythonCodePrinter, "numpy.where((t < 0), a, b)"),
+        (codegen.GotranCCodePrinter, "((t < 0) ? (\n   a\n)\n: (\n   b\n))"),
+    ],
+)
+def test_single_Conditional_from_sympy(Printer, expected):
+    t = sp.Symbol("t")
+    a = sp.Symbol("a")
+    b = sp.Symbol("b")
+
+    expr = sp.Piecewise((a, sp.Lt(t, 0)), (b, True))
+    result = Printer().doprint(expr)
+    assert result == expected
+
+
+@pytest.mark.parametrize(
+    "Printer, expected",
+    [
+        (
+            codegen.BaseGotranODECodePrinter,
+            "Conditional(Lt(t, 0), a, Conditional(Gt(t, 0), b, c))",
+        ),
+        (
+            codegen.GotranPythonCodePrinter,
+            "numpy.where((t < 0), a, numpy.where((t > 0), b, c))",
+        ),
+        (
+            codegen.GotranCCodePrinter,
+            "((t < 0) ? (\n   a\n)\n: ((t > 0) ? (\n   b\n)\n: (\n   c\n)))",
+        ),
+    ],
+)
+def test_nested_Conditional_from_sympy(Printer, expected):
+    t = sp.Symbol("t")
+    a = sp.Symbol("a")
+    b = sp.Symbol("b")
+    c = sp.Symbol("c")
+
+    expr = sp.Piecewise((a, t < 0), (b, t > 0), (c, True))
+    result = Printer().doprint(expr)
+
+    assert result == expected

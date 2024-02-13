@@ -30,20 +30,49 @@ class GotranPythonCodePrinter(PythonCodePrinter):
         return self._print(str(float(flt)))
 
     def _print_Piecewise(self, expr):
-        fst, snd = expr.args
-        if isinstance(fst[0], Assignment):
-            value = (
-                f"{super()._print(fst[0].lhs)} = "
-                f"numpy.where({super()._print(fst[1])}, "
-                f"{super()._print(fst[0].rhs)}, "
-                f"{super()._print(snd[0].rhs)})"
-            )
+        result = []
+
+        if isinstance(expr.args[0][0], Assignment):
+            lhs = super()._print(expr.args[0][0].lhs)
+            result.append(f"{super()._print(lhs)} = ")
+            all_lsh_equal = True
+            for arg in expr.args:
+                result.append("numpy.where(")
+                result.append(f"{super()._print(arg[1])}")
+                result.append(", ")
+                result.append(f"{super()._print(arg[0].rhs)}")
+                result.append(", ")
+                all_lsh_equal = all_lsh_equal and super()._print(arg[0].lhs) == lhs
+
+            assert all_lsh_equal, "All assignments in Piecewise must have the same lhs"
+
+            if super()._print(arg[1]) == "True":
+                result = result[:-6]
+                result.append(f", {super()._print(arg[0].rhs)}")
+            else:
+                raise ValueError("Last condition in Piecewise must be True")
+
+            result.append(")" * (len(expr.args) - 1))
 
         else:
             conds, exprs = _print_Piecewise(self, expr)
-            value = f"numpy.where({conds[0]}, {exprs[0]}, {exprs[1]})"
 
-        return value
+            for c, e in zip(conds, exprs):
+                result.append("numpy.where(")
+                result.append(f"{c}")
+                result.append(", ")
+                result.append(f"{e}")
+                result.append(", ")
+
+            if c == "True":
+                result = result[:-6]
+                result.append(f", {e}")
+            else:
+                raise ValueError("Last condition in Piecewise must be True")
+
+            result.append(")" * (len(conds) - 1))
+
+        return "".join(result)
 
     def _print_And(self, expr):
         if len(expr.args) == 2:

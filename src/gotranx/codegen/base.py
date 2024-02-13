@@ -87,8 +87,7 @@ def _print_Piecewise(
 
     exprs = [printer._print(arg.expr) for arg in expr.args]
     conds = [print_cond(arg.cond) for arg in expr.args]
-    assert len(exprs) == 2
-    assert len(conds) == 2
+
     return tuple(conds), tuple(exprs)
 
 
