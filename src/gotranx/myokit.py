@@ -65,8 +65,6 @@ def myokit_to_gotran(model: myokit.Model, protocol=None) -> ODE:
     initial_values = model.initial_values()
     components = []
     for component in model.components():
-        # print(f"Component: {component.name()}")
-
         states = []
         parameters = []
         intermediates = []
@@ -169,7 +167,6 @@ def gotran_to_myokit(ode: ODE) -> myokit.Model:
         comp = model.add_component(component.name)
         for state_derivative in component.state_derivatives:
             state = state_derivative.state
-            print(state.name, state_derivative.expr)
             var = comp.add_variable(state.name)
             global_var_map[sp.Symbol(state.name)] = sp.Symbol(var.qname())
 
