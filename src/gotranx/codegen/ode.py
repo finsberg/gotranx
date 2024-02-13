@@ -42,6 +42,12 @@ class BaseGotranODECodePrinter(StrPrinter):
         print(expr, f"{relop}({lhs}, {rhs})")
         return f"{relop}({lhs}, {rhs})"
 
+    def _print_Or(self, expr):
+        return f"Or({', '.join(self._print(a) for a in expr.args)})"
+
+    def _print_And(self, expr):
+        return f"And({', '.join(self._print(a) for a in expr.args)})"
+
     def _print_BooleanFalse(self, expr):
         return "0"
 
