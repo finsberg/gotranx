@@ -35,6 +35,7 @@ def test_Conditional_expr(expr, expected, parser, trans):
     [
         (codegen.BaseGotranODECodePrinter, "Conditional(Lt(t, 0), a, b)"),
         (codegen.GotranPythonCodePrinter, "numpy.where((t < 0), a, b)"),
+        (codegen.GotranCCodePrinter, "((t < 0) ? (\n   a\n)\n: (\n   b\n))"),
     ],
 )
 def test_single_Conditional_from_sympy(Printer, expected):
@@ -43,7 +44,6 @@ def test_single_Conditional_from_sympy(Printer, expected):
     b = sp.Symbol("b")
 
     expr = sp.Piecewise((a, sp.Lt(t, 0)), (b, True))
-
     result = Printer().doprint(expr)
     assert result == expected
 
@@ -58,6 +58,10 @@ def test_single_Conditional_from_sympy(Printer, expected):
         (
             codegen.GotranPythonCodePrinter,
             "numpy.where((t < 0), a, numpy.where((t > 0), b, c))",
+        ),
+        (
+            codegen.GotranCCodePrinter,
+            "((t < 0) ? (\n   a\n)\n: ((t > 0) ? (\n   b\n)\n: (\n   c\n)))",
         ),
     ],
 )
