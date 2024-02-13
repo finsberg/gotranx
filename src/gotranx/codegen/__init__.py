@@ -4,7 +4,7 @@ from . import python
 from . import ode
 
 from .c import CCodeGenerator
-from .python import PythonCodeGenerator
+from .python import PythonCodeGenerator, GotranPythonCodePrinter
 from .base import CodeGenerator, Func, RHSArgument, SchemeArgument
 from .ode import GotranODECodePrinter, BaseGotranODECodePrinter
 
@@ -18,6 +18,7 @@ __all__ = [
     "SchemeArgument",
     "python",
     "PythonCodeGenerator",
+    "GotranPythonCodePrinter",
     "ode",
     "GotranODECodePrinter",
     "BaseGotranODECodePrinter",

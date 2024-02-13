@@ -54,7 +54,6 @@ class BaseGotranODECodePrinter(StrPrinter):
         result = []
 
         for c, e in zip(conds, exprs):
-            # result.append(f"Conditional({c}, {e}, ")
             result.append("Conditional(")
             result.append(f"{c}")
             result.append(", ")
