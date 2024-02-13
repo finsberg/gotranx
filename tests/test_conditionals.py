@@ -75,3 +75,11 @@ def test_nested_Conditional_from_sympy(Printer, expected):
     result = Printer().doprint(expr)
 
     assert result == expected
+
+
+def test_And_Or_from_sympy():
+    t = sp.Symbol("t")
+    expr = sp.Or(sp.Lt(t, 0), sp.And(sp.Gt(t, 0), sp.Lt(t, 1)))
+    result = codegen.BaseGotranODECodePrinter().doprint(expr)
+
+    assert result == "Or(Lt(t, 0), And(Gt(t, 0), Lt(t, 1)))"
