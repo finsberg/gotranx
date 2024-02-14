@@ -7,11 +7,15 @@ from . import python
 
 class Template(typing.Protocol):
     @staticmethod
-    def state_index(data: dict[str, float]) -> str:
+    def state_index(data: dict[str, int]) -> str:
         ...
 
     @staticmethod
-    def parameter_index(data: dict[str, float]) -> str:
+    def parameter_index(data: dict[str, int]) -> str:
+        ...
+
+    @staticmethod
+    def monitor_index(data: dict[str, int]) -> str:
         ...
 
     @staticmethod
@@ -35,6 +39,8 @@ class Template(typing.Protocol):
         values: str,
         return_name: str | None,
         num_return_values: int,
+        shape_info: str,
+        values_type: str,
     ) -> str:
         ...
 

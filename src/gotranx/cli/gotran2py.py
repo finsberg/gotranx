@@ -23,9 +23,11 @@ def get_code(
         "import numpy",
         codegen.parameter_index(),
         codegen.state_index(),
+        codegen.monitor_index(),
         codegen.initial_parameter_values(),
         codegen.initial_state_values(),
         codegen.rhs(),
+        codegen.monitor(),
     ]
 
     if scheme is not None:

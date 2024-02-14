@@ -93,6 +93,7 @@ class CCodeGenerator(CodeGenerator):
             states=states,
             parameters=parameters,
             values=values,
+            values_type="",
         )
 
     def _scheme_arguments(
@@ -118,4 +119,5 @@ class CCodeGenerator(CodeGenerator):
             states=states,
             parameters=parameters,
             values=values,
+            values_type="",
         )

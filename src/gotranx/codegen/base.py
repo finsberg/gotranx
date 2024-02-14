@@ -19,6 +19,7 @@ class Func(typing.NamedTuple):
     states: sympy.IndexedBase
     parameters: sympy.IndexedBase
     values: sympy.IndexedBase
+    values_type: str
     return_name: str = "values"
     num_return_values: int = 0
 
@@ -147,6 +148,17 @@ class CodeGenerator(abc.ABC):
         )
         return self._format(code)
 
+    def monitor_index(self) -> str:
+        data = {}
+        index = 0
+        for x in self.ode.sorted_assignments(remove_unused=False):
+            if isinstance(x, (atoms.Intermediate, atoms.StateDerivative)):
+                data[x.name] = index
+                index += 1
+
+        code = self.template.monitor_index(data=data)
+        return self._format(code)
+
     def initial_state_values(self, name="states") -> str:
         """Generate code for initializing state values
 
@@ -259,6 +271,60 @@ class CodeGenerator(abc.ABC):
             values=values,
             return_name=rhs.return_name,
             num_return_values=rhs.num_return_values,
+            shape_info="",
+            values_type=rhs.values_type,
+        )
+
+        return self._format(code)
+
+    def monitor(self, order: RHSArgument | str = RHSArgument.tsp, use_cse=False) -> str:
+        """Generate code for the right hand side of the ODE
+
+        Parameters
+        ----------
+        order : RHSArgument | str, optional
+            The order of the arguments, by default RHSArgument.tsp
+        use_cse : bool, optional
+            Use common subexpression elimination, by default False
+
+        Returns
+        -------
+        str
+            The generated code
+        """
+
+        rhs = self._rhs_arguments(order)
+        states = self._state_assignments(rhs.states, remove_unused=False)
+        parameters = self._parameter_assignments(rhs.parameters)
+
+        values_lst = []
+        index = 0
+        values_idx = sympy.IndexedBase(
+            "values",
+            shape=(len(self.ode.intermediates) + len(self.ode.state_derivatives),),
+        )
+
+        for x in self.ode.sorted_assignments(remove_unused=False):
+            values_lst.append(self._doprint(x.symbol, x.expr, use_variable_prefix=True))
+            if isinstance(x, (atoms.Intermediate, atoms.StateDerivative)):
+                values_lst.append(self._doprint(values_idx[index], x.symbol))
+                index += 1
+
+        values = "\n".join(values_lst)
+
+        shape = values_idx.shape[0]
+        shape_info = f"shape = {shape} if len(states.shape) == 1 else ({shape}, states.shape[1])"
+
+        code = self.template.method(
+            name="monitor",
+            args=", ".join(rhs.arguments),
+            states=states,
+            parameters=parameters,
+            values=values,
+            return_name=rhs.return_name,
+            num_return_values=rhs.num_return_values,
+            shape_info=shape_info,
+            values_type="numpy.zeros(shape)",
         )
 
         return self._format(code)
@@ -302,6 +368,8 @@ class CodeGenerator(abc.ABC):
             values=values,
             return_name=rhs.return_name,
             num_return_values=rhs.num_return_values,
+            shape_info="",
+            values_type=rhs.values_type,
         )
         return self._format(code)
 
