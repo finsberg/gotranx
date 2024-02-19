@@ -455,3 +455,114 @@ def test_c_conditional_expression_advanced(parser, trans):
         "\n}"
         "\n"
     )
+
+
+def test_c_codegen_parameter_index(codegen: CCodeGenerator):
+    assert codegen.parameter_index() == (
+        "// Parameter index"
+        "\nint parameter_index(const char name[]))"
+        "\n{"
+        "\n"
+        '\n    if (strcmp(name, "a") == 0)'
+        "\n    {"
+        "\n        return 0;"
+        "\n    }"
+        "\n"
+        '\n    else if (strcmp(name, "beta") == 0)'
+        "\n    {"
+        "\n        return 1;"
+        "\n    }"
+        "\n"
+        '\n    else if (strcmp(name, "rho") == 0)'
+        "\n    {"
+        "\n        return 2;"
+        "\n    }"
+        "\n"
+        '\n    else if (strcmp(name, "sigma") == 0)'
+        "\n    {"
+        "\n        return 3;"
+        "\n    }"
+        "\n"
+        "\n    return -1;"
+        "\n}"
+    )
+
+
+def test_c_codegen_state_index(codegen: CCodeGenerator):
+    assert codegen.state_index() == (
+        "// State index"
+        "\nint state_index(const char name[]))"
+        "\n{"
+        "\n"
+        '\n    if (strcmp(name, "x") == 0)'
+        "\n    {"
+        "\n        return 0;"
+        "\n    }"
+        "\n"
+        '\n    else if (strcmp(name, "y") == 0)'
+        "\n    {"
+        "\n        return 1;"
+        "\n    }"
+        "\n"
+        '\n    else if (strcmp(name, "z") == 0)'
+        "\n    {"
+        "\n        return 2;"
+        "\n    }"
+        "\n"
+        "\n    return -1;"
+        "\n}"
+    )
+
+
+def test_c_codegen_monitor_index(codegen: CCodeGenerator):
+    assert codegen.monitor_index() == (
+        "// Monitor index"
+        "\nint monitor_index(const char name[]))"
+        "\n{"
+        "\n"
+        '\n    if (strcmp(name, "dx_dt") == 0)'
+        "\n    {"
+        "\n        return 0;"
+        "\n    }"
+        "\n"
+        '\n    else if (strcmp(name, "dy_dt") == 0)'
+        "\n    {"
+        "\n        return 1;"
+        "\n    }"
+        "\n"
+        '\n    else if (strcmp(name, "dz_dt") == 0)'
+        "\n    {"
+        "\n        return 2;"
+        "\n    }"
+        "\n"
+        "\n    return -1;"
+        "\n}"
+    )
+
+
+def test_c_codegen_monitor(codegen: CCodeGenerator):
+    assert codegen.monitor() == (
+        "\nvoid monitor(const double t, const double *__restrict states, const double *__restrict parameters, double *values)"
+        "\n{"
+        "\n"
+        "\n    // Assign states"
+        "\n    const double x = states[0];"
+        "\n    const double y = states[1];"
+        "\n    const double z = states[2];"
+        "\n"
+        "\n    // Assign parameters"
+        "\n    const double a = parameters[0];"
+        "\n    const double beta = parameters[1];"
+        "\n    const double rho = parameters[2];"
+        "\n    const double sigma = parameters[3];"
+        "\n"
+        "\n    // Assign expressions"
+        "\n    const double dx_dt = sigma * (-x + y);"
+        "\n    values[0] = dx_dt;"
+        "\n    const double dy_dt = x * (rho - z) - y;"
+        "\n    values[1] = dy_dt;"
+        "\n    const double dz_dt = (-beta) * z + x * y;"
+        "\n    values[2] = dz_dt;"
+        "\n}"
+        "\n"
+    )

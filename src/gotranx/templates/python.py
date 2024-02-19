@@ -96,6 +96,35 @@ def parameter_index(name: str) -> int:
     )
 
 
+def monitor_index(data: dict[str, int]) -> str:
+    logger.debug(f"Generating monitored_index with {len(data)} values")
+    return dedent(
+        f'''
+def monitor_index(name: str) -> int:
+    """Return the index of the monitor with the given name
+
+    Arguments
+    ---------
+    name : str
+        The name of the monitor
+
+    Returns
+    -------
+    int
+        The index of the monitor
+
+    Raises
+    ------
+    KeyError
+        If the name is not a valid monitor
+    """
+
+    data = {repr(data)}
+    return data[name]
+''',
+    )
+
+
 def init_parameter_values(name, parameter_names, parameter_values, code):
     logger.debug(f"Generating init_parameter_values with {len(parameter_values)} values")
     values_comment = indent(
@@ -131,6 +160,8 @@ def method(
     return_name: str,
     num_return_values: int,
     nan_to_num: bool = False,
+    values_type: str = "numpy.zeros_like(states)",
+    shape_info: str = "",
     **kwargs,
 ):
     logger.debug(f"Generating method '{name}', with {num_return_values} return values.")
@@ -157,7 +188,8 @@ def {name}({args}):
 {indent_parameters}
 
     # Assign expressions
-    {return_name} = numpy.zeros_like(states)
+    {shape_info}
+    {return_name} = {values_type}
 {indent_values}
 
 {indent_return}
