@@ -1,4 +1,7 @@
 from textwrap import dedent, indent
+from structlog import get_logger
+
+logger = get_logger()
 
 
 def init_state_values(name, state_names, state_values, code):
@@ -61,3 +64,37 @@ void {name}({args}){{
 }}
 """,
     )
+
+
+def method_index(data: dict[str, int], method_name) -> str:
+    logger.debug(f"Generating {method_name}_index with {len(data)} values")
+    local_template = dedent(
+        """
+    {if_stm} (strcmp(name, "{name}") == 0) {{
+        return {index};
+    }}
+    """
+    )
+    code = []
+    code.append(f"// {method_name.capitalize()} index")
+    code.append(f"int {method_name}_index(const char name[]))")
+    code.append("{")
+    for i, (name, index) in enumerate(data.items()):
+        if_stm = "if" if i == 0 else "else if"
+        code.append(indent(local_template.format(if_stm=if_stm, name=name, index=index), "    "))
+    code.append(indent("return -1;", "    "))
+    code.append("}")
+
+    return "\n".join(code)
+
+
+def parameter_index(data: dict[str, int]) -> str:
+    return method_index(data, "parameter")
+
+
+def state_index(data: dict[str, int]) -> str:
+    return method_index(data, "state")
+
+
+def monitor_index(data: dict[str, int]) -> str:
+    return method_index(data, "monitor")
