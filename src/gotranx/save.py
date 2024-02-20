@@ -14,10 +14,10 @@ def write_ODE_to_ode_file(ode: ODE, path: Path) -> None:
     # Just make sure it is a Path object
     printer = GotranODECodePrinter(ode)
     path = Path(path)
-    text = ""
-    text += printer.print_comments()
-    text += printer.print_states()
-    text += printer.print_parameters()
-    text += printer.print_assignments()
-    path.write_text(text)
+    text = []
+    text.append(printer.print_comments())
+    text.append(printer.print_states())
+    text.append(printer.print_parameters())
+    text.append(printer.print_assignments())
+    path.write_text("".join(text))
     logger.info(f"Wrote {path}")

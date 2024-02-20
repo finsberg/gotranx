@@ -40,6 +40,18 @@ class ParameterNotFoundInComponent(GotranxError):
 
 
 @dataclass
+class AssignmentNotFoundInComponent(GotranxError):
+    assignment_name: str
+    component_name: str
+
+    def __str__(self) -> str:
+        return (
+            f"Assignment with name {self.assignment_name!r} "
+            f"not found in component {self.component_name!r}"
+        )
+
+
+@dataclass
 class ComponentNotCompleteError(GotranxError):
     component_name: str
     missing_state_derivatives: list[str]

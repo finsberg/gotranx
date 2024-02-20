@@ -135,6 +135,7 @@ class Assignment(Atom):
 
     value: Expression | None = attr.ib()
     expr: sp.Expr = attr.ib(sp.S.Zero)
+    comment: Comment | None = attr.ib(None)
 
     def resolve_expression(self, symbols: dict[str, sp.Symbol]) -> Assignment:
         if self.value is None:
@@ -149,6 +150,7 @@ class Assignment(Atom):
             expr=expr,
             symbol=self.symbol,
             description=self.description,
+            comment=self.comment,
         )
 
     def to_intermediate(self) -> "Intermediate":
@@ -161,6 +163,7 @@ class Assignment(Atom):
             expr=self.expr,
             description=self.description,
             symbol=self.symbol,
+            comment=self.comment,
         )
 
     def to_state_derivative(self, state: State) -> "StateDerivative":
@@ -174,6 +177,7 @@ class Assignment(Atom):
             expr=self.expr,
             description=self.description,
             symbol=self.symbol,
+            comment=self.comment,
         )
 
     def simplify(self) -> "Assignment":
@@ -186,6 +190,7 @@ class Assignment(Atom):
             expr=self.expr.simplify(),
             description=self.description,
             symbol=self.symbol,
+            comment=self.comment,
         )
 
 

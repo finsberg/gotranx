@@ -10,6 +10,7 @@ import lark
 from . import atoms
 from . import exceptions
 from . import ode_component
+from . import units
 
 T = TypeVar("T", atoms.State, atoms.Parameter)
 
@@ -23,15 +24,29 @@ def remove_quotes(s: str) -> str:
     return s.replace("'", "").replace('"', "")
 
 
-def get_unit_from_assignment(s: lark.Tree) -> str | None:
+def get_unit_and_comment_from_assignment(
+    s: lark.Tree,
+) -> tuple[str | None, atoms.Comment | None]:
     if len(s.children) >= 3:
-        unit = s.children[2]
-        try:
-            if unit.type == "UNIT":
-                return unit.value
-        except AttributeError:
-            pass
-    return None
+        potential_unit = s.children[2]
+        if isinstance(potential_unit, atoms.Comment):
+            try:
+                unit = units.ureg(potential_unit.text)
+            except (units.pint.UndefinedUnitError, AttributeError):
+                # Not a proper unit so it's a comment
+                return None, atoms.Comment(potential_unit.text)
+            else:
+                if isinstance(unit, units.pint.Quantity):
+                    # It's a proper unit
+                    return potential_unit.text, None
+
+                # It is something else, so it's a comment
+                return None, atoms.Comment(potential_unit.text)
+
+        else:
+            return None, None
+
+    return None, None
 
 
 def find_assignments(
@@ -39,12 +54,14 @@ def find_assignments(
     components: tuple[str, ...],
 ) -> list[atoms.Assignment]:
     if isinstance(s, lark.Tree):
+        unit_str, comment = get_unit_and_comment_from_assignment(s)
         return [
             atoms.Assignment(
                 name=str(s.children[0]),
                 value=atoms.Expression(tree=s.children[1]),
                 components=tuple(components),
-                unit_str=get_unit_from_assignment(s),
+                unit_str=unit_str,
+                comment=comment,
             ),
         ]
 
@@ -186,6 +203,10 @@ class TreeToODE(lark.Transformer):
         for line in s:  # Each line in the block
             if isinstance(line, atoms.Comment):
                 comments.append(line)
+                continue
+            if isinstance(line, str):
+                assert line.strip() == "", f"Ivalid line {line!r}"
+                # Skip empty lines
                 continue
 
             for atom in line:  # State, Parameters or Assignment

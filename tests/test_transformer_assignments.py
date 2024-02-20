@@ -6,7 +6,6 @@ import pytest
 import sympy as sp
 from gotranx.expressions import build_expression
 from gotranx.units import ureg
-from structlog.testing import capture_logs
 
 
 @pytest.mark.parametrize("expr", ["x=1", "x = 1", "x= 1"])
@@ -217,79 +216,152 @@ def test_expressions_with_name_only(parser, trans):
     """
     tree = parser.parse(expr)
     result = trans.transform(tree)
+    components = result.components
 
-    assert len(result) == 2
-    assert result[0].components == ("My Component",)
-    assert result[0].name == "x"
-    assert result[0].value.tree == lark.Tree(
+    assert len(components) == 1
+    component = components[0]
+    assert component.name == "My Component"
+
+    assignments = component.assignments
+    assert len(assignments) == 2
+
+    x = component.find_assignment("x")
+    assert x.name == "x"
+    assert x.value.tree == lark.Tree(
         "scientific",
         [lark.Token("SCIENTIFIC_NUMBER", "1")],
     )
-    assert result[1].components == ("My Component",)
-    assert result[1].name == "y"
-    assert result[1].value.tree == lark.Tree(
+
+    y = component.find_assignment("y")
+    assert y.name == "y"
+    assert y.value.tree == lark.Tree(
         "scientific",
         [lark.Token("SCIENTIFIC_NUMBER", "2")],
     )
 
 
-def test_expressions_with_name_and_info(parser, trans):
+def test_expressions_with_two_components(parser, trans):
     expr = """
-    expressions("My Component", "Some info")
+    expressions("My Component", "My second component")
     x = 1
     y = 2
     """
     tree = parser.parse(expr)
     result = trans.transform(tree)
 
-    assert len(result) == 2
-    assert result[0].components == ("My Component", "Some info")
-    assert result[0].name == "x"
-    assert result[0].value.tree == lark.Tree(
-        "scientific",
-        [lark.Token("SCIENTIFIC_NUMBER", "1")],
-    )
-    assert result[1].components == ("My Component", "Some info")
-    assert result[1].name == "y"
-    assert result[1].value.tree == lark.Tree(
-        "scientific",
-        [lark.Token("SCIENTIFIC_NUMBER", "2")],
-    )
+    components = result.components
+
+    assert len(components) == 2
+    for name, component in zip(["My Component", "My second component"], components):
+        assert component.name == name
+        assignments = component.assignments
+        assert len(assignments) == 2
+
+        x = component.find_assignment("x")
+        assert x.components == ("My Component", "My second component")
+        assert x.name == "x"
+        assert x.value.tree == lark.Tree(
+            "scientific",
+            [lark.Token("SCIENTIFIC_NUMBER", "1")],
+        )
+
+        y = component.find_assignment("y")
+        assert x.components == ("My Component", "My second component")
+        assert y.name == "y"
+        assert y.value.tree == lark.Tree(
+            "scientific",
+            [lark.Token("SCIENTIFIC_NUMBER", "2")],
+        )
 
 
-def test_expressions_with_name_and_info_and_unit(parser, trans):
+def test_expressions_with_name_and_unit(parser, trans):
     expr = """
-    expressions("My Component", "Some info")
+    expressions("My Component", "My second component")
     x = 1  # mV
     y = 2  # mol
     """
     tree = parser.parse(expr)
     result = trans.transform(tree)
 
-    assert len(result) == 2
-    assert result[0].components == ("My Component", "Some info")
-    assert result[0].name == "x"
-    assert result[0].value.tree == lark.Tree(
-        "scientific",
-        [lark.Token("SCIENTIFIC_NUMBER", "1")],
-    )
-    assert result[0].unit == ureg.Unit("mV")
-    assert result[1].components == ("My Component", "Some info")
-    assert result[1].name == "y"
-    assert result[1].value.tree == lark.Tree(
-        "scientific",
-        [lark.Token("SCIENTIFIC_NUMBER", "2")],
-    )
-    assert result[1].unit == ureg.Unit("mol")
-
-
-def test_invaild_unit_displays_warning(parser, trans):
-    expr = "x = 1  # badUnit"
     tree = parser.parse(expr)
-    with capture_logs() as cap_logs:
-        trans.transform(tree)
+    result = trans.transform(tree)
 
-    assert cap_logs == [{"event": "Undefined unit 'badUnit'", "log_level": "warning"}]
+    components = result.components
+
+    assert len(components) == 2
+    for name, component in zip(["My Component", "My second component"], components):
+        assert component.name == name
+        assignments = component.assignments
+        assert len(assignments) == 2
+
+        x = component.find_assignment("x")
+        assert x.comment is None
+        assert x.components == ("My Component", "My second component")
+        assert x.name == "x"
+        assert x.value.tree == lark.Tree(
+            "scientific",
+            [lark.Token("SCIENTIFIC_NUMBER", "1")],
+        )
+        assert x.unit == ureg.Unit("mV")
+
+        y = component.find_assignment("y")
+        assert y.components == ("My Component", "My second component")
+        assert y.name == "y"
+        assert y.value.tree == lark.Tree(
+            "scientific",
+            [lark.Token("SCIENTIFIC_NUMBER", "2")],
+        )
+        assert y.unit == ureg.Unit("mol")
+        assert y.comment is None
+
+
+def test_expressions_with_invalid_unit_becomes_comment(parser, trans):
+    expr = """
+    expressions("My Component", "My second component")
+    x = 1  # Some variable that we want to define
+    y = 2  # 1 + 1
+    z = 2  # 3.14
+    """
+    tree = parser.parse(expr)
+    result = trans.transform(tree)
+
+    components = result.components
+
+    assert len(components) == 2
+    for name, component in zip(["My Component", "My second component"], components):
+        assert component.name == name
+        assignments = component.assignments
+        assert len(assignments) == 3
+
+        x = component.find_assignment("x")
+        assert x.components == ("My Component", "My second component")
+        assert x.name == "x"
+        assert x.value.tree == lark.Tree(
+            "scientific",
+            [lark.Token("SCIENTIFIC_NUMBER", "1")],
+        )
+        assert x.unit is None
+        assert x.comment.text == "Some variable that we want to define"
+
+        y = component.find_assignment("y")
+        assert y.components == ("My Component", "My second component")
+        assert y.name == "y"
+        assert y.value.tree == lark.Tree(
+            "scientific",
+            [lark.Token("SCIENTIFIC_NUMBER", "2")],
+        )
+        assert y.unit is None
+        assert y.comment.text == "1 + 1"
+
+        z = component.find_assignment("z")
+        assert x.components == ("My Component", "My second component")
+        assert z.name == "z"
+        assert z.value.tree == lark.Tree(
+            "scientific",
+            [lark.Token("SCIENTIFIC_NUMBER", "2")],
+        )
+        assert z.unit is None
+        assert z.comment.text == "3.14"
 
 
 @pytest.mark.parametrize(
@@ -330,7 +402,8 @@ def test_power_expressions(expr, subs, expected, parser, trans):
     tree = parser.parse(expr)
     result = trans.transform(tree)
     symbols = {name: sp.Symbol(name) for name in subs}
-    sympy_expr = build_expression(result[1].value.tree, symbols=symbols)
+    y = result.components[0].find_assignment("y")
+    sympy_expr = build_expression(y.value.tree, symbols=symbols)
     assert math.isclose(sympy_expr.subs(subs), expected)
 
 
@@ -344,7 +417,8 @@ def test_power_expressions(expr, subs, expected, parser, trans):
 def test_expressions_constants(expr, expected, parser, trans):
     tree = parser.parse(expr)
     result = trans.transform(tree)
-    sympy_expr = build_expression(result[0].value.tree)
+    x = result.components[0].find_assignment("x")
+    sympy_expr = build_expression(x.value.tree)
     assert math.isclose(sympy_expr, expected)
 
 
@@ -364,7 +438,8 @@ def test_expressions_constants(expr, expected, parser, trans):
 def test_expressions_scientific_notation(expr, expected, parser, trans):
     tree = parser.parse(expr)
     result = trans.transform(tree)
-    sympy_expr = build_expression(result[0].value.tree)
+    x = result.components[0].find_assignment("x")
+    sympy_expr = build_expression(x.value.tree)
     assert math.isclose(sympy_expr, expected)
 
 
@@ -379,7 +454,10 @@ def test_expressions_scientific_notation(expr, expected, parser, trans):
 def test_assignment_with_unit(expr, unit, parser, trans):
     tree = parser.parse(expr)
     result = trans.transform(tree)
-    assert result[0].unit == unit
+    # Since expression don't start with a newline we get
+    # an Assignment object
+    x = result[0]
+    assert x.unit == unit
 
 
 @pytest.mark.parametrize(
@@ -411,7 +489,8 @@ def test_lt_gt_conditional(expr, subs, expected, parser, trans):
     tree = parser.parse(expr)
     result = trans.transform(tree)
     symbols = {name: sp.Symbol(name) for name in subs}
-    sympy_expr = build_expression(result[0].value.tree, symbols=symbols)
+    alpha_h = result[0]
+    sympy_expr = build_expression(alpha_h.value.tree, symbols=symbols)
 
     assert math.isclose(sympy_expr.subs(subs), expected)
 
@@ -467,8 +546,9 @@ def test_stimulus_current(subs, expected, parser, trans):
     """
     tree = parser.parse(expr)
     result = trans.transform(tree)
-    symbols = {name: sp.Symbol(name) for name in result[0].value.dependencies}
-    sympy_expr = build_expression(result[0].value.tree, symbols=symbols)
+    i_Stim = result.components[0].find_assignment("i_Stim")
+    symbols = {name: sp.Symbol(name) for name in i_Stim.value.dependencies}
+    sympy_expr = build_expression(i_Stim.value.tree, symbols=symbols)
 
     assert math.isclose(sympy_expr.subs(subs), expected)
 
@@ -487,8 +567,9 @@ def test_stimulus_current_with_trailing_comma(parser, trans):
     """
     tree = parser.parse(expr)
     result = trans.transform(tree)
-    symbols = {name: sp.Symbol(name) for name in result[0].value.dependencies}
-    sympy_expr = build_expression(result[0].value.tree, symbols=symbols)
+    i_Stim = result.components[0].find_assignment("i_Stim")
+    symbols = {name: sp.Symbol(name) for name in i_Stim.value.dependencies}
+    sympy_expr = build_expression(i_Stim.value.tree, symbols=symbols)
 
     assert math.isclose(sympy_expr.subs(subs), expected)
 
@@ -531,6 +612,7 @@ def test_stimulus_current_continuous(subs, expected, parser, trans):
     """
     tree = parser.parse(expr)
     result = trans.transform(tree)
-    symbols = {name: sp.Symbol(name) for name in result[0].value.dependencies}
-    sympy_expr = build_expression(result[0].value.tree, symbols=symbols)
+    i_Stim = result.components[0].find_assignment("i_Stim")
+    symbols = {name: sp.Symbol(name) for name in i_Stim.value.dependencies}
+    sympy_expr = build_expression(i_Stim.value.tree, symbols=symbols)
     assert math.isclose(sympy_expr.subs(subs), expected, rel_tol=1e-2)

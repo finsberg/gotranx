@@ -212,7 +212,7 @@ class ODE:
             comments = (atoms.Comment(""),)
 
         self.comments = comments
-        self.text = "".join(comment.text for comment in comments)
+        self.text = " ".join(comment.text for comment in comments)
 
     def __repr__(self) -> str:
         return (

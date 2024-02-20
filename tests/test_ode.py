@@ -71,7 +71,6 @@ def test_make_ode(parser, trans):
     tree = parser.parse(expr)
 
     result = ode.make_ode(*trans.transform(tree), name="TestODE")
-
     assert result.text == "This is an ODE. Here is another line."
     assert repr(result) == "ODE(TestODE, num_states=4, num_parameters=3)"
 

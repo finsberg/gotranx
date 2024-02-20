@@ -84,11 +84,12 @@ class GotranODECodePrinter(BaseGotranODECodePrinter):
     def print_comments(self) -> str:
         if len(self.ode.comments) == 0:
             return ""
-        text = ""
+        text_lst = []
 
         for comment in self.ode.comments:
-            text += reduce(break_comment_at_80, comment.text.split(" "))
+            text_lst.append(reduce(break_comment_at_80, comment.text.split(" ")))
 
+        text = "\n".join(text_lst)
         if len(text) > 0:
             text = "# " + "\n# ".join(text.strip().split("\n"))
             text += "\n\n"
