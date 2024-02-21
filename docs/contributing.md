@@ -1,130 +1,49 @@
 # Contributing
 
-Contributions are welcome, and they are greatly appreciated! Every little bit helps, and credit will always be given.
+When contributing to this repository, please first [create an issue](https://github.com/finsberg/gotranx/issues/new/choose) containing information about the missing feature or the bug that you would like to fix. Here you can discuss the change you want to make with the maintainers of the repository.
 
-You can contribute in many ways:
+Please note we have a code of conduct, please follow it in all your interactions with the project.
 
-## Types of Contributions
+## New contributor guide
 
-### Report Bugs
+To get an overview of the project, read the [documentation](https://finsberg.github.io/gotranx/). Here are some resources to help you get started with open source contributions:
 
-Report bugs at <https://github.com/finsberg/gotranx/issues>.
+- [Finding ways to contribute to open source on GitHub](https://docs.github.com/en/get-started/exploring-projects-on-github/finding-ways-to-contribute-to-open-source-on-github)
+- [Set up Git](https://docs.github.com/en/get-started/quickstart/set-up-git)
+- [GitHub flow](https://docs.github.com/en/get-started/quickstart/github-flow)
+- [Collaborating with pull requests](https://docs.github.com/en/github/collaborating-with-pull-requests)
 
-If you are reporting a bug, please include:
+## Pull Request Process
 
--   Your operating system name and version.
--   Any details about your local setup that might be helpful in troubleshooting.
--   Detailed steps to reproduce the bug.
 
-### Fix Bugs
+### Pull Request
 
-Look through the GitHub issues for bugs. Anything tagged with "bug" and "help wanted" is open to whoever wants to implement it.
+- When you're finished with the changes, create a pull request, also known as a PR. It is also OK to create a [draft pull request](https://github.blog/2019-02-14-introducing-draft-pull-requests/) from the very beginning. Once you are done you can click on the ["Ready for review"] button. You can also [request a review](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/requesting-a-pull-request-review) from one of the maintainers.
+- Don't forget to [link PR to the issue that you opened ](https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue).
+- Enable the checkbox to [allow maintainer edits](https://docs.github.com/en/github/collaborating-with-issues-and-pull-requests/allowing-changes-to-a-pull-request-branch-created-from-a-fork) so the branch can be updated for a merge.
+Once you submit your PR, a team member will review your proposal. We may ask questions or request for additional information.
+- We may ask for changes to be made before a PR can be merged, either using [suggested changes](https://docs.github.com/en/github/collaborating-with-issues-and-pull-requests/incorporating-feedback-in-your-pull-request) or pull request comments. You can apply suggested changes directly through the UI. You can make any other changes in your fork, then commit them to your branch.
+- As you update your PR and apply changes, mark each conversation as [resolved](https://docs.github.com/en/github/collaborating-with-issues-and-pull-requests/commenting-on-a-pull-request#resolving-conversations).
+- If you run into any merge issues, checkout this [git tutorial](https://lab.github.com/githubtraining/managing-merge-conflicts) to help you resolve merge conflicts and other issues.
+- Please make sure that all tests are passing, github pages renders nicely, and code coverage are are not lower than before your contribution. You see the different github action workflows by clicking the "Action" tab in the GitHub repository.
 
-### Implement Features
 
-Look through the GitHub issues for features. Anything tagged with "enhancement" and "help wanted" is open to whoever wants to implement it.
+### Enforced style guide using pre-commit hooks
 
-### Write Documentation
-
-Action Potential features could always use more documentation, whether as part of the official Action Potential features docs, in docstrings, or even on the web in blog posts, articles, and such.
-
-### Submit Feedback
-
-The best way to send feedback is to file an issue at
-<https://github.com/finsberg/gotranx/issues>.
-
-If you are proposing a feature:
-
--   Explain in detail how it would work.
--   Keep the scope as narrow as possible, to make it easier to
-    implement.
--   Remember that this is a volunteer-driven project, and that
-    contributions are welcome :)
-
-## Get Started!
-
-Ready to contribute? Here's how to set up `gotranx` for local development.
-
-* Fork the `gotranx` repo on GitHub.
-
-* Clone your fork locally:
-
+We want to have a consistent style on all the contributions to the repository. The way we enforce this is through pre-commit hooks and contributors are encouraged to install the pre-commit hooks locally when developing. You can install the pre commit hooks by first install `pre-commit`
 ```
-git clone git@github.com:your_name_here/gotranx.git
+python3 -m pip install pre-commit
 ```
-
-* Install your local copy into a virtual environment.
-
-```
-cd gotranx/
-python -m venv venv
-. venv/bin/activate  # Unix
-# . venv\Scripts\activate # Windows
-python -m pip install -e ".[dev,test,docs]"
-```
-
-* Install the pre-commit hooks
-
+and then install the pre-commit hooks using the command
 ```
 pre-commit install
 ```
+at the root of the repository. This will install all the hooks listed in the file called `.pre-commit-config.yaml` in the root of the repository.
 
-* Create a branch for local development:
+Every time you make a commit to the repository a set of tests will run to make sure that the changes you made are following the style guide. Usually, the hooks will autoformat your code so that you only need to do a `git add` again and then redo the `git commit`.
 
+Note that when you make a push to the repo, the pre-commit hooks will be run on all the files in the repository. You can also run the pre-commit hooks on all the files using the command
 ```
-git checkout -b name-of-your-bugfix-or-feature
+pre-commit run --all
 ```
-
-Now you can make your changes locally.
-
-
-* Commit your changes
-
-```
-git add .
-git commit -m "Your detailed description of your changes."
-```
-
-This will also run the pre-commit hooks. Please try to fix these issues pointed out by the pre-commit hooks before pushing. However, if you are unable to do so, that is also fine. To ignore the pre-commit hooks you can add the `--no-verify` flag to the `git commit` command, e.g
-
-```
-git commit -m "Your detailed description of your changes." --no-verify
-```
-
-
-* Push your branch to GitHub:
-
-```
-git push origin name-of-your-bugfix-or-feature
-```
-
-* Submit a pull request through the GitHub website.
-
-## Pull Request Guidelines
-
-Before you submit a pull request, check that it meets these guidelines:
-
-1.  The pull request should include tests.
-2.  If the pull request adds functionality, the docs should be updated. Put your new functionality into a function with a docstring.
-3. Make sure all tests are passing for all supported python versions by checking out the CI at <https://github.com/finsberg/gotranx/actions>
-
-## Tips
-
-To run a subset of tests starting with `test_something` do:
-
-```
-python -m pytest -k test_something
-```
-
-
-## Deploying
-
-A reminder for the maintainers on how to deploy. Make sure all your changes are committed. Then run:
-
-```
-bump2version patch # possible: major / minor / patch
-git push
-git push --tags
-```
-
-Github actions will then make sure that a new version is uploaded to PyPi.
+To learn more about pre-commit you can check out https://pre-commit.com

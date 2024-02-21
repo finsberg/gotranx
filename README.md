@@ -9,9 +9,13 @@
 
 The general idea is that you write your ODE in a high level markup language and use `gotranx` to generate code for solving the ODE in different programming languages.
 
+At the moment we only support Python and C, but we plan to support a wide range of programming languages in the future.
+
 `gotranx` uses [`sympy`](https://www.sympy.org/en/index.html) to generate the numerical schemes.
 
-**Note: `gotranx` is still under active development, so do not expect it to be complete.**
+- Source code: https://github.com/finsberg/gotranx
+- Documentation: https://finsberg.github.io/gotranx/
+
 
 ## Install
 Install with pip
