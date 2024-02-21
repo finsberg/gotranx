@@ -460,7 +460,7 @@ def test_c_conditional_expression_advanced(parser, trans):
 def test_c_codegen_parameter_index(codegen: CCodeGenerator):
     assert codegen.parameter_index() == (
         "// Parameter index"
-        "\nint parameter_index(const char name[]))"
+        "\nint parameter_index(const char name[])"
         "\n{"
         "\n"
         '\n    if (strcmp(name, "a") == 0)'
@@ -491,7 +491,7 @@ def test_c_codegen_parameter_index(codegen: CCodeGenerator):
 def test_c_codegen_state_index(codegen: CCodeGenerator):
     assert codegen.state_index() == (
         "// State index"
-        "\nint state_index(const char name[]))"
+        "\nint state_index(const char name[])"
         "\n{"
         "\n"
         '\n    if (strcmp(name, "x") == 0)'
@@ -517,7 +517,7 @@ def test_c_codegen_state_index(codegen: CCodeGenerator):
 def test_c_codegen_monitor_index(codegen: CCodeGenerator):
     assert codegen.monitor_index() == (
         "// Monitor index"
-        "\nint monitor_index(const char name[]))"
+        "\nint monitor_index(const char name[])"
         "\n{"
         "\n"
         '\n    if (strcmp(name, "dx_dt") == 0)'

@@ -78,7 +78,7 @@ def method_index(data: dict[str, int], method_name) -> str:
     )
     code = []
     code.append(f"// {method_name.capitalize()} index")
-    code.append(f"int {method_name}_index(const char name[]))")
+    code.append(f"int {method_name}_index(const char name[])")
     code.append("{")
     for i, (name, index) in enumerate(data.items()):
         if_stm = "if" if i == 0 else "else if"

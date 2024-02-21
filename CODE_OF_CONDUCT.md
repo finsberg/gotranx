@@ -1,4 +1,4 @@
-# Code of Conduct - ldrb
+# Code of Conduct - gotranx
 
 ## Our Pledge
 
