@@ -1,7 +1,6 @@
 from importlib.metadata import metadata
 
 from . import cli
-from . import codecomponent
 from . import exceptions
 from . import load
 from . import ode
@@ -43,7 +42,6 @@ __all__ = [
     "ode",
     "ODE",
     "units",
-    "codecomponent",
     "sympytools",
     "schemes",
     "templates",
