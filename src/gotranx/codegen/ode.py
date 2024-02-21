@@ -173,6 +173,12 @@ def print_ScalarParam(p: atoms.Atom, doprint: Callable[[str], str]) -> str:
 
 def print_assignment(a: atoms.Assignment, doprint: Callable[[str], str]) -> str:
     s = f"{a.name} = {doprint(a.expr)}"
+    unit_or_comment = ""
+    if a.comment is not None:
+        unit_or_comment = a.comment.text
     if a.unit_str is not None and a.unit_str != "1":
-        s += f" # {a.unit_str}"
+        unit_or_comment = a.unit_str
+    if unit_or_comment != "":
+        s += f" # {unit_or_comment}"
+
     return s
