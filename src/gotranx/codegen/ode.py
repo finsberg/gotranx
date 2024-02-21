@@ -84,11 +84,12 @@ class GotranODECodePrinter(BaseGotranODECodePrinter):
     def print_comments(self) -> str:
         if len(self.ode.comments) == 0:
             return ""
-        text = ""
+        text_lst = []
 
         for comment in self.ode.comments:
-            text += reduce(break_comment_at_80, comment.text.split(" "))
+            text_lst.append(reduce(break_comment_at_80, comment.text.split(" ")))
 
+        text = "\n".join(text_lst)
         if len(text) > 0:
             text = "# " + "\n# ".join(text.strip().split("\n"))
             text += "\n\n"
@@ -172,6 +173,12 @@ def print_ScalarParam(p: atoms.Atom, doprint: Callable[[str], str]) -> str:
 
 def print_assignment(a: atoms.Assignment, doprint: Callable[[str], str]) -> str:
     s = f"{a.name} = {doprint(a.expr)}"
+    unit_or_comment = ""
+    if a.comment is not None:
+        unit_or_comment = a.comment.text
     if a.unit_str is not None and a.unit_str != "1":
-        s += f" # {a.unit_str}"
+        unit_or_comment = a.unit_str
+    if unit_or_comment != "":
+        s += f" # {unit_or_comment}"
+
     return s

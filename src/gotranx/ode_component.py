@@ -94,6 +94,34 @@ class BaseComponent:
                 component_name=self.name,
             )
 
+    def find_assignment(self, assignment_name: str) -> atoms.Assignment:
+        """Find a assignment by name
+
+        Parameters
+        ----------
+        assignment_name : str
+            The name of the assignment
+
+        Returns
+        -------
+        atoms.Assignment
+            The assignment
+
+        Raises
+        ------
+        exceptions.AssignmentNotFoundInComponent
+            If assignment is not found in component
+        """
+
+        for assignment in self.assignments:
+            if assignment.name == assignment_name:
+                return assignment
+        else:
+            raise exceptions.AssignmentNotFoundInComponent(
+                assignment_name=assignment_name,
+                component_name=self.name,
+            )
+
     def is_complete(self) -> bool:
         """Returns true if all states have a corresponding state derivative"""
 

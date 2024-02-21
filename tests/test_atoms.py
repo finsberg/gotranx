@@ -29,29 +29,31 @@ def test_parameter_arguments(parser, trans):
     """
 
     tree = parser.parse(expr)
-    result = trans.transform(tree)
+    components = trans.transform(tree).components
+    result = list(sorted(components[0].parameters, key=lambda x: x.name))
+
     assert result[0] == atoms.Parameter(
-        name="y",
-        value=sp.sympify(1.0),
-        components=("My component",),
-    )
-    assert result[1] == atoms.Parameter(
-        name="x",
-        value=sp.sympify(42.0),
-        components=("My component",),
-    )
-    assert result[2] == atoms.Parameter(
-        name="w",
-        value=sp.sympify(10.2),
-        components=("My component",),
-        unit_str="mM",
-    )
-    assert result[3] == atoms.Parameter(
         name="v",
         value=sp.sympify(3.14),
         description="Description of v",
         components=("My component",),
         unit_str="mV",
+    )
+    assert result[1] == atoms.Parameter(
+        name="w",
+        value=sp.sympify(10.2),
+        components=("My component",),
+        unit_str="mM",
+    )
+    assert result[2] == atoms.Parameter(
+        name="x",
+        value=sp.sympify(42.0),
+        components=("My component",),
+    )
+    assert result[3] == atoms.Parameter(
+        name="y",
+        value=sp.sympify(1.0),
+        components=("My component",),
     )
     assert result[4] == atoms.Parameter(
         name="z",
@@ -123,9 +125,12 @@ def test_comment(parser, trans):
     tree = parser.parse(expr)
     result = trans.transform(tree)
 
-    assert len(result.comments) == 1
+    assert len(result.comments) == 2
     assert result.comments[0] == atoms.Comment(
-        text="This is one comment. Here is another comment",
+        text="This is one comment.",
+    )
+    assert result.comments[1] == atoms.Comment(
+        text="Here is another comment",
     )
 
     comp = result.components
@@ -149,7 +154,7 @@ def test_TimeDependentState(parser, trans):
     tree = parser.parse(expr)
     result = trans.transform(tree)
     t = sp.Symbol("t")
-    x = result[0]
+    x = list(result.components[0].states)[0]
     x_t = x.to_TimeDependentState(t)
 
     assert str(x.symbol) == "x"

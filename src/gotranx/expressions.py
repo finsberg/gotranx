@@ -35,8 +35,6 @@ def binary_op(op: str, fst, snd):
     fst = relational_to_piecewise(fst)
     snd = relational_to_piecewise(snd)
 
-    # breakpoint()
-
     if op == "+":
         return sp.Add(fst, snd, evaluate=False)
     if op == "-":

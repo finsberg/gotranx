@@ -94,7 +94,7 @@ def test_different_sets_of_parameters(parser, trans):
             (
                 atoms.Parameter(
                     name="x",
-                    value=1.0,
+                    value=1,
                     unit_str="pA",
                     description="Info about x",
                 ),
@@ -112,16 +112,14 @@ def test_different_sets_of_parameters(parser, trans):
             ),
         ),
         (
-            """
-        parameters(
+            """parameters(
             x=ScalarParam(1, unit="pA", description="Info about x"),
             y=ScalarParam(2.0, unit="mM", description="Info about y")
-        )
-        """,
+        )""",
             (
                 atoms.Parameter(
                     name="x",
-                    value=1.0,
+                    value=1,
                     unit_str="pA",
                     description="Info about x",
                 ),
