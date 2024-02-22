@@ -1,7 +1,6 @@
 from importlib.metadata import metadata
 
 from . import cli
-from . import codecomponent
 from . import exceptions
 from . import load
 from . import ode
@@ -13,7 +12,7 @@ from . import units
 from . import sympytools
 from . import schemes
 from . import templates
-from . import cellml
+from . import myokit
 from .load import load_ode
 from .ode import ODE
 from .ode_component import Component
@@ -43,9 +42,8 @@ __all__ = [
     "ode",
     "ODE",
     "units",
-    "codecomponent",
     "sympytools",
     "schemes",
     "templates",
-    "cellml",
+    "myokit",
 ]

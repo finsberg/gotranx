@@ -21,14 +21,27 @@ class GotranCCodePrinter(C99CodePrinter):
         return self._print(str(float(flt)))
 
     def _print_Piecewise(self, expr):
-        fst, snd = expr.args
-        if isinstance(fst[0], Assignment):
-            value = (
-                f"{super()._print(fst[0].args[0])} = "
-                f"({super()._print(fst[1])}) ? "
-                f"{super()._print(fst[0].args[1])} : "
-                f"{super()._print(snd[0].args[1])};"
-            )
+        if isinstance(expr.args[0][0], Assignment):
+            result = []
+            lhs = super()._print(expr.args[0][0].lhs)
+            result.append(f"{super()._print(lhs)} = ")
+            all_lsh_equal = True
+            for arg in expr.args:
+                result.append(f"({super()._print(arg[1])}) ? ")
+                result.append(f"{super()._print(arg[0].rhs)}")
+                result.append(" : ")
+                all_lsh_equal = all_lsh_equal and super()._print(arg[0].lhs) == lhs
+
+            assert all_lsh_equal, "All assignments in Piecewise must have the same lhs"
+
+            if super()._print(arg[1]) == "true":
+                result = result[:-3]
+                result.append(f"{super()._print(arg[0].rhs)}")
+            else:
+                raise ValueError("Last condition in Piecewise must be True")
+
+            result.append(";")
+            value = "".join(result)
         else:
             value = bool_to_int(super()._print_Piecewise(expr))
 
@@ -80,6 +93,7 @@ class CCodeGenerator(CodeGenerator):
             states=states,
             parameters=parameters,
             values=values,
+            values_type="",
         )
 
     def _scheme_arguments(
@@ -105,4 +119,5 @@ class CCodeGenerator(CodeGenerator):
             states=states,
             parameters=parameters,
             values=values,
+            values_type="",
         )

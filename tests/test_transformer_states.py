@@ -156,12 +156,10 @@ def test_different_sets_of_states(parser, trans):
             ),
         ),
         (
-            """
-        states(
+            """states(
             x=ScalarParam(1, unit="pA", description="Info about x"),
             y=ScalarParam(2.0, unit="mM", description="Info about y")
-        )
-        """,
+        )""",
             (
                 atoms.State(
                     name="x",

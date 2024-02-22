@@ -35,8 +35,6 @@ def binary_op(op: str, fst, snd):
     fst = relational_to_piecewise(fst)
     snd = relational_to_piecewise(snd)
 
-    # breakpoint()
-
     if op == "+":
         return sp.Add(fst, snd, evaluate=False)
     if op == "-":
@@ -139,7 +137,7 @@ def build_expression(
                 # Only exceptions is 'abs' which is 'Abs'
                 funcname = "Abs"
 
-            return getattr(sp, funcname)(expr2symbols(tree.children[1]))
+            return getattr(sp, funcname)(*[expr2symbols(c) for c in tree.children[1:]])
 
         if tree.data == "logicalfunc":
             if tree.children[0] == "Conditional":

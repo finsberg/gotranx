@@ -1,11 +1,10 @@
 ?start: ode
 
-?ode: (parameters | states | expressions | comment) *
+?ode: (parameters | states | expressions | comment | NEWLINE) *
 ?parameter: NAME "=" expression  -> param
     | NAME "=" "ScalarParam" "(" expression ["," "unit" "=" UNIT_STR] ["," "description" "=" DESCRIPTION] ")" -> scalarparam
 
-?assignment : VARIABLE "=" expression [ unit ] [ NEWLINE ]
-?unit: "#" UNIT
+?assignment : VARIABLE "=" expression [ comment ] [ NEWLINE ]
 
 comment : ("#" /.+/)+
 parameters : "parameters" "("  (COMPONENT_NAME ",")* parameter ("," parameter)* [ NEWLINE ] ")"
@@ -50,6 +49,7 @@ variable: VARIABLE
     | EXP
     | ABS
     | FLOOR
+    | MOD
 
 ?logicalfunc: logicalfuncname "(" expression ("," expression)* (",")?  ")"
 ?logicalfuncname: CONTINUOUSCONDITIONAL
@@ -86,11 +86,11 @@ AND: "And"
 OR: "Or"
 EQ: "Eq"
 NOT: "Not"
+MOD: "Mod"
 
 
 PI: "pi"
 EULER: E2
-I: "i"
 VARIABLE: VALID_ID_START VALID_ID_CHAR*
 VALID_ID_START: "a".."z"|"A".."Z"|"_"
 VALID_ID_CHAR: VALID_ID_START | ("0".."9")
@@ -105,7 +105,7 @@ COMPONENT_NAME: ESCAPED_STRING
 INFO: ESCAPED_STRING
 DESCRIPTION: ESCAPED_STRING
 UNIT_STR: ESCAPED_STRING
-UNIT: NAME ("*" | "**" SIGN? NUMBER |NAME)*
+
 
 %ignore WS
 %ignore WS_INLINE

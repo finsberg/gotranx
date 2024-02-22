@@ -3,7 +3,7 @@ from pathlib import Path
 import logging
 import structlog
 
-from ..cellml import cellml_to_gotran
+from ..myokit import cellml_to_gotran
 
 logger = structlog.get_logger()
 
@@ -20,7 +20,7 @@ def main(
     assert fname.suffix == ".cellml", f"File {fname} must be a cellml file"
     assert fname.exists(), f"File {fname} does not exist"
     logger.info(f"Converting {fname} to gotran ode file")
-    code = cellml_to_gotran(fname)
+    ode = cellml_to_gotran(fname)
     out = fname.with_suffix(".ode") if outname is None else Path(outname)
-    out.write_text(code)
+    ode.save(out)
     logger.info(f"Wrote {out}")

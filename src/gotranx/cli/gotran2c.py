@@ -26,9 +26,13 @@ def main(
     codegen = CCodeGenerator(ode, remove_unused=remove_unused)
     comp = [
         "#include <math.h>",
+        codegen.parameter_index(),
+        codegen.state_index(),
+        codegen.monitor_index(),
         codegen.initial_parameter_values(),
         codegen.initial_state_values(),
         codegen.rhs(),
+        codegen.monitor(),
     ]
     if scheme is not None:
         for s in scheme:

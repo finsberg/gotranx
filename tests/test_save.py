@@ -26,17 +26,17 @@ def test_write_ode_file_write_dummy(path, parser, trans):
     parameters("Second component", c=3)
 
     expressions("First component")
-    d = a + b * 2 - 3 / c
+    d = a + b * 2 - 3 / c  # This is a comment
 
     expressions("First component", "X-gate")
-    dx_dt=a+1
-    dxr_dt = (-d) * xr + (x / b)
+    dx_dt=a+1  # This is another comment
+    dxr_dt = (-d) * xr + (x / b) # mV
 
     expressions("First component", "Y-gate")
-    dy_dt = 2 * d - 1
+    dy_dt = 2 * d - 1 # ms
 
     expressions("Second component")
-    dz_dt = 1 + x - y
+    dz_dt = 1 + x - y  # mM
     """
     tree = parser.parse(expr)
     old_ode = make_ode(*trans.transform(tree), name=path.stem)
