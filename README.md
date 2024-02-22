@@ -28,7 +28,7 @@ python3 -m pip install git+https://github.com/finsberg/gotranx
 ```
 
 ## Quick start
-Define you ode in an `.ode` file, for example for the Lorentz attractor you can write the following file (called `lorentz.ode`)
+Define your ode in a `.ode` file, for example for the Lorentz attractor you can write the following file (called `lorentz.ode`)
 ```
 parameters(
 sigma=12.0,
@@ -42,11 +42,11 @@ dx_dt = sigma * (y - x)
 dy_dt = x * (rho - z) - y
 dz_dt = x * y - beta * z
 ```
-which defines the parameters and states with default initial conditions. For each state-variable we also define the derivatives using `dx_dt` for the state with name `x`.
+which defines the parameters and states with default initial conditions. For each state variable, we also define the derivatives using `dx_dt` for the state with name `x`.
 
 Now we can generate code that can be used to solve the equation, e.g
 ```
-python3 -m gotranx lorentz.ode --to .py --scheme forward_explicit_euler
+python3 -m gotranx convert lorentz.ode --to .py --scheme forward_explicit_euler
 ```
 which will generate a python file `lorentz.py` containing the following functions
 ```python
@@ -168,7 +168,7 @@ def forward_explicit_euler(states, t, dt, parameters):
 
 Similarly, you can use the following command
 ```
-python3 -m gotranx lorentz.ode --to .h --scheme forward_explicit_euler
+python3 -m gotranx convert lorentz.ode --to .h --scheme forward_explicit_euler
 ```
 to generate a C-header file with the following content
 ```C
