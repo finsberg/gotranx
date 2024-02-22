@@ -17,6 +17,24 @@ def get_code(
     apply_black: bool = True,
     remove_unused: bool = False,
 ) -> str:
+    """Generate the Python code for the ODE
+
+    Parameters
+    ----------
+    ode : ODE
+        The ODE
+    scheme : list[Scheme] | None, optional
+        Optional numerical scheme, by default None
+    apply_black : bool, optional
+        Apply black formatter, by default True
+    remove_unused : bool, optional
+        Remove unused variables, by default False
+
+    Returns
+    -------
+    str
+        The Python code
+    """
     codegen = PythonCodeGenerator(ode, apply_black=apply_black, remove_unused=remove_unused)
     comp = [
         "import math",

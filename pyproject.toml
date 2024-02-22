@@ -50,6 +50,11 @@ dev = [
 docs = [
     "mkdocs",
     "mkdocs-material",
+    "mkdocs-embed-external-markdown",
+    "griffe-inherited-docstrings>=1.0",
+    "mkdocs-gen-files>=0.5",
+    "mkdocstrings-python",
+    "mkdocs-literate-nav>=0.6",
 ]
 test = [
     "pre-commit",
