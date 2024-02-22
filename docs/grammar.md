@@ -178,6 +178,29 @@ or another solution could be
 H = Conditional(Gt(x, 0), 1, Conditional(Lt(x, 0.0), 0.0, 0.5))
 ```
 
+### Implementing `min` and `max`
+
+The operations `min` and `max` can be implemented in terms of `Conditional`, because
+```python
+f = min(x, y)
+```
+is equivalent to
+```python
+if x <= y:
+  f = x
+else:
+  f = y
+```
+So `f = min(x, y)` could be implemented as
+```
+f = Conditional(Le(x, y), x, y)
+```
+Similarly `f = max(x, y)` can be implemented as
+```
+f = Conditional(Ge(x, y), x, y)
+```
+
+
 ## Advanced usage
 
 ### Adding components, units and descriptions

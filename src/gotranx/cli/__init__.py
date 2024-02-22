@@ -7,8 +7,8 @@ except ImportError:
     from typing_extensions import Annotated  # type: ignore
 
 import typer
-from ..schemes import Scheme
 
+from ..schemes import Scheme
 from . import gotran2c, gotran2py, cellml2ode
 
 app = typer.Typer()
@@ -32,8 +32,28 @@ def license_callback(show_license: bool):
         raise typer.Exit()
 
 
-@app.command()
+@app.callback()
 def main(
+    version: bool = typer.Option(
+        None,
+        "--version",
+        callback=version_callback,
+        is_eager=True,
+        help="Show version",
+    ),
+    license: bool = typer.Option(
+        None,
+        "--license",
+        callback=license_callback,
+        is_eager=True,
+        help="Show license",
+    ),
+):
+    ...
+
+
+@app.command()
+def convert(
     fname: typing.Optional[Path] = typer.Argument(
         None,
         exists=True,
@@ -112,3 +132,18 @@ def main(
 
     if to in {".ode"}:
         cellml2ode.main(fname=fname, outname=outname, verbose=verbose)
+
+
+@app.command()
+def inspect(
+    fname: typing.Optional[Path] = typer.Argument(
+        None,
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        writable=False,
+        readable=True,
+        resolve_path=True,
+    ),
+):
+    typer.echo("Hello from inspect")

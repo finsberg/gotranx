@@ -24,11 +24,11 @@ The model itself is defined in the `.cellml` file called `noble_1962.cellml`. Th
 
 We will now convert the `.cellml` file to a `.ode` file using the following command
 ```{ .sh .copy }
-python3 -m gotranx noble_1962.cellml --to .ode
+python3 -m gotranx convert noble_1962.cellml --to .ode
 ```
 which gives the following output
 ```{ .sh .no-copy}
-$ python3 -m gotranx noble_1962.cellml --to .ode
+$ python3 -m gotranx convert noble_1962.cellml --to .ode
 2024-02-21 12:37:59 [info     ] Converting /Users/finsberg/local/src/gotran-parser/demo/noble_1962/noble_1962.cellml to gotran ode file
 2024-02-21 12:37:59 [info     ] Wrote /Users/finsberg/local/src/gotran-parser/demo/noble_1962/noble_1962.ode
 2024-02-21 12:37:59 [info     ] Wrote /Users/finsberg/local/src/gotran-parser/demo/noble_1962/noble_1962.ode
@@ -101,17 +101,17 @@ Now that we have a `.ode` file we can use this to generate source code in python
 
 === "Python"
     ```{ .sh .copy }
-    python3 -m gotranx noble_1962.ode --to .py
+    python3 -m gotranx convert noble_1962.ode --to .py
     ```
 
 === "C"
-    Either
+    Either to at `.c` file
     ```{ .sh .copy }
-    python3 -m gotranx noble_1962.ode --to .c
+    python3 -m gotranx convert noble_1962.ode --to .c
     ```
-    or
+    or to a `.h` file
     ```{ .sh .copy }
-    python3 -m gotranx noble_1962.ode --to .h
+    python3 -m gotranx convert noble_1962.ode --to .h
     ```
 
 This will generate a source code file for the given extension, containing the following functions
