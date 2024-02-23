@@ -90,7 +90,10 @@ profile = "black"
 [tool.mypy]
 files = ["src/gotranx", "tests"]
 ignore_missing_imports = true
-exclude = "docs"
+exclude = [
+    "docs",
+    "examples",
+]
 
 [tool.coverage.run]
 omit = ["src/gotranx/__main__.py", "src/gotranx/templates/__init__.py"]
