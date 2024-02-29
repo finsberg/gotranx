@@ -16,6 +16,9 @@ class GotranPythonCodePrinter(PythonCodePrinter):
     _kf = {k: f"numpy.{v.replace('math.', '')}" for k, v in PythonCodePrinter._kf.items()}
     _kc = {k: f"numpy.{v.replace('math.', '')}" for k, v in PythonCodePrinter._kc.items()}
 
+    def _hprint_Pow(self, expr, rational=False, sqrt="numpy.sqrt"):
+        return super()._hprint_Pow(expr, rational, sqrt)
+
     def _print_MatrixElement(self, expr):
         if expr.parent.shape[1] == 1:
             # Then this is a colum vector
