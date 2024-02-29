@@ -169,7 +169,7 @@ In the example above we only generated the right hand side (function `rhs`) whic
 
 We can generate this scheme using the following command
 ```{ .sh .copy}
-python3 -m gotranx noble_1962.ode --to .py --scheme forward_generalized_rush_larsen
+python3 -m gotranx convert noble_1962.ode --to .py --scheme forward_generalized_rush_larsen
 ```
 
 The file `noble_1962.py` will now also contain the function
