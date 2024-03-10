@@ -165,6 +165,15 @@ class BaseComponent:
             self.states.union(self.parameters).union(self.assignments).union(self.intermediates)
         )
 
+    def to_ode(self):
+        from .ode import ODE
+
+        """Convert component to ODE"""
+        return ODE(
+            components=(self,),
+            name=self.name,
+        )
+
 
 @attr.s(frozen=True, slots=True)
 class Component(BaseComponent):
