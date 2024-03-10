@@ -111,3 +111,56 @@ def test_codegen_component_ode_rhs(z_ode_codegen):
         "\n    return values"
         "\n"
     )
+
+
+def test_codegen_component_ode_monitor(z_ode_codegen):
+    assert z_ode_codegen.monitor() == (
+        "def monitor(t, states, parameters, missing_variables):"
+        "\n"
+        "\n    # Assign states"
+        "\n    z = states[0]"
+        "\n"
+        "\n    # Assign parameters"
+        "\n    beta = parameters[0]"
+        "\n"
+        "\n    # Assign missing variables"
+        "\n    x = missing_variables[0]"
+        "\n    y = missing_variables[1]"
+        "\n"
+        "\n    # Assign expressions"
+        "\n    shape = 2 if len(states.shape) == 1 else (2, states.shape[1])"
+        "\n    values = numpy.zeros(shape)"
+        "\n    betaz = beta * z"
+        "\n    values[0] = betaz"
+        "\n    dz_dt = -betaz + x * y"
+        "\n    values[1] = dz_dt"
+        "\n"
+        "\n    return values"
+        "\n"
+    )
+
+
+def test_codegen_component_ode_fe(z_ode_codegen):
+    assert z_ode_codegen.scheme("forward_euler") == (
+        "def forward_euler(states, t, dt, parameters, missing_variables):"
+        "\n"
+        "\n    # Assign states"
+        "\n    z = states[0]"
+        "\n"
+        "\n    # Assign parameters"
+        "\n    beta = parameters[0]"
+        "\n"
+        "\n    # Assign missing variables"
+        "\n    x = missing_variables[0]"
+        "\n    y = missing_variables[1]"
+        "\n"
+        "\n    # Assign expressions"
+        "\n"
+        "\n    values = numpy.zeros_like(states)"
+        "\n    betaz = beta * z"
+        "\n    dz_dt = -betaz + x * y"
+        "\n    values[0] = dt * dz_dt + z"
+        "\n"
+        "\n    return values"
+        "\n"
+    )
