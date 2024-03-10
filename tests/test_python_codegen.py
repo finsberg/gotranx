@@ -153,6 +153,10 @@ def test_python_codegen_initial_parameter_values(codegen: PythonCodeGenerator):
     )
 
 
+def test_python_codegen_missing_index_is_empty(codegen: PythonCodeGenerator):
+    assert codegen.missing_index() == ""
+
+
 @pytest.mark.parametrize(
     "order, arguments",
     [

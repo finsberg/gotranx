@@ -35,13 +35,18 @@ def get_code(
     str
         The Python code
     """
-    codegen = PythonCodeGenerator(ode, apply_black=apply_black, remove_unused=remove_unused)
+    codegen = PythonCodeGenerator(
+        ode,
+        apply_black=apply_black,
+        remove_unused=remove_unused,
+    )
     comp = [
         "import math",
         "import numpy",
         codegen.parameter_index(),
         codegen.state_index(),
         codegen.monitor_index(),
+        codegen.missing_index(),
         codegen.initial_parameter_values(),
         codegen.initial_state_values(),
         codegen.rhs(),

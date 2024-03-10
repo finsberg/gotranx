@@ -13,33 +13,52 @@ def acc(all_values: str, next_value: str = "# ") -> str:
         return all_values + ", " + next_value
 
 
-def state_index(data: dict[str, int]) -> str:
-    logger.debug(f"Generating state_index with {len(data)} values")
+def _index(data: dict[str, int], name: str) -> str:
     return dedent(
         f'''
-def state_index(name: str) -> int:
-    """Return the index of the state with the given name
+def {name}_index(name: str) -> int:
+    """Return the index of the {name} with the given name
 
     Arguments
     ---------
     name : str
-        The name of the state
+        The name of the {name}
 
     Returns
     -------
     int
-        The index of the state
+        The index of the {name}
 
     Raises
     ------
     KeyError
-        If the name is not a valid state
+        If the name is not a valid {name}
     """
 
     data = {repr(data)}
     return data[name]
 ''',
     )
+
+
+def state_index(data: dict[str, int]) -> str:
+    logger.debug(f"Generating state_index with {len(data)} values")
+    return _index(data, "state")
+
+
+def parameter_index(data: dict[str, int]) -> str:
+    logger.debug(f"Generating parameter_index with {len(data)} values")
+    return _index(data, "parameter")
+
+
+def monitor_index(data: dict[str, int]) -> str:
+    logger.debug(f"Generating monitored_index with {len(data)} values")
+    return _index(data, "monitor")
+
+
+def missing_index(data: dict[str, int]) -> str:
+    logger.debug(f"Generating missing_index with {len(data)} values")
+    return _index(data, "missing")
 
 
 def init_state_values(name, state_names, state_values, code):
@@ -63,64 +82,6 @@ def init_state_values(**values):
         {name}[state_index(key)] = value
 
     return {name}
-''',
-    )
-
-
-def parameter_index(data: dict[str, int]) -> str:
-    logger.debug(f"Generating parameter_index with {len(data)} values")
-    return dedent(
-        f'''
-def parameter_index(name: str) -> int:
-    """Return the index of the parameter with the given name
-
-    Arguments
-    ---------
-    name : str
-        The name of the parameter
-
-    Returns
-    -------
-    int
-        The index of the parameter
-
-    Raises
-    ------
-    KeyError
-        If the name is not a valid parameter
-    """
-
-    data = {repr(data)}
-    return data[name]
-''',
-    )
-
-
-def monitor_index(data: dict[str, int]) -> str:
-    logger.debug(f"Generating monitored_index with {len(data)} values")
-    return dedent(
-        f'''
-def monitor_index(name: str) -> int:
-    """Return the index of the monitor with the given name
-
-    Arguments
-    ---------
-    name : str
-        The name of the monitor
-
-    Returns
-    -------
-    int
-        The index of the monitor
-
-    Raises
-    ------
-    KeyError
-        If the name is not a valid monitor
-    """
-
-    data = {repr(data)}
-    return data[name]
 ''',
     )
 
@@ -162,11 +123,31 @@ def method(
     nan_to_num: bool = False,
     values_type: str = "numpy.zeros_like(states)",
     shape_info: str = "",
+    missing_variables: dict[str, int] | None = None,
     **kwargs,
 ):
     logger.debug(f"Generating method '{name}', with {num_return_values} return values.")
     if len(kwargs) > 0:
         logger.debug(f"Unused kwargs: {kwargs}")
+
+    if missing_variables:
+        args = args + ", missing_variables"
+        missing_str_lst = (
+            [
+                "\n",
+                indent("# Assign missing variables", "    "),
+            ]
+            + [
+                indent(f"{name} = missing_variables[{index}]", "    ")
+                for name, index in missing_variables.items()
+            ]
+            + ["\n"]
+        )
+        missing_str = "\n".join(missing_str_lst)
+
+    else:
+        missing_str = ""
+
     indent_states = indent(states, "    ")
     indent_parameters = indent(parameters, "    ")
     indent_values = indent(values, "    ")
@@ -186,7 +167,7 @@ def {name}({args}):
 
     # Assign parameters
 {indent_parameters}
-
+{missing_str}
     # Assign expressions
     {shape_info}
     {return_name} = {values_type}

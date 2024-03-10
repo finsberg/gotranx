@@ -95,9 +95,14 @@ def _print_Piecewise(
 class CodeGenerator(abc.ABC):
     variable_prefix = ""
 
-    def __init__(self, ode: ODE, remove_unused: bool = False) -> None:
+    def __init__(
+        self,
+        ode: ODE,
+        remove_unused: bool = False,
+    ) -> None:
         self.ode = ode
         self.remove_unused = remove_unused
+        self._missing_variables = {s: i for i, s in enumerate(sorted(ode.missing_variables))}
         if remove_unused:
             self.deps = self.ode.dependents()
             self._condition = lambda x: x in self.deps
@@ -135,6 +140,12 @@ class CodeGenerator(abc.ABC):
         if use_variable_prefix:
             return f"{self.variable_prefix}{self.printer.doprint(Assignment(lhs, rhs))}"
         return self.printer.doprint(Assignment(lhs, rhs))
+
+    def missing_index(self) -> str:
+        if self._missing_variables:
+            code = self.template.missing_index(data=self._missing_variables)
+            return self._format(code)
+        return ""
 
     def state_index(self) -> str:
         code = self.template.state_index(
@@ -273,6 +284,7 @@ class CodeGenerator(abc.ABC):
             num_return_values=rhs.num_return_values,
             shape_info="",
             values_type=rhs.values_type,
+            missing_variables=self._missing_variables,
         )
 
         return self._format(code)
@@ -325,6 +337,7 @@ class CodeGenerator(abc.ABC):
             num_return_values=rhs.num_return_values,
             shape_info=shape_info,
             values_type="numpy.zeros(shape)",
+            missing_variables=self._missing_variables,
         )
 
         return self._format(code)
@@ -370,6 +383,7 @@ class CodeGenerator(abc.ABC):
             num_return_values=rhs.num_return_values,
             shape_info="",
             values_type=rhs.values_type,
+            missing_variables=self._missing_variables,
         )
         return self._format(code)
 
