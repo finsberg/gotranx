@@ -16,6 +16,7 @@ def get_code(
     scheme: list[Scheme] | None = None,
     apply_black: bool = True,
     remove_unused: bool = False,
+    missing_values: dict[str, int] | None = None,
 ) -> str:
     """Generate the Python code for the ODE
 
@@ -40,6 +41,11 @@ def get_code(
         apply_black=apply_black,
         remove_unused=remove_unused,
     )
+    if missing_values is not None:
+        _missing_values = codegen.missing_values(missing_values)
+    else:
+        _missing_values = ""
+
     comp = [
         "import math",
         "import numpy",
@@ -51,6 +57,7 @@ def get_code(
         codegen.initial_state_values(),
         codegen.rhs(),
         codegen.monitor(),
+        _missing_values,
     ]
 
     if scheme is not None:

@@ -285,7 +285,7 @@ class ODE:
     def symbols(self) -> dict[str, sp.Symbol]:
         return self._symbols
 
-    def __sub__(self, other: Component) -> ODE:
+    def __sub__(self, other: BaseComponent) -> ODE:
         new_compooents = [comp for comp in self.components if comp != other]
         return ODE(
             components=new_compooents,
@@ -342,5 +342,7 @@ class ODE:
         return dict(dependencies)
 
     @property
-    def missing_variables(self) -> set[str]:
-        return {var for var in self.dependents() if var not in self.symbols}
+    def missing_variables(self) -> dict[str, int]:
+        symbols = set(self.symbols.keys()) | {"t"}
+        variable_names = {var for var in self.dependents() if var not in symbols}
+        return {var: i for i, var in enumerate(sorted(variable_names))}

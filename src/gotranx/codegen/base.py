@@ -102,7 +102,8 @@ class CodeGenerator(abc.ABC):
     ) -> None:
         self.ode = ode
         self.remove_unused = remove_unused
-        self._missing_variables = {s: i for i, s in enumerate(sorted(ode.missing_variables))}
+        self._missing_variables = ode.missing_variables
+
         if remove_unused:
             self.deps = self.ode.dependents()
             self._condition = lambda x: x in self.deps
@@ -333,6 +334,51 @@ class CodeGenerator(abc.ABC):
             states=states,
             parameters=parameters,
             values=values,
+            return_name=rhs.return_name,
+            num_return_values=rhs.num_return_values,
+            shape_info=shape_info,
+            values_type="numpy.zeros(shape)",
+            missing_variables=self._missing_variables,
+        )
+
+        return self._format(code)
+
+    def missing_values(
+        self, values: dict[str, int], order: RHSArgument | str = RHSArgument.tsp
+    ) -> str:
+        rhs = self._rhs_arguments(order)
+        states = self._state_assignments(rhs.states, remove_unused=False)
+        parameters = self._parameter_assignments(rhs.parameters)
+
+        values_lst = []
+        N = len(values)
+        values_idx = sympy.IndexedBase(
+            "values",
+            shape=len(values),
+        )
+
+        n = 0
+        for p in self.ode.states + self.ode.parameters:
+            if p.name in values:
+                values_lst.append(self._doprint(values_idx[values[p.name]], p.symbol))
+                n += 1
+        for x in self.ode.sorted_assignments(remove_unused=False):
+            values_lst.append(self._doprint(x.symbol, x.expr, use_variable_prefix=True))
+            if x.name in values:
+                values_lst.append(self._doprint(values_idx[values[x.name]], x.symbol))
+                n += 1
+            if n >= N:
+                break
+
+        shape = values_idx.shape[0]
+        shape_info = f"shape = {shape} if len(states.shape) == 1 else ({shape}, states.shape[1])"
+
+        code = self.template.method(
+            name="missing_values",
+            args=", ".join(rhs.arguments),
+            states=states,
+            parameters=parameters,
+            values="\n".join(values_lst),
             return_name=rhs.return_name,
             num_return_values=rhs.num_return_values,
             shape_info=shape_info,

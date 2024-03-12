@@ -149,6 +149,7 @@ Jrelp=0)
 
 
 states("intracellular concentrations",
+cai=0.0001,
 nai=7,
 nass=7,
 ki=145,
@@ -158,7 +159,6 @@ cansr=1.2,
 cajsr=1.2)
 
 states("mechanics",
-cai=0.0001,
 XS=0,
 XW=0,
 CaTrpn=0,
@@ -591,6 +591,8 @@ dcass_dt=Bcass*(-(ICaL-2.0*INaCa_ss)*Acap/(2.0*F*vss)+Jrel*vjsr/vss-Jdiff)
 dcansr_dt=Jup-Jtr*vjsr/vnsr
 Bcajsr=1.0/(1.0+csqnmax*kmcsqn/(kmcsqn+cajsr)**2.0)
 dcajsr_dt=Bcajsr*(Jtr-Jrel)
+Bcai=1.0/(1.0+cmdnmax*kmcmdn/(kmcmdn+cai)**2.0)
+dcai_dt=Bcai*(-(IpCa+ICab-2.0*INaCa_i+Isac_P_ns/3)*Acap/(2.0*F*vmyo)-Jup*vnsr/vmyo+Jdiff*vss/vmyo - J_TRPN)
 
 
 parameters("mechanics",
@@ -658,6 +660,4 @@ Fd = eta * dCd
 F1 = (exp( p_b * C) - 1)
 Tp = p_a * (F1 + Fd)
 Ttot = Ta + Tp
-Bcai=1.0/(1.0+cmdnmax*kmcmdn/(kmcmdn+cai)**2.0)
 J_TRPN = dCaTrpn_dt*trpnmax
-dcai_dt=Bcai*(-(IpCa+ICab-2.0*INaCa_i+Isac_P_ns/3)*Acap/(2.0*F*vmyo)-Jup*vnsr/vmyo+Jdiff*vss/vmyo - J_TRPN)
