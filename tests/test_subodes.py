@@ -175,7 +175,7 @@ def remaining_ode_codegen(main_ode):
 
 def test_codegen_remaining_ode_missing_index(remaining_ode_codegen):
     assert remaining_ode_codegen.missing_index() == (
-        'def missing_index(name: str = "") -> int | dict[str, int]:'
+        "def missing_index(name: str) -> int:"
         '\n    """Return the index of the missing with the given name'
         "\n"
         "\n    Arguments"
@@ -195,10 +195,7 @@ def test_codegen_remaining_ode_missing_index(remaining_ode_codegen):
         '\n    """'
         "\n"
         '\n    data = {"z": 0}'
-        '\n    if name == "":'
-        "\n        return data"
-        "\n    else:"
-        "\n        return data[name]"
+        "\n    return data[name]"
         "\n"
     )
 
