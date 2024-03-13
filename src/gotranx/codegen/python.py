@@ -98,8 +98,8 @@ class GotranPythonCodePrinter(PythonCodePrinter):
 
 
 class PythonCodeGenerator(CodeGenerator):
-    def __init__(self, ode: ODE, apply_black: bool = True, remove_unused: bool = False) -> None:
-        super().__init__(ode, remove_unused=remove_unused)
+    def __init__(self, ode: ODE, apply_black: bool = True, *args, **kwargs) -> None:
+        super().__init__(ode, *args, **kwargs)
 
         self._printer = GotranPythonCodePrinter()
 
@@ -144,7 +144,7 @@ class PythonCodeGenerator(CodeGenerator):
             values=values,
             return_name="values",
             num_return_values=self.ode.num_states,
-            values_type="numpy.zeros_like(states)",
+            values_type="numpy.zeros_like(states, dtype=numpy.float64)",
         )
 
     def _scheme_arguments(
@@ -172,5 +172,5 @@ class PythonCodeGenerator(CodeGenerator):
             values=values,
             return_name="values",
             num_return_values=self.ode.num_states,
-            values_type="numpy.zeros_like(states)",
+            values_type="numpy.zeros_like(states, dtype=numpy.float64)",
         )

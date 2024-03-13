@@ -16,6 +16,9 @@ class Template(typing.Protocol):
     def monitor_index(data: dict[str, int]) -> str: ...
 
     @staticmethod
+    def missing_index(data: dict[str, int]) -> str: ...
+
+    @staticmethod
     def init_state_values(
         name: str, state_values: list[float], state_names: list[str], code: str
     ) -> str: ...
@@ -36,6 +39,7 @@ class Template(typing.Protocol):
         num_return_values: int,
         shape_info: str,
         values_type: str,
+        missing_variables: str,
     ) -> str: ...
 
 

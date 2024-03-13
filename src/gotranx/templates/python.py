@@ -13,33 +13,52 @@ def acc(all_values: str, next_value: str = "# ") -> str:
         return all_values + ", " + next_value
 
 
-def state_index(data: dict[str, int]) -> str:
-    logger.debug(f"Generating state_index with {len(data)} values")
+def _index(data: dict[str, int], name: str) -> str:
     return dedent(
         f'''
-def state_index(name: str) -> int:
-    """Return the index of the state with the given name
+def {name}_index(name: str) -> int:
+    """Return the index of the {name} with the given name
 
     Arguments
     ---------
     name : str
-        The name of the state
+        The name of the {name}
 
     Returns
     -------
     int
-        The index of the state
+        The index of the {name}
 
     Raises
     ------
     KeyError
-        If the name is not a valid state
+        If the name is not a valid {name}
     """
 
     data = {repr(data)}
     return data[name]
 ''',
     )
+
+
+def state_index(data: dict[str, int]) -> str:
+    logger.debug(f"Generating state_index with {len(data)} values")
+    return _index(data, "state")
+
+
+def parameter_index(data: dict[str, int]) -> str:
+    logger.debug(f"Generating parameter_index with {len(data)} values")
+    return _index(data, "parameter")
+
+
+def monitor_index(data: dict[str, int]) -> str:
+    logger.debug(f"Generating monitored_index with {len(data)} values")
+    return _index(data, "monitor")
+
+
+def missing_index(data: dict[str, int]) -> str:
+    logger.debug(f"Generating missing_index with {len(data)} values")
+    return _index(data, "missing")
 
 
 def init_state_values(name, state_names, state_values, code):
@@ -57,70 +76,12 @@ def init_state_values(**values):
     """
 {values_comment}
 
-    {name} = numpy.array([{values}])
+    {name} = numpy.array([{values}], dtype=numpy.float64)
 
     for key, value in values.items():
         {name}[state_index(key)] = value
 
     return {name}
-''',
-    )
-
-
-def parameter_index(data: dict[str, int]) -> str:
-    logger.debug(f"Generating parameter_index with {len(data)} values")
-    return dedent(
-        f'''
-def parameter_index(name: str) -> int:
-    """Return the index of the parameter with the given name
-
-    Arguments
-    ---------
-    name : str
-        The name of the parameter
-
-    Returns
-    -------
-    int
-        The index of the parameter
-
-    Raises
-    ------
-    KeyError
-        If the name is not a valid parameter
-    """
-
-    data = {repr(data)}
-    return data[name]
-''',
-    )
-
-
-def monitor_index(data: dict[str, int]) -> str:
-    logger.debug(f"Generating monitored_index with {len(data)} values")
-    return dedent(
-        f'''
-def monitor_index(name: str) -> int:
-    """Return the index of the monitor with the given name
-
-    Arguments
-    ---------
-    name : str
-        The name of the monitor
-
-    Returns
-    -------
-    int
-        The index of the monitor
-
-    Raises
-    ------
-    KeyError
-        If the name is not a valid monitor
-    """
-
-    data = {repr(data)}
-    return data[name]
 ''',
     )
 
@@ -141,7 +102,7 @@ def init_parameter_values(**values):
     """
 {values_comment}
 
-    {name} = numpy.array([{values}])
+    {name} = numpy.array([{values}], dtype=numpy.float64)
 
     for key, value in values.items():
         {name}[parameter_index(key)] = value
@@ -160,13 +121,16 @@ def method(
     return_name: str,
     num_return_values: int,
     nan_to_num: bool = False,
-    values_type: str = "numpy.zeros_like(states)",
+    values_type: str = "numpy.zeros_like(states, dtype=numpy.float64)",
     shape_info: str = "",
+    missing_variables: str = "",
     **kwargs,
 ):
     logger.debug(f"Generating method '{name}', with {num_return_values} return values.")
     if len(kwargs) > 0:
         logger.debug(f"Unused kwargs: {kwargs}")
+
+    indent_missing_variables = indent(missing_variables, "    ")
     indent_states = indent(states, "    ")
     indent_parameters = indent(parameters, "    ")
     indent_values = indent(values, "    ")
@@ -186,7 +150,7 @@ def {name}({args}):
 
     # Assign parameters
 {indent_parameters}
-
+{indent_missing_variables}
     # Assign expressions
     {shape_info}
     {return_name} = {values_type}

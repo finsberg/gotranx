@@ -210,6 +210,7 @@ class ODE:
         self.name = name
         if comments is None:
             comments = (atoms.Comment(""),)
+        self._components = {comp.name: comp for comp in components}
 
         self.comments = comments
         self.text = " ".join(comment.text for comment in comments)
@@ -284,8 +285,20 @@ class ODE:
     def symbols(self) -> dict[str, sp.Symbol]:
         return self._symbols
 
+    def __sub__(self, other: BaseComponent) -> ODE:
+        new_compooents = [comp for comp in self.components if comp != other]
+        return ODE(
+            components=new_compooents,
+            t=self.t,
+            name=f"{self.name} - {other.name}",
+            comments=self.comments,
+        )
+
     def __getitem__(self, name) -> atoms.Atom:
         return self._lookup[name]
+
+    def get_component(self, name: str) -> BaseComponent:
+        return self._components[name]
 
     def sorted_assignments(
         self, assignments_only: bool = True, remove_unused: bool = False
@@ -327,3 +340,9 @@ class ODE:
                     dependencies[dependency].add(assignment.name)
 
         return dict(dependencies)
+
+    @property
+    def missing_variables(self) -> dict[str, int]:
+        symbols = set(self.symbols.keys()) | {"t"}
+        variable_names = {var for var in self.dependents() if var not in symbols}
+        return {var: i for i, var in enumerate(sorted(variable_names))}

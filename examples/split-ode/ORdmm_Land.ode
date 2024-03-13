@@ -1,0 +1,663 @@
+# ORd modified by MMora (October-2016)
+# Modifications in INa. The original formulation of INa has been
+# optimised, according to Passini, in order to look like TT04.
+# Modifications:
+#   1) mss,hss,jss and hssp
+#   2) gNa
+# +
+# Re-scaled conductances (Dutta et al 2016 CinC)
+# +
+#
+# Land 2017(mechanical model)- Introduced by MMora (Jan2020)
+#   Tension
+#   Changes in Cai effect of troponin
+# +
+#
+# Isacs
+#
+#
+# In this version we fix mech.emcoupling=1,
+# mode="intact", isacs=0 and celltype = 0
+#
+#
+# Modifications by Ilse (January 2023)
+#   Add scaling facotrs for heart failure and drugs
+
+
+parameters("Scales",
+scale_IKr = 1.119,
+scale_IKs = 1.648,
+scale_IK1 = 1.414,
+scale_ICaL = 1.018,
+scale_INaL = 2.274)
+
+
+
+parameters("settings",
+celltype=0)
+
+parameters("extracellular ionic concentrations",
+nao=140.0,
+cao=1.8,
+ko=5.4)
+
+parameters("physical constants", "mechanics",
+R=8314.0,
+T=310.0,
+F=96485.0)
+
+
+parameters("cell geometry", "mechanics",
+L=0.01,
+rad=0.0011)
+
+
+expressions("cell geometry", "mechanics")
+vcell=1000*3.14*rad*rad*L
+Ageo=2*3.14*rad*rad+2*3.14*rad*L
+Acap=2*Ageo
+vmyo=0.68*vcell
+vnsr=0.0552*vcell
+vjsr=0.0048*vcell
+vss=0.02*vcell
+
+
+# Scaling factors for heart failure
+parameters("scaling factors HF",
+scale_HF_CaMKa=1.0,
+scale_HF_Jrel_inf=1.0,
+scale_HF_Jleak=1.0,
+scale_HF_Jup=1.0,
+scale_HF_GNaL=1.0,
+scale_HF_GK1=1.0,
+scale_HF_thL=1.0,
+scale_HF_Gto=1.0,
+scale_HF_Gncx=1.0,
+scale_HF_Pnak=1.0)
+
+# Scaling factors for drug effects
+parameters("scaling factors drug",
+scale_drug_INa=1.0,
+scale_drug_INaL=1.0,
+scale_drug_Ito=1.0,
+scale_drug_ICaL=1.0,
+scale_drug_IKr=1.0,
+scale_drug_IKs=1.0,
+scale_drug_IK1=1.0,
+scale_drug_IKb=1.0,
+scale_drug_INab=1.0,
+scale_drug_ICab=1.0,
+scale_drug_IpCa=1.0,
+scale_drug_Isacns=1.0,
+scale_drug_Isack=1.0)
+
+######## EP states
+states("CaMKt",
+CaMKt=0
+)
+
+states("I_Na",
+m=0,
+hf=1,
+hs=1,
+j=1,
+hsp=1,
+jp=1)
+
+states("INaL",
+mL=0,
+hL=1,
+hLp=1)
+
+states("Ito",
+a=0,
+iF=1,
+iS=1,
+ap=0,
+iFp=1,
+iSp=1)
+
+states("ICaL ICaNa ICaK",
+d=0,
+ff=1,
+fs=1,
+fcaf=1,
+fcas=1,
+jca=1,
+nca=0,
+ffp=1,
+fcafp=1)
+
+
+states("IKr",
+xrf=0,
+xrs=0)
+
+
+states("IKs",
+xs1=0,
+xs2=0,
+xk1=1)
+
+states("membrane potential",
+v=-87)
+
+
+states("ryanodione receptor",
+Jrelnp=0,
+Jrelp=0)
+
+
+states("intracellular concentrations",
+cai=0.0001,
+nai=7,
+nass=7,
+ki=145,
+kss=145,
+cass=0.0001,
+cansr=1.2,
+cajsr=1.2)
+
+states("mechanics",
+XS=0,
+XW=0,
+CaTrpn=0,
+TmB=1,
+Zetas=0,
+Zetaw=0,
+Cd=0)
+
+
+##############################
+
+parameters("CaMK constants",
+KmCaMK=0.15,
+aCaMK=0.05,
+bCaMK=0.00068,
+CaMKo=0.05,
+KmCaM=0.0015)
+
+expressions("CaMKt")
+CaMKb=CaMKo*(1.0-CaMKt)/(1.0+KmCaM/cass)
+CaMKa=(CaMKb+CaMKt)*scale_HF_CaMKa
+dCaMKt_dt=aCaMK*CaMKb*(CaMKb+CaMKt)-bCaMK*CaMKt
+
+parameters("reversal potentials",
+PKNa=0.01833)
+
+expressions("reversal potentials")
+ENa=(R*T/F)*log(nao/nai)
+EK=(R*T/F)*log(ko/ki)
+EKs=(R*T/F)*log((ko+PKNa*nao)/(ki+PKNa*nai))
+vffrt=v*F*F/(R*T)
+vfrt=v*F/(R*T)
+
+parameters("I_Na",
+Ahf=0.99,
+GNa=31)
+
+expressions("I_Na")
+mss=1.0/(1.0+exp((-(v+39.57+9.4))/7.5))
+tm=1.0/(6.765*exp((v+11.64)/34.77)+8.552*exp(-(v+77.42)/5.955))
+dm_dt=(mss-m)/tm
+hss=1.0/(1+exp((v+78.5)/6.22))
+thf=1.0/(1.432e-5*exp(-(v+1.196)/6.285)+6.149*exp((v+0.5096)/20.27))
+ths=1.0/(0.009794*exp(-(v+17.95)/28.05)+0.3343*exp((v+5.730)/56.66))
+Ahs=1.0-Ahf
+dhf_dt=(hss-hf)/thf
+dhs_dt=(hss-hs)/ths
+h=Ahf*hf+Ahs*hs
+jss=hss
+tj=2.038+1.0/(0.02136*exp(-(v+100.6)/8.281)+0.3052*exp((v+0.9941)/38.45))
+dj_dt=(jss-j)/tj
+hssp=1.0/(1+exp((v+78.5+6.2)/6.22))
+thsp=3.0*ths
+dhsp_dt=(hssp-hsp)/thsp
+hp=Ahf*hf+Ahs*hsp
+tjp=1.46*tj
+djp_dt=(jss-jp)/tjp
+fINap=(1.0/(1.0+KmCaMK/CaMKa))
+INa=GNa*scale_drug_INa*(v-ENa)*m**3.0*((1.0-fINap)*h*j+fINap*hp*jp)
+
+parameters("INaL",
+thL=200.0)
+
+expressions("INaL")
+mLss=1.0/(1.0+exp((-(v+42.85))/5.264))
+tmL=tm
+dmL_dt=(mLss-mL)/tmL
+hLss=1.0/(1.0+exp((v+87.61)/7.488))
+dhL_dt=(hLss-hL)/(thL*scale_HF_thL)
+hLssp=1.0/(1.0+exp((v+93.81)/7.488))
+thLp=3.0*thL*scale_HF_thL
+dhLp_dt=(hLssp-hLp)/thLp
+GNaL=0.0075*scale_INaL*scale_drug_INaL*scale_HF_GNaL
+fINaLp=(1.0/(1.0+KmCaMK/CaMKa))
+INaL=GNaL*(v-ENa)*mL*((1.0-fINaLp)*hL+fINaLp*hLp)
+
+parameters("Ito",
+delta_epi=1.0,
+Gto=0.02)
+
+expressions("Ito")
+ass=1.0/(1.0+exp((-(v-14.34))/14.82))
+ta=1.0515/(1.0/(1.2089*(1.0+exp(-(v-18.4099)/29.3814)))+3.5/(1.0+exp((v+100.0)/29.3814)))
+da_dt=(ass-a)/ta
+iss=1.0/(1.0+exp((v+43.94)/5.711))
+tiF=4.562+1/(0.3933*exp((-(v+100.0))/100.0)+0.08004*exp((v+50.0)/16.59)) * delta_epi
+tiS=23.62+1/(0.001416*exp((-(v+96.52))/59.05)+1.780e-8*exp((v+114.1)/8.079)) * delta_epi
+AiF=1.0/(1.0+exp((v-213.6)/151.2))
+AiS=1.0-AiF
+diF_dt=(iss-iF)/tiF
+diS_dt=(iss-iS)/tiS
+i=AiF*iF+AiS*iS
+assp=1.0/(1.0+exp((-(v-24.34))/14.82))
+dap_dt=(assp-ap)/ta
+dti_develop=1.354+1.0e-4/(exp((v-167.4)/15.89)+exp(-(v-12.23)/0.2154))
+dti_recover=1.0-0.5/(1.0+exp((v+70.0)/20.0))
+tiFp=dti_develop*dti_recover*tiF
+tiSp=dti_develop*dti_recover*tiS
+diFp_dt=(iss-iFp)/tiFp
+diSp_dt=(iss-iSp)/tiSp
+ip=AiF*iFp+AiS*iSp
+fItop=(1.0/(1.0+KmCaMK/CaMKa))
+Ito=Gto*scale_drug_Ito*scale_HF_Gto*(v-EK)*((1.0-fItop)*a*i+fItop*ap*ip)
+
+
+parameters("ICaL ICaNa ICaK",
+Aff=0.6,
+tjca=75.0,
+Kmn=0.002,
+k2n=1000.0,
+zca=2.0)
+
+expressions("ICaL ICaNa ICaK")
+dss=1.0/(1.0+exp((-(v+3.940))/4.230))
+td=0.6+1.0/(exp(-0.05*(v+6.0))+exp(0.09*(v+14.0)))
+dd_dt=(dss-d)/td
+fss=1.0/(1.0+exp((v+19.58)/3.696))
+tff=7.0+1.0/(0.0045*exp(-(v+20.0)/10.0)+0.0045*exp((v+20.0)/10.0))
+tfs=1000.0+1.0/(0.000035*exp(-(v+5.0)/4.0)+0.000035*exp((v+5.0)/6.0))
+Afs=1.0-Aff
+dff_dt=(fss-ff)/tff
+dfs_dt=(fss-fs)/tfs
+f=Aff*ff+Afs*fs
+fcass=fss
+tfcaf=7.0+1.0/(0.04*exp(-(v-4.0)/7.0)+0.04*exp((v-4.0)/7.0))
+tfcas=100.0+1.0/(0.00012*exp(-v/3.0)+0.00012*exp(v/7.0))
+Afcaf=0.3+0.6/(1.0+exp((v-10.0)/10.0))
+Afcas=1.0-Afcaf
+dfcaf_dt=(fcass-fcaf)/tfcaf
+dfcas_dt=(fcass-fcas)/tfcas
+fca=Afcaf*fcaf+Afcas*fcas
+djca_dt=(fcass-jca)/tjca
+tffp=2.5*tff
+dffp_dt=(fss-ffp)/tffp
+fp=Aff*ffp+Afs*fs
+tfcafp=2.5*tfcaf
+dfcafp_dt=(fcass-fcafp)/tfcafp
+fcap=Afcaf*fcafp+Afcas*fcas
+km2n=jca*1.0
+anca=1.0/(k2n/km2n+(1.0+Kmn/cass)**4.0)
+dnca_dt=anca*k2n-nca*km2n
+PhiCaL=4.0*vffrt*(cass*exp(2.0*vfrt)-0.341*cao)/(exp(2.0*vfrt)-1.0)
+PhiCaNa=1.0*vffrt*(0.75*nass*exp(1.0*vfrt)-0.75*nao)/(exp(1.0*vfrt)-1.0)
+PhiCaK=1.0*vffrt*(0.75*kss*exp(1.0*vfrt)-0.75*ko)/(exp(1.0*vfrt)-1.0)
+PCa=0.0001*scale_ICaL*scale_drug_ICaL
+PCap=1.1*PCa
+PCaNa=0.00125*PCa
+PCaK=3.574e-4*PCa
+PCaNap=0.00125*PCap
+PCaKp=3.574e-4*PCap
+fICaLp=(1.0/(1.0+KmCaMK/CaMKa))
+ICaL=(1.0-fICaLp)*PCa*PhiCaL*d*(f*(1.0-nca)+jca*fca*nca)+fICaLp*PCap*PhiCaL*d*(fp*(1.0-nca)+jca*fcap*nca)
+ICaNa=(1.0-fICaLp)*PCaNa*PhiCaNa*d*(f*(1.0-nca)+jca*fca*nca)+fICaLp*PCaNap*PhiCaNa*d*(fp*(1.0-nca)+jca*fcap*nca)
+ICaK=(1.0-fICaLp)*PCaK*PhiCaK*d*(f*(1.0-nca)+jca*fca*nca)+fICaLp*PCaKp*PhiCaK*d*(fp*(1.0-nca)+jca*fcap*nca)
+
+expressions("IKr")
+xrss=1.0/(1.0+exp((-(v+8.337))/6.789))
+txrf=12.98+1.0/(0.3652*exp((v-31.66)/3.869)+4.123e-5*exp((-(v-47.78))/20.38))
+txrs=1.865+1.0/(0.06629*exp((v-34.70)/7.355)+1.128e-5*exp((-(v-29.74))/25.94))
+Axrf=1.0/(1.0+exp((v+54.81)/38.21))
+Axrs=1.0-Axrf
+dxrf_dt=(xrss-xrf)/txrf
+dxrs_dt=(xrss-xrs)/txrs
+xr=Axrf*xrf+Axrs*xrs
+rkr=1.0/(1.0+exp((v+55.0)/75.0))*1.0/(1.0+exp((v-10.0)/30.0))
+GKr=0.046*scale_IKr*scale_drug_IKr
+IKr=GKr*sqrt(ko/5.4)*xr*rkr*(v-EK)
+
+expressions("IKs")
+xs1ss=1.0/(1.0+exp((-(v+11.60))/8.932))
+txs1=817.3+1.0/(2.326e-4*exp((v+48.28)/17.80)+0.001292*exp((-(v+210.0))/230.0))
+dxs1_dt=(xs1ss-xs1)/txs1
+xs2ss=xs1ss
+txs2=1.0/(0.01*exp((v-50.0)/20.0)+0.0193*exp((-(v+66.54))/31.0))
+dxs2_dt=(xs2ss-xs2)/txs2
+KsCa=1.0+0.6/(1.0+(3.8e-5/cai)**1.4)
+GKs=0.0034*scale_IKs*scale_drug_IKs
+IKs=GKs*KsCa*xs1*xs2*(v-EKs)
+xk1ss=1.0/(1.0+exp(-(v+2.5538*ko+144.59)/(1.5692*ko+3.8115)))
+txk1=122.2/(exp((-(v+127.2))/20.36)+exp((v+236.8)/69.33))
+dxk1_dt=(xk1ss-xk1)/txk1
+rk1=1.0/(1.0+exp((v+105.8-2.6*ko)/9.493))
+GK1=0.1908*scale_IK1*scale_drug_IK1*scale_HF_GK1
+IK1=GK1*sqrt(ko)*rk1*xk1*(v-EK)
+
+
+parameters("INaCa_i",
+kna1=15.0,
+kna2=5.0,
+kna3=88.12,
+kasymm=12.5,
+wna=6.0e4,
+wca=6.0e4,
+wnaca=5.0e3,
+kcaon=1.5e6,
+kcaoff=5.0e3,
+qna=0.5224,
+qca=0.1670,
+KmCaAct=150.0e-6,
+Gncx=0.0008)
+
+expressions("INaCa_i")
+hca=exp((qca*v*F)/(R*T))
+hna=exp((qna*v*F)/(R*T))
+h1_i=1+nai/kna3*(1+hna)
+h2_i=(nai*hna)/(kna3*h1_i)
+h3_i=1.0/h1_i
+h4_i=1.0+nai/kna1*(1+nai/kna2)
+h5_i=nai*nai/(h4_i*kna1*kna2)
+h6_i=1.0/h4_i
+h7_i=1.0+nao/kna3*(1.0+1.0/hna)
+h8_i=nao/(kna3*hna*h7_i)
+h9_i=1.0/h7_i
+h10_i=kasymm+1.0+nao/kna1*(1.0+nao/kna2)
+h11_i=nao*nao/(h10_i*kna1*kna2)
+h12_i=1.0/h10_i
+k1_i=h12_i*cao*kcaon
+k2_i=kcaoff
+k3p_i=h9_i*wca
+k3pp_i=h8_i*wnaca
+k3_i=k3p_i+k3pp_i
+k4p_i=h3_i*wca/hca
+k4pp_i=h2_i*wnaca
+k4_i=k4p_i+k4pp_i
+k5_i=kcaoff
+k6_i=h6_i*cai*kcaon
+k7_i=h5_i*h2_i*wna
+k8_i=h8_i*h11_i*wna
+x1_i=k2_i*k4_i*(k7_i+k6_i)+k5_i*k7_i*(k2_i+k3_i)
+x2_i=k1_i*k7_i*(k4_i+k5_i)+k4_i*k6_i*(k1_i+k8_i)
+x3_i=k1_i*k3_i*(k7_i+k6_i)+k8_i*k6_i*(k2_i+k3_i)
+x4_i=k2_i*k8_i*(k4_i+k5_i)+k3_i*k5_i*(k1_i+k8_i)
+E1_i=x1_i/(x1_i+x2_i+x3_i+x4_i)
+E2_i=x2_i/(x1_i+x2_i+x3_i+x4_i)
+E3_i=x3_i/(x1_i+x2_i+x3_i+x4_i)
+E4_i=x4_i/(x1_i+x2_i+x3_i+x4_i)
+allo_i=1.0/(1.0+(KmCaAct/cai)**2.0)
+zna=1.0
+JncxNa_i=3.0*(E4_i*k7_i-E1_i*k8_i)+E3_i*k4pp_i-E2_i*k3pp_i
+JncxCa_i=E2_i*k2_i-E1_i*k1_i
+INaCa_i=0.8*Gncx*scale_HF_Gncx*allo_i*(zna*JncxNa_i+zca*JncxCa_i)
+
+expressions("INaCa_ss")
+h1=1+nass/kna3*(1+hna)
+h2=(nass*hna)/(kna3*h1)
+h3=1.0/h1
+h4=1.0+nass/kna1*(1+nass/kna2)
+h5=nass*nass/(h4*kna1*kna2)
+h6=1.0/h4
+h7=1.0+nao/kna3*(1.0+1.0/hna)
+h8=nao/(kna3*hna*h7)
+h9=1.0/h7
+h10=kasymm+1.0+nao/kna1*(1+nao/kna2)
+h11=nao*nao/(h10*kna1*kna2)
+h12=1.0/h10
+k1=h12*cao*kcaon
+k2=kcaoff
+k3p_ss=h9*wca
+k3pp=h8*wnaca
+k3=k3p_ss+k3pp
+k4p_ss=h3*wca/hca
+k4pp=h2*wnaca
+k4=k4p_ss+k4pp
+k5=kcaoff
+k6=h6*cass*kcaon
+k7=h5*h2*wna
+k8=h8*h11*wna
+x1_ss=k2*k4*(k7+k6)+k5*k7*(k2+k3)
+x2_ss=k1*k7*(k4+k5)+k4*k6*(k1+k8)
+x3_ss=k1*k3*(k7+k6)+k8*k6*(k2+k3)
+x4_ss=k2*k8*(k4+k5)+k3*k5*(k1+k8)
+E1_ss=x1_ss/(x1_ss+x2_ss+x3_ss+x4_ss)
+E2_ss=x2_ss/(x1_ss+x2_ss+x3_ss+x4_ss)
+E3_ss=x3_ss/(x1_ss+x2_ss+x3_ss+x4_ss)
+E4_ss=x4_ss/(x1_ss+x2_ss+x3_ss+x4_ss)
+allo_ss=1.0/(1.0+(KmCaAct/cass)**2.0)
+JncxNa_ss=3.0*(E4_ss*k7-E1_ss*k8)+E3_ss*k4pp-E2_ss*k3pp
+JncxCa_ss=E2_ss*k2-E1_ss*k1
+INaCa_ss=0.2*Gncx*scale_HF_Gncx*allo_ss*(zna*JncxNa_ss+zca*JncxCa_ss)
+
+
+parameters("INaK",
+k1p=949.5,
+k1m=182.4,
+k2p=687.2,
+k2m=39.4,
+k3p=1899.0,
+k3m=79300.0,
+k4p=639.0,
+k4m=40.0,
+Knai0=9.073,
+Knao0=27.78,
+delta=-0.1550,
+Kki=0.5,
+Kko=0.3582,
+MgADP=0.05,
+MgATP=9.8,
+Kmgatp=1.698e-7,
+H=1.0e-7,
+eP=4.2,
+Khp=1.698e-7,
+Knap=224.0,
+Kxkur=292.0,
+zk=1.0,
+Pnak=30)
+
+expressions("INaK")
+Knai=Knai0*exp((delta*v*F)/(3.0*R*T))
+Knao=Knao0*exp(((1.0-delta)*v*F)/(3.0*R*T))
+P=eP/(1.0+H/Khp+nai/Knap+ki/Kxkur)
+a1=(k1p*(nai/Knai)**3.0)/((1.0+nai/Knai)**3.0+(1.0+ki/Kki)**2.0-1.0)
+b1=k1m*MgADP
+a2=k2p
+b2=(k2m*(nao/Knao)**3.0)/((1.0+nao/Knao)**3.0+(1.0+ko/Kko)**2.0-1.0)
+a3=(k3p*(ko/Kko)**2.0)/((1.0+nao/Knao)**3.0+(1.0+ko/Kko)**2.0-1.0)
+b3=(k3m*P*H)/(1.0+MgATP/Kmgatp)
+a4=(k4p*MgATP/Kmgatp)/(1.0+MgATP/Kmgatp)
+b4=(k4m*(ki/Kki)**2.0)/((1.0+nai/Knai)**3.0+(1.0+ki/Kki)**2.0-1.0)
+x1=a4*a1*a2+b2*b4*b3+a2*b4*b3+b3*a1*a2
+x2=b2*b1*b4+a1*a2*a3+a3*b1*b4+a2*a3*b4
+x3=a2*a3*a4+b3*b2*b1+b2*b1*a4+a3*a4*b1
+x4=b4*b3*b2+a3*a4*a1+b2*a4*a1+b3*b2*a1
+E1=x1/(x1+x2+x3+x4)
+E2=x2/(x1+x2+x3+x4)
+E3=x3/(x1+x2+x3+x4)
+E4=x4/(x1+x2+x3+x4)
+JnakNa=3.0*(E1*a3-E2*b3)
+JnakK=2.0*(E4*b1-E3*a1)
+INaK=Pnak*scale_HF_Pnak*(zna*JnakNa+zk*JnakK)
+
+
+parameters("IKb",
+GKb=0.003)
+
+expressions("IKb")
+xkb=1.0/(1.0+exp(-(v-14.48)/18.34))
+IKb=GKb*scale_drug_IKb*xkb*(v-EK)
+
+parameters("INab",
+PNab=3.75e-10)
+
+expressions("INab")
+INab=PNab*scale_drug_INab*vffrt*(nai*exp(vfrt)-nao)/(exp(vfrt)-1.0)
+
+
+parameters("ICab",
+PCab=2.5e-8)
+
+expressions("ICab")
+ICab=PCab*scale_drug_ICab*4.0*vffrt*(cai*exp(2.0*vfrt)-0.341*cao)/(exp(2.0*vfrt)-1.0)
+
+parameters("IpCa",
+GpCa=0.0005)
+
+expressions("IpCa")
+IpCa=GpCa*scale_drug_IpCa*cai/(0.0005+cai)
+
+
+parameters("Isac (Pueyo)--> ns + k",
+Gsac_ns=0.006,
+Esac_ns=-10,
+lambda_max=1.1,
+Gsac_k=0.2882*800/210)
+
+expressions("Isac (Pueyo)--> ns + k")
+Isac_P_ns=0
+Isac_P_k=0
+
+
+parameters("Istim",
+amp=-80.0,
+duration=0.5)
+
+expressions("Istim")
+Istim = Conditional(Le(t, duration), amp, 0)
+
+expressions("membrane potential")
+dv_dt=-(INa+INaL+Ito+ICaL+ICaNa+ICaK+IKr+IKs+IK1+INaCa_i+INaCa_ss+INaK+INab+IKb+IpCa+ICab+Istim+Isac_P_ns+Isac_P_k)
+
+expressions("diffusion fluxes")
+JdiffNa=(nass-nai)/2.0
+JdiffK=(kss-ki)/2.0
+Jdiff=(cass-cai)/0.2
+
+parameters("ryanodione receptor",
+bt=4.75)
+
+expressions("ryanodione receptor")
+a_rel=0.5*bt
+Jrel_inf=a_rel*(-ICaL)/(1.0+(1.5*scale_HF_Jrel_inf/cajsr)**8.0)
+tau_rel_tmp=bt/(1.0+0.0123/cajsr)
+tau_rel=Conditional(Lt(tau_rel_tmp, 0.001), 0.001, tau_rel_tmp)
+dJrelnp_dt=(Jrel_inf-Jrelnp)/tau_rel
+btp=1.25*bt
+a_relp=0.5*btp
+Jrel_infp=a_relp*(-ICaL)/(1.0+(1.5*scale_HF_Jrel_inf/cajsr)**8.0)
+tau_relp_tmp=btp/(1.0+0.0123/cajsr)
+tau_relp=Conditional(Lt(tau_relp_tmp, 0.001), 0.001, tau_relp_tmp)
+dJrelp_dt=(Jrel_infp-Jrelp)/tau_relp
+fJrelp=(1.0/(1.0+KmCaMK/CaMKa))
+Jrel=(1.0-fJrelp)*Jrelnp+fJrelp*Jrelp
+
+expressions("calcium buffers")
+Jupnp=0.004375*cai/(cai+0.00092)
+Jupp=2.75*0.004375*cai/(cai+0.00092-0.00017)
+fJupp=(1.0/(1.0+KmCaMK/CaMKa))
+Jleak=0.0039375*cansr*scale_HF_Jleak/15.0
+Jup=(1.0-fJupp)*Jupnp+fJupp*Jupp*scale_HF_Jup-Jleak
+Jtr=(cansr-cajsr)/100.0
+
+parameters("calcium buffers", "mechanics",
+cmdnmax=0.05,
+kmcmdn=0.00238,
+trpnmax=0.07,
+kmtrpn=0.0005,
+BSRmax=0.047,
+KmBSR=0.00087,
+BSLmax=1.124,
+KmBSL=0.0087,
+csqnmax=10.0,
+kmcsqn=0.8)
+
+expressions("intracellular concentrations")
+dnai_dt=-(INa+INaL+3.0*INaCa_i+3.0*INaK+INab+Isac_P_ns/3)*Acap/(F*vmyo)+JdiffNa*vss/vmyo
+dnass_dt=-(ICaNa+3.0*INaCa_ss)*Acap/(F*vss)-JdiffNa
+dki_dt=-(Ito+IKr+IKs+IK1+IKb+Isac_P_k+Isac_P_ns/3+Istim-2.0*INaK)*Acap/(F*vmyo)+JdiffK*vss/vmyo
+dkss_dt=-(ICaK)*Acap/(F*vss)-JdiffK
+Bcass=1.0/(1.0+BSRmax*KmBSR/(KmBSR+cass)**2.0+BSLmax*KmBSL/(KmBSL+cass)**2.0)
+dcass_dt=Bcass*(-(ICaL-2.0*INaCa_ss)*Acap/(2.0*F*vss)+Jrel*vjsr/vss-Jdiff)
+dcansr_dt=Jup-Jtr*vjsr/vnsr
+Bcajsr=1.0/(1.0+csqnmax*kmcsqn/(kmcsqn+cajsr)**2.0)
+dcajsr_dt=Bcajsr*(Jtr-Jrel)
+Bcai=1.0/(1.0+cmdnmax*kmcmdn/(kmcmdn+cai)**2.0)
+dcai_dt=Bcai*(-(IpCa+ICab-2.0*INaCa_i+Isac_P_ns/3)*Acap/(2.0*F*vmyo)-Jup*vnsr/vmyo+Jdiff*vss/vmyo - J_TRPN)
+
+
+parameters("mechanics",
+emcoupling=1,
+lmbda=1,
+dLambda=0,
+mode=1,
+isacs=0,
+calib=1,
+ktrpn = 0.1,
+ntrpn = 2,
+Trpn50 = 0.35,
+rw = 0.5,
+rs = 0.25,
+gammas = 0.0085,
+gammaw = 0.615,
+phi = 2.23,
+Tot_A = 25,
+Beta0 = 2.3,
+Beta1 = -2.4,
+cat50_ref = 0.805,
+scale_HF_cat50_ref=1.0,
+Tref = 120,
+kuw = 0.182,
+kws = 0.012,
+ku=0.04,
+ntm=2.4,
+p_a = 2.1,
+p_b = 9.1,
+p_k = 7,
+etal = 200,
+etas = 20)
+
+expressions("mechanics")
+XS_max = Conditional(Gt(XS, 0), XS, 0)
+XW_max = Conditional(Gt(XW, 0), XW, 0)
+CaTrpn_max = Conditional(Gt(CaTrpn, 0), CaTrpn, 0)
+kwu = kuw*(1/rw-1)-kws
+ksu = kws*rw*(1/rs-1)
+Aw = Tot_A*rs/((1-rs)*rw+rs)
+As = Aw
+cw = phi*kuw*((1-rs)*(1-rw))/((1-rs)*rw)
+cs = phi*kws*((1-rs)*rw)/rs
+lambda_min12 = Conditional(Lt(lmbda, 1.2), lmbda, 1.2)
+lambda_min087 = Conditional(Lt(lambda_min12, 0.87), lambda_min12, 0.87)
+h_lambda_prima = 1+Beta0*(lambda_min12+lambda_min087-1.87)
+h_lambda = Conditional(Gt(h_lambda_prima, 0), h_lambda_prima, 0)
+XU = (1-TmB)-XS-XW
+gammawu = gammaw*abs(Zetaw)
+gammasu  = gammas*Conditional(Gt(Gt(Zetas,0)*Zetas, Lt(Zetas, -1)*(-Zetas-1)), Gt(Zetas,0)*Zetas, Lt(Zetas, -1)*(-Zetas-1))
+dXS_dt = kws*XW - ksu*XS - gammasu*XS
+dXW_dt = kuw*XU - kwu*XW - kws*XW - gammawu*XW
+cat50 = (cat50_ref+Beta1*(lambda_min12-1))*scale_HF_cat50_ref
+dCaTrpn_dt = ktrpn*(((cai*1000/cat50)**ntrpn)*(1-CaTrpn)-CaTrpn)
+kb = ku*Trpn50**ntm/(1-rs-(1-rs)*rw)
+dTmB_dt =  kb*Conditional(Lt(CaTrpn**(-ntm/2), 100), CaTrpn**(-ntm/2), 100)*XU-ku*CaTrpn**(ntm/2)*TmB
+dZetas_dt = As*dLambda - cs*Zetas
+dZetaw_dt = Aw*dLambda - cw*Zetaw
+Ta = h_lambda*(Tref/rs)*(XS*(Zetas+1) + XW*Zetaw)
+C = lambda_min12 - 1
+dCd = C - Cd
+eta = Conditional(Lt(dCd, 0), etas, etal)
+dCd_dt = p_k * (C - Cd) / eta
+Fd = eta * dCd
+F1 = (exp( p_b * C) - 1)
+Tp = p_a * (F1 + Fd)
+Ttot = Ta + Tp
+J_TRPN = dCaTrpn_dt*trpnmax
