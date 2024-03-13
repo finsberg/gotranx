@@ -76,7 +76,7 @@ def init_state_values(**values):
     """
 {values_comment}
 
-    {name} = numpy.array([{values}])
+    {name} = numpy.array([{values}], dtype=numpy.float64)
 
     for key, value in values.items():
         {name}[state_index(key)] = value
@@ -102,7 +102,7 @@ def init_parameter_values(**values):
     """
 {values_comment}
 
-    {name} = numpy.array([{values}])
+    {name} = numpy.array([{values}], dtype=numpy.float64)
 
     for key, value in values.items():
         {name}[parameter_index(key)] = value
