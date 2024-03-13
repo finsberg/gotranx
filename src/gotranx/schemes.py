@@ -29,8 +29,7 @@ class printer_func(typing.Protocol):
         lhs: sympy.Symbol | sympy.IndexedBase,
         rhs: sympy.Expr,
         use_variable_prefix: bool = False,
-    ) -> str:
-        ...
+    ) -> str: ...
 
 
 class scheme_func(typing.Protocol):
@@ -41,8 +40,7 @@ class scheme_func(typing.Protocol):
         name: str = "values",
         printer: printer_func = default_printer,
         remove_unused: bool = False,
-    ) -> list[str]:
-        ...
+    ) -> list[str]: ...
 
 
 class Scheme(str, Enum):

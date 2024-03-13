@@ -48,8 +48,7 @@ def main(
         is_eager=True,
         help="Show license",
     ),
-):
-    ...
+): ...
 
 
 @app.command()
