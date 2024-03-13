@@ -121,7 +121,7 @@ def method(
     return_name: str,
     num_return_values: int,
     nan_to_num: bool = False,
-    values_type: str = "numpy.zeros_like(states)",
+    values_type: str = "numpy.zeros_like(states, dtype=numpy.float64)",
     shape_info: str = "",
     missing_variables: str = "",
     **kwargs,

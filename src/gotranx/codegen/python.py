@@ -144,7 +144,7 @@ class PythonCodeGenerator(CodeGenerator):
             values=values,
             return_name="values",
             num_return_values=self.ode.num_states,
-            values_type="numpy.zeros_like(states)",
+            values_type="numpy.zeros_like(states, dtype=numpy.float64)",
         )
 
     def _scheme_arguments(
@@ -172,5 +172,5 @@ class PythonCodeGenerator(CodeGenerator):
             values=values,
             return_name="values",
             num_return_values=self.ode.num_states,
-            values_type="numpy.zeros_like(states)",
+            values_type="numpy.zeros_like(states, dtype=numpy.float64)",
         )
