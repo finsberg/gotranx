@@ -78,7 +78,7 @@ J_TRPN_mechanics = np.zeros(len(t))
 
 fig, ax = plt.subplots(3, 2, sharex=True, figsize=(10, 10))
 
-for col, tol in zip(colors, tols):
+for j, (col, tol) in enumerate(zip(colors, tols)):
     # Get initial state values
     y_ep = ep_model["init_state_values"]()
     p_ep = ep_model["init_parameter_values"]()
@@ -146,12 +146,14 @@ for col, tol in zip(colors, tols):
 
     ax[0, 0].plot(t, V_ep, color=col)
 
-    ax[1, 0].plot(t, Ta_full, color="k", linestyle="--")
+    if j == 0:
+        ax[1, 0].plot(t, Ta_full, color="k", linestyle="--", label="Full")
+        ax[1, 1].plot(t, J_TRPN_full, color="k", linestyle="--", label="Full")
+
     ax[1, 0].plot(t[inds], Ta_mechanics[inds], color=col)
 
     ax[0, 1].plot(t, Ca_ep, color=col)
 
-    ax[1, 1].plot(t, J_TRPN_full, color="k", linestyle="--")
     ax[1, 1].plot(t[inds], J_TRPN_mechanics[inds], color=col)
 
     err_Ta = np.linalg.norm(Ta_full[inds] - Ta_mechanics[inds]) / np.linalg.norm(Ta_mechanics)
@@ -181,8 +183,9 @@ for col, tol in zip(colors, tols):
 
     ax[2, 0].set_ylabel("Ta error (kPa)")
     ax[2, 1].set_ylabel("J TRPN error (mM)")
-    ax[2, 0].legend()
-    ax[2, 1].legend()
+
+    for axi in ax.flatte():
+        axi.legend()
 
     fig.tight_layout()
     fig.savefig("V_and_Ta.png")

@@ -142,6 +142,9 @@ class CodeGenerator(abc.ABC):
             return f"{self.variable_prefix}{self.printer.doprint(Assignment(lhs, rhs))}"
         return self.printer.doprint(Assignment(lhs, rhs))
 
+    def _comment(self, text: str) -> str:
+        return self.printer._get_comment(text).strip()
+
     def missing_index(self) -> str:
         if self._missing_variables:
             code = self.template.missing_index(data=self._missing_variables)
@@ -244,6 +247,28 @@ class CodeGenerator(abc.ABC):
             if self._condition(param.name)
         )
 
+    def _missing_variables_assignments(self):
+        if not self._missing_variables:
+            return ""
+
+        missing_variables = sympy.IndexedBase(
+            "missing_variables", shape=(len(self._missing_variables),)
+        )
+
+        lst = (
+            ["", self._comment("Assign missing variables")]
+            + [
+                self._doprint(
+                    sympy.Symbol(name),
+                    missing_variables[index],
+                    use_variable_prefix=True,
+                )
+                for name, index in self._missing_variables.items()
+            ]
+            + [""]
+        )
+        return "\n".join(lst)
+
     def rhs(self, order: RHSArgument | str = RHSArgument.tsp, use_cse=False) -> str:
         """Generate code for the right hand side of the ODE
 
@@ -263,6 +288,11 @@ class CodeGenerator(abc.ABC):
         rhs = self._rhs_arguments(order)
         states = self._state_assignments(rhs.states, remove_unused=self.remove_unused)
         parameters = self._parameter_assignments(rhs.parameters)
+        missing_variables = self._missing_variables_assignments()
+
+        arguments = rhs.arguments
+        if self._missing_variables:
+            arguments += ["missing_variables"]
 
         values_lst = []
         index = 0
@@ -277,7 +307,7 @@ class CodeGenerator(abc.ABC):
         values = "\n".join(values_lst)
         code = self.template.method(
             name="rhs",
-            args=", ".join(rhs.arguments),
+            args=", ".join(arguments),
             states=states,
             parameters=parameters,
             values=values,
@@ -285,7 +315,7 @@ class CodeGenerator(abc.ABC):
             num_return_values=rhs.num_return_values,
             shape_info="",
             values_type=rhs.values_type,
-            missing_variables=self._missing_variables,
+            missing_variables=missing_variables,
         )
 
         return self._format(code)
@@ -309,6 +339,11 @@ class CodeGenerator(abc.ABC):
         rhs = self._rhs_arguments(order)
         states = self._state_assignments(rhs.states, remove_unused=False)
         parameters = self._parameter_assignments(rhs.parameters)
+        missing_variables = self._missing_variables_assignments()
+
+        arguments = rhs.arguments
+        if self._missing_variables:
+            arguments += ["missing_variables"]
 
         values_lst = []
         index = 0
@@ -330,7 +365,7 @@ class CodeGenerator(abc.ABC):
 
         code = self.template.method(
             name="monitor",
-            args=", ".join(rhs.arguments),
+            args=", ".join(arguments),
             states=states,
             parameters=parameters,
             values=values,
@@ -338,7 +373,7 @@ class CodeGenerator(abc.ABC):
             num_return_values=rhs.num_return_values,
             shape_info=shape_info,
             values_type="numpy.zeros(shape)",
-            missing_variables=self._missing_variables,
+            missing_variables=missing_variables,
         )
 
         return self._format(code)
@@ -349,6 +384,11 @@ class CodeGenerator(abc.ABC):
         rhs = self._rhs_arguments(order)
         states = self._state_assignments(rhs.states, remove_unused=False)
         parameters = self._parameter_assignments(rhs.parameters)
+        missing_variables = self._missing_variables_assignments()
+
+        arguments = rhs.arguments
+        if self._missing_variables:
+            arguments += ["missing_variables"]
 
         values_lst = []
         N = len(values)
@@ -375,7 +415,7 @@ class CodeGenerator(abc.ABC):
 
         code = self.template.method(
             name="missing_values",
-            args=", ".join(rhs.arguments),
+            args=", ".join(arguments),
             states=states,
             parameters=parameters,
             values="\n".join(values_lst),
@@ -383,7 +423,7 @@ class CodeGenerator(abc.ABC):
             num_return_values=rhs.num_return_values,
             shape_info=shape_info,
             values_type="numpy.zeros(shape)",
-            missing_variables=self._missing_variables,
+            missing_variables=missing_variables,
         )
 
         return self._format(code)
@@ -407,6 +447,11 @@ class CodeGenerator(abc.ABC):
         rhs = self._scheme_arguments(order)
         states = self._state_assignments(rhs.states, remove_unused=False)
         parameters = self._parameter_assignments(rhs.parameters)
+        missing_variables = self._missing_variables_assignments()
+
+        arguments = rhs.arguments
+        if self._missing_variables:
+            arguments += ["missing_variables"]
 
         dt = sympy.Symbol("dt")
         f = schemes.get_scheme(name)
@@ -421,7 +466,7 @@ class CodeGenerator(abc.ABC):
 
         code = self.template.method(
             name=name,
-            args=", ".join(rhs.arguments),
+            args=", ".join(arguments),
             states=states,
             parameters=parameters,
             values=values,
@@ -429,7 +474,7 @@ class CodeGenerator(abc.ABC):
             num_return_values=rhs.num_return_values,
             shape_info="",
             values_type=rhs.values_type,
-            missing_variables=self._missing_variables,
+            missing_variables=missing_variables,
         )
         return self._format(code)
 

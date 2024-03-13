@@ -45,7 +45,7 @@ class Template(typing.Protocol):
         num_return_values: int,
         shape_info: str,
         values_type: str,
-        missing_variables: dict[str, int] | None,
+        missing_variables: str,
     ) -> str:
         ...
 

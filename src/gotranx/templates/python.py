@@ -123,31 +123,14 @@ def method(
     nan_to_num: bool = False,
     values_type: str = "numpy.zeros_like(states)",
     shape_info: str = "",
-    missing_variables: dict[str, int] | None = None,
+    missing_variables: str = "",
     **kwargs,
 ):
     logger.debug(f"Generating method '{name}', with {num_return_values} return values.")
     if len(kwargs) > 0:
         logger.debug(f"Unused kwargs: {kwargs}")
 
-    if missing_variables:
-        args = args + ", missing_variables"
-        missing_str_lst = (
-            [
-                "\n",
-                indent("# Assign missing variables", "    "),
-            ]
-            + [
-                indent(f"{name} = missing_variables[{index}]", "    ")
-                for name, index in missing_variables.items()
-            ]
-            + ["\n"]
-        )
-        missing_str = "\n".join(missing_str_lst)
-
-    else:
-        missing_str = ""
-
+    indent_missing_variables = indent(missing_variables, "    ")
     indent_states = indent(states, "    ")
     indent_parameters = indent(parameters, "    ")
     indent_values = indent(values, "    ")
@@ -167,7 +150,7 @@ def {name}({args}):
 
     # Assign parameters
 {indent_parameters}
-{missing_str}
+{indent_missing_variables}
     # Assign expressions
     {shape_info}
     {return_name} = {values_type}
