@@ -7,32 +7,26 @@ from . import python
 
 class Template(typing.Protocol):
     @staticmethod
-    def state_index(data: dict[str, int]) -> str:
-        ...
+    def state_index(data: dict[str, int]) -> str: ...
 
     @staticmethod
-    def parameter_index(data: dict[str, int]) -> str:
-        ...
+    def parameter_index(data: dict[str, int]) -> str: ...
 
     @staticmethod
-    def monitor_index(data: dict[str, int]) -> str:
-        ...
+    def monitor_index(data: dict[str, int]) -> str: ...
 
     @staticmethod
-    def missing_index(data: dict[str, int]) -> str:
-        ...
+    def missing_index(data: dict[str, int]) -> str: ...
 
     @staticmethod
     def init_state_values(
         name: str, state_values: list[float], state_names: list[str], code: str
-    ) -> str:
-        ...
+    ) -> str: ...
 
     @staticmethod
     def init_parameter_values(
         name: str, parameter_values: list[float], parameter_names: list[str], code: str
-    ) -> str:
-        ...
+    ) -> str: ...
 
     @staticmethod
     def method(
@@ -46,8 +40,7 @@ class Template(typing.Protocol):
         shape_info: str,
         values_type: str,
         missing_variables: str,
-    ) -> str:
-        ...
+    ) -> str: ...
 
 
 __all__ = ["c", "python", "Template"]
