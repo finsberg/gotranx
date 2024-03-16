@@ -28,211 +28,35 @@ python3 -m pip install git+https://github.com/finsberg/gotranx
 ```
 
 ## Quick start
-Define your ode in a `.ode` file, for example for the Lorentz attractor you can write the following file (called `lorentz.ode`)
-```
-parameters(
-sigma=12.0,
-rho=21.0,
-beta=2.4
-)
-
-states(x=1.0, y=2.0,z=3.05)
-
-dx_dt = sigma * (y - x)
-dy_dt = x * (rho - z) - y
-dz_dt = x * y - beta * z
-```
-which defines the parameters and states with default initial conditions. For each state variable, we also define the derivatives using `dx_dt` for the state with name `x`.
-
-Now we can generate code that can be used to solve the equation, e.g
-```
-python3 -m gotranx convert lorentz.ode --to .py --scheme forward_explicit_euler
-```
-which will generate a python file `lorentz.py` containing the following functions
-```python
-import numpy
-
-def parameter_index(name: str) -> float:
-    """Return the index of the parameter with the given name
-
-    Arguments
-    ---------
-    name : str
-        The name of the parameter
-
-    Returns
-    -------
-    float
-        The index of the parameter
-
-    Raises
-    ------
-    KeyError
-        If the name is not a valid parameter
-    """
-
-    data = {"beta": 0, "rho": 1, "sigma": 2}
-    return data[name]
+Check out the demos in the [documentation](https://finsberg.github.io/gotranx/demos/cli) and the [examples in the repository](https://github.com/finsberg/gotranx/tree/main/examples).
 
 
-def state_index(name: str) -> float:
-    """Return the index of the state with the given name
+## Road map
+The plan is to have all the features from the old [gotran](https://github.com/ComputationalPhysiology/gotran) implemented in `gotranx` (and some more). This includes
 
-    Arguments
-    ---------
-    name : str
-        The name of the state
-
-    Returns
-    -------
-    float
-        The index of the state
-
-    Raises
-    ------
-    KeyError
-        If the name is not a valid state
-    """
-
-    data = {"x": 0, "y": 1, "z": 2}
-    return data[name]
-
-
-def init_parameter_values(**values):
-    """Initialize parameter values"""
-    # beta=2.4, rho=21.0, sigma=12.0
-
-    parameters = numpy.array([2.4, 21.0, 12.0])
-
-    for key, value in values.items():
-        parameters[parameter_index(key)] = value
-
-    return parameters
+- [ ] More numerical schemes
+    - [x] Forward Euler
+    - [ ] Rush Larsen
+    - [x] Generalized Rush Larsen
+    - [ ] Hybrid Generalized Rush Larsen
+    - [ ] Simplified Implicit Euler
+    - [ ] Newton's method for implicit schemes
+- [ ] Code generation for more languages
+    - [x] Python
+    - [x] C
+    - [ ] C++
+    - [ ] Julia
+    - [ ] CUDA
+    - [ ] OpenCL
+    - [ ] Rust
+    - [ ] Latex
+    - [ ] Markdown
+- [x] Converters between commonly used ODE markup languages
+    - [x] [`Myokit`](https://github.com/myokit/myokit) (still some limited support for unit conversion, see [issue #26](https://github.com/finsberg/gotranx/issues/26))
+    - [x] CellML (supported via MyoKit)
 
 
-def init_state_values(**values):
-    """Initialize state values"""
-    # x=1.0, y=2.0, z=3.05
+If you have additional feature requests, please [open an issue](https://github.com/finsberg/gotranx/issues)
 
-    states = numpy.array([1.0, 2.0, 3.05])
-
-    for key, value in values.items():
-        states[state_index(key)] = value
-
-    return states
-
-
-def rhs(t, states, parameters):
-    # Assign states
-    x = states[0]
-    y = states[1]
-    z = states[2]
-
-    # Assign parameters
-    beta = parameters[0]
-    rho = parameters[1]
-    sigma = parameters[2]
-
-    # Assign expressions
-    values = numpy.zeros(3)
-    values[0] = sigma * (-x + y)
-    values[1] = x * (rho - z) - y
-    values[2] = -beta * z + x * y
-
-    return values
-
-
-def forward_explicit_euler(states, t, dt, parameters):
-    # Assign states
-    x = states[0]
-    y = states[1]
-    z = states[2]
-
-    # Assign parameters
-    beta = parameters[0]
-    rho = parameters[1]
-    sigma = parameters[2]
-
-    # Assign expressions
-    values = numpy.zeros(3)
-    dx_dt = sigma * (-x + y)
-    values[0] = dt * dx_dt + x
-    dy_dt = x * (rho - z) - y
-    values[1] = dt * dy_dt + y
-    dz_dt = -beta * z + x * y
-    values[2] = dt * dz_dt + z
-
-    return values
-
-```
-
-Similarly, you can use the following command
-```
-python3 -m gotranx convert lorentz.ode --to .h --scheme forward_explicit_euler
-```
-to generate a C-header file with the following content
-```C
-#include <math.h>
-
-void init_parameter_values(double *parameters)
-{
-    /*
-    beta=2.4, rho=21.0, sigma=12.0
-    */
-    parameters[0] = 2.4;
-    parameters[1] = 21.0;
-    parameters[2] = 12.0;
-}
-
-void init_state_values(double *states)
-{
-    /*
-    x=1.0, y=2.0, z=3.05
-    */
-    states[0] = 1.0;
-    states[1] = 2.0;
-    states[2] = 3.05;
-}
-
-void rhs(const double t, const double *__restrict states, const double *__restrict parameters, double *values)
-{
-
-    // Assign states
-    const double x = states[0];
-    const double y = states[1];
-    const double z = states[2];
-
-    // Assign parameters
-    const double beta = parameters[0];
-    const double rho = parameters[1];
-    const double sigma = parameters[2];
-
-    // Assign expressions
-    values[0] = sigma * (-x + y);
-    values[1] = x * (rho - z) - y;
-    values[2] = -beta * z + x * y;
-}
-
-void forward_explicit_euler(const double *__restrict states, const double t, const double dt,
-                            const double *__restrict parameters, double *values)
-{
-
-    // Assign states
-    const double x = states[0];
-    const double y = states[1];
-    const double z = states[2];
-
-    // Assign parameters
-    const double beta = parameters[0];
-    const double rho = parameters[1];
-    const double sigma = parameters[2];
-
-    // Assign expressions
-    const double dx_dt = sigma * (-x + y);
-    values[0] = dt * dx_dt + x;
-    const double dy_dt = x * (rho - z) - y;
-    values[1] = dt * dy_dt + y;
-    const double dz_dt = -beta * z + x * y;
-    values[2] = dt * dz_dt + z;
-}
-```
+## Contributing
+Contributions are very welcomed, but please read the [contributing guide](https://finsberg.github.io/gotranx/CONTRIBUTING/) first
