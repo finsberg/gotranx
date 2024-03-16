@@ -47,3 +47,33 @@ Note that when you make a push to the repo, the pre-commit hooks will be run on 
 pre-commit run --all
 ```
 To learn more about pre-commit you can check out https://pre-commit.com
+
+## Test suite
+For every new features of bugfix you should also make sure to not lower the code coverage for the test suite. This means that if you for example add a new function then you should also make sure that the function is properly tested (at a minimum it should be covered by the test suite).
+
+To run the test suite, please install the package with the optional dependencies `test`, i.e
+```
+python3 -m pip install -e ".[test]"
+```
+in the root of the repository. To run the tests you can execute the command
+```
+python3 -m pytest
+```
+You can read more about using pytest in the [official documentation of pytest](https://docs.pytest.org/).
+
+## Documentation
+The documentation is hosted at GitHub pages and created with [`MkDocs`](https://www.mkdocs.org). Contributions to the documentation both is very welcomed.
+
+To build the documentation locally you can installed the `docs` optional dependencies, i.e
+```
+python3 -m pip install -e ".[docs]"
+```
+in the root of the repository. Now you can build the documentation by first copying the markdown files from the root directory to the `docs` folder
+```
+cp *.md docs/
+``
+and then running
+```
+mkdocs build
+```
+For reference, please see the [github workflow](https://github.com/finsberg/gotranx/blob/main/.github/workflows/pages.yml) that is used for building the pages.
