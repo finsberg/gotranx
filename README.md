@@ -40,7 +40,7 @@ The plan is to have all the features from the old [gotran](https://github.com/Co
     - [x] Generalized Rush Larsen
     - [ ] Hybrid Generalized Rush Larsen
     - [ ] Simplified Implicit Euler
-    - [ ] Newtons method for implicit schemes
+    - [ ] Newton's method for implicit schemes
 - [ ] Code generation for more languages
     - [x] Python
     - [x] C
@@ -52,7 +52,7 @@ The plan is to have all the features from the old [gotran](https://github.com/Co
     - [ ] Latex
     - [ ] Markdown
 - [x] Converters between commonly used ODE markup languages
-    - [x] [Myokit](https://github.com/myokit/myokit) (still some limited support for unit conversion, see [issue #26](https://github.com/finsberg/gotranx/issues/26))
+    - [x] [`Myokit`](https://github.com/myokit/myokit) (still some limited support for unit conversion, see [issue #26](https://github.com/finsberg/gotranx/issues/26))
     - [x] CellML (supported via MyoKit)
 
 
