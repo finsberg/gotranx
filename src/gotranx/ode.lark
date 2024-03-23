@@ -50,6 +50,8 @@ variable: VARIABLE
     | ABS
     | FLOOR
     | MOD
+    | MIN
+    | MAX
 
 ?logicalfunc: logicalfuncname "(" expression ("," expression)* (",")?  ")"
 ?logicalfuncname: CONTINUOUSCONDITIONAL
@@ -87,6 +89,8 @@ OR: "Or"
 EQ: "Eq"
 NOT: "Not"
 MOD: "Mod"
+MIN: "Min"
+MAX: "Max"
 
 
 PI: "pi"

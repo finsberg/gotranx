@@ -83,3 +83,27 @@ def test_And_Or_from_sympy():
     result = codegen.BaseGotranODECodePrinter().doprint(expr)
 
     assert result == "Or(Lt(t, 0), And(Gt(t, 0), Lt(t, 1)))"
+
+
+@pytest.mark.parametrize(
+    "expr, expected",
+    [
+        ("x = Min(0, 0)", 0),
+        ("x = Min(1, 0)", 0),
+        ("x = Min(1, -1)", -1),
+        ("x = Min(-1, 2)", -1),
+        ("x = Min(1, 2)", 1),
+        ("x = Max(0, 0)", 0),
+        ("x = Max(1, 0)", 1),
+        ("x = Max(1, -1)", 1),
+        ("x = Max(-1, 1)", 1),
+        ("x = Max(1, 2)", 2),
+    ],
+)
+def test_min_max(expr, expected, parser, trans):
+    tree = parser.parse(expr)
+    result = trans.transform(tree)
+    assert len(result) == 1
+    sympy_expr = build_expression(result[0].value.tree)
+
+    assert sympy_expr.evalf() == pytest.approx(expected)
