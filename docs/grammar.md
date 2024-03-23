@@ -200,6 +200,13 @@ Similarly `f = max(x, y)` can be implemented as
 f = Conditional(Ge(x, y), x, y)
 ```
 
+!!! note "`Min` and `Max` available from version 0.4.0"
+
+    After version 0.4.0 you can now write `Min` and `Max`, e.g
+    ```
+    f = Min(x, y)
+    ```
+
 
 ## Advanced usage
 
