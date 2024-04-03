@@ -16,6 +16,9 @@ def acc(all_values: str, next_value: str = "# ") -> str:
 def _index(data: dict[str, int], name: str) -> str:
     return dedent(
         f'''
+{name} = {repr(data)}
+
+
 def {name}_index(name: str) -> int:
     """Return the index of the {name} with the given name
 
@@ -35,8 +38,7 @@ def {name}_index(name: str) -> int:
         If the name is not a valid {name}
     """
 
-    data = {repr(data)}
-    return data[name]
+    return {name}[name]
 ''',
     )
 
