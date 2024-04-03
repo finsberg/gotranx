@@ -42,7 +42,10 @@ def codegen_no_black(ode) -> PythonCodeGenerator:
 
 def test_python_codegen_state_index_no_black(codegen: PythonCodeGenerator):
     assert codegen.state_index() == (
-        "def state_index(name: str) -> int:"
+        'state = {"x": 0, "z": 1, "y": 2}'
+        "\n"
+        "\n"
+        "\ndef state_index(name: str) -> int:"
         '\n    """Return the index of the state with the given name'
         "\n"
         "\n    Arguments"
@@ -61,8 +64,7 @@ def test_python_codegen_state_index_no_black(codegen: PythonCodeGenerator):
         "\n        If the name is not a valid state"
         '\n    """'
         "\n"
-        '\n    data = {"x": 0, "z": 1, "y": 2}'
-        "\n    return data[name]"
+        "\n    return state[name]"
         "\n"
     )
 
@@ -85,6 +87,9 @@ def test_python_codegen_initial_state_values(codegen: PythonCodeGenerator):
 
 def test_python_codegen_parameter_index_no_black(codegen_no_black: PythonCodeGenerator):
     assert codegen_no_black.parameter_index() == (
+        "\nparameter = {'a': 0, 'beta': 1, 'rho': 2, 'sigma': 3}"
+        "\n"
+        "\n"
         "\ndef parameter_index(name: str) -> int:"
         '\n    """Return the index of the parameter with the given name'
         "\n"
@@ -104,15 +109,17 @@ def test_python_codegen_parameter_index_no_black(codegen_no_black: PythonCodeGen
         "\n        If the name is not a valid parameter"
         '\n    """'
         "\n"
-        "\n    data = {'a': 0, 'beta': 1, 'rho': 2, 'sigma': 3}"
-        "\n    return data[name]"
+        "\n    return parameter[name]"
         "\n"
     )
 
 
 def test_python_codegen_parameter_index(codegen: PythonCodeGenerator):
     assert codegen.parameter_index() == (
-        "def parameter_index(name: str) -> int:"
+        'parameter = {"a": 0, "beta": 1, "rho": 2, "sigma": 3}'
+        "\n"
+        "\n"
+        "\ndef parameter_index(name: str) -> int:"
         '\n    """Return the index of the parameter with the given name'
         "\n"
         "\n    Arguments"
@@ -131,8 +138,7 @@ def test_python_codegen_parameter_index(codegen: PythonCodeGenerator):
         "\n        If the name is not a valid parameter"
         '\n    """'
         "\n"
-        '\n    data = {"a": 0, "beta": 1, "rho": 2, "sigma": 3}'
-        "\n    return data[name]"
+        "\n    return parameter[name]"
         "\n"
     )
 
@@ -604,7 +610,10 @@ def test_python_monitored(codegen: PythonCodeGenerator):
 
 def test_python_monitored_index(codegen: PythonCodeGenerator):
     assert codegen.monitor_index() == (
-        "def monitor_index(name: str) -> int:"
+        'monitor = {"betaz": 0, "rhoz": 1, "dx_dt": 2, "dz_dt": 3, "dy_dt": 4}'
+        "\n"
+        "\n"
+        "\ndef monitor_index(name: str) -> int:"
         '\n    """Return the index of the monitor with the given name'
         "\n"
         "\n    Arguments"
@@ -623,7 +632,6 @@ def test_python_monitored_index(codegen: PythonCodeGenerator):
         "\n        If the name is not a valid monitor"
         '\n    """'
         "\n"
-        '\n    data = {"betaz": 0, "rhoz": 1, "dx_dt": 2, "dz_dt": 3, "dy_dt": 4}'
-        "\n    return data[name]"
+        "\n    return monitor[name]"
         "\n"
     )

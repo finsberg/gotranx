@@ -39,7 +39,6 @@ class BaseGotranODECodePrinter(StrPrinter):
             "!=": "Ne",
         }
         relop = relop2str[expr.rel_op]
-        print(expr, f"{relop}({lhs}, {rhs})")
         return f"{relop}({lhs}, {rhs})"
 
     def _print_Or(self, expr):
@@ -103,7 +102,7 @@ class GotranODECodePrinter(BaseGotranODECodePrinter):
         text = ""
         for components, states in d.items():
             text += start_odeblock("states", names=components) + "\n"
-            text += ", ".join([print_ScalarParam(s, doprint=self.doprint) for s in states])
+            text += ",\n".join([print_ScalarParam(s, doprint=self.doprint) for s in states])
             text += "\n)\n\n"
         return text
 
