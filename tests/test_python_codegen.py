@@ -575,8 +575,8 @@ def test_python_remove_unused_forward_generalized_rush_larsen(ode_unused):
 
 
 def test_python_monitored(codegen: PythonCodeGenerator):
-    assert codegen.monitor() == (
-        "def monitor(t, states, parameters):"
+    assert codegen.monitor_values() == (
+        "def monitor_values(t, states, parameters):"
         "\n"
         "\n    # Assign states"
         "\n    x = states[0]"

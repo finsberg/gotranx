@@ -116,8 +116,8 @@ def test_codegen_component_ode_rhs(z_ode_codegen):
 
 
 def test_codegen_component_ode_monitor(z_ode_codegen):
-    assert z_ode_codegen.monitor() == (
-        "def monitor(t, states, parameters, missing_variables):"
+    assert z_ode_codegen.monitor_values() == (
+        "def monitor_values(t, states, parameters, missing_variables):"
         "\n"
         "\n    # Assign states"
         "\n    z = states[0]"

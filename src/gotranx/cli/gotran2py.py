@@ -56,7 +56,7 @@ def get_code(
         codegen.initial_parameter_values(),
         codegen.initial_state_values(),
         codegen.rhs(),
-        codegen.monitor(),
+        codegen.monitor_values(),
         _missing_values,
     ]
 

@@ -320,7 +320,7 @@ class CodeGenerator(abc.ABC):
 
         return self._format(code)
 
-    def monitor(self, order: RHSArgument | str = RHSArgument.tsp, use_cse=False) -> str:
+    def monitor_values(self, order: RHSArgument | str = RHSArgument.tsp, use_cse=False) -> str:
         """Generate code for the right hand side of the ODE
 
         Parameters
@@ -364,7 +364,7 @@ class CodeGenerator(abc.ABC):
         shape_info = f"shape = {shape} if len(states.shape) == 1 else ({shape}, states.shape[1])"
 
         code = self.template.method(
-            name="monitor",
+            name="monitor_values",
             args=", ".join(arguments),
             states=states,
             parameters=parameters,
