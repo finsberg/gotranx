@@ -541,8 +541,9 @@ def test_c_codegen_monitor_index(codegen: CCodeGenerator):
 
 
 def test_c_codegen_monitor(codegen: CCodeGenerator):
-    assert codegen.monitor() == (
-        "\nvoid monitor(const double t, const double *__restrict states, const double *__restrict parameters, double *values)"
+    assert codegen.monitor_values() == (
+        "\nvoid monitor_values(const double t, const double *__restrict states, const double *__restrict parameters,"
+        "\n                    double *values)"
         "\n{"
         "\n"
         "\n    // Assign states"
