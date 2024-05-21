@@ -378,7 +378,7 @@ def test_expressions_with_invalid_unit_becomes_comment(parser, trans):
         ("y = acos(x)", {"x": 0.5}, math.pi / 3),
         ("y = atan(x)", {"x": math.sqrt(3)}, math.pi / 3),
         ("y = sqrt(x)", {"x": 4}, 2),
-        ("y = abs(x)", {"x": -2}, 2),
+        ("y = Abs(x)", {"x": -2}, 2),
     ],
 )
 def test_expression_functions(expr, subs, expected, parser, trans):
