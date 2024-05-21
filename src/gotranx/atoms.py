@@ -34,6 +34,12 @@ def unit_from_string(unit_str: str | None) -> pint.Unit | None:
         except pint.UndefinedUnitError:
             logger.warning(f"Undefined unit {unit_str!r}")
             unit = None
+        except ValueError:
+            try:
+                unit = ureg.Unit(unit_str.split(" ")[0])
+            except Exception:
+                logger.warning(f"Invalid unit {unit_str!r}")
+                unit = None
     else:
         unit = None
     return unit
