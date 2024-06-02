@@ -1,5 +1,5 @@
 ---
-title: 'GotranX: General ODE translator'
+title: 'gotranx: General ODE translator'
 tags:
   - Python
   - code generation
