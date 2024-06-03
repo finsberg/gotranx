@@ -7,6 +7,18 @@ from .exceptions import InvalidTreeError, MissingSymbolError
 
 
 def relational_to_piecewise(expr: sp.Expr) -> sp.Piecewise:
+    """Convert a relational expression to a piecewise expression
+
+    Parameters
+    ----------
+    expr : sp.Expr
+        The expression to convert
+
+    Returns
+    -------
+    sp.Piecewise
+        The piecewise expression
+    """
     if expr.is_Relational:
         return sp.Piecewise(
             (1, expr),
@@ -168,4 +180,5 @@ def build_expression(
 
         raise InvalidTreeError(tree=tree)
 
+    # Recursively build the expression starting from the root
     return expr2symbols(root)

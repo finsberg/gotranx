@@ -14,6 +14,15 @@ logger = get_logger()
 
 
 def _set_symbol(instance, name: str) -> None:
+    """Helper function to set the symbol attribute of a frozen instance
+
+    Parameters
+    ----------
+    instance : Any
+        The instance to set the symbol attribute on
+    name : str
+        The name of the symbol
+    """
     object.__setattr__(
         instance,
         "symbol",
@@ -28,6 +37,18 @@ def _set_symbol(instance, name: str) -> None:
 
 
 def unit_from_string(unit_str: str | None) -> pint.Unit | None:
+    """Create a pint unit from a string
+
+    Parameters
+    ----------
+    unit_str : str | None
+        The string representation of the unit
+
+    Returns
+    -------
+    pint.Unit | None
+        It the unit is valid, return the pint unit, else None
+    """
     if unit_str is not None:
         try:
             unit = ureg.Unit(unit_str)
@@ -46,11 +67,25 @@ def unit_from_string(unit_str: str | None) -> pint.Unit | None:
 
 
 def _set_unit(instance, unit_str: str) -> None:
+    """Helper function to set the unit attribute of a frozen instance
+    by parsing a string representation of the unit
+
+    Parameters
+    ----------
+    instance : Any
+        The instance to set the unit attribute on
+    unit_str : str
+        The string representation of the unit
+    """
     object.__setattr__(instance, "unit", unit_from_string(unit_str))
 
 
 @attr.s(frozen=True, slots=True)
 class Comment:
+    """A comment is a string that is not parsed by the parser. It is
+    used to add human readable information to the model.
+    """
+
     text: str = attr.ib()
 
 
@@ -144,6 +179,24 @@ class Assignment(Atom):
     comment: Comment | None = attr.ib(None)
 
     def resolve_expression(self, symbols: dict[str, sp.Symbol]) -> Assignment:
+        """Resolve the expression of the assignment by
+        building the sympy expression from the expression tree
+
+        Parameters
+        ----------
+        symbols : dict[str, sp.Symbol]
+            A dictionary of all symbols in the model
+
+        Returns
+        -------
+        Assignment
+            A new Assignment object with the resolved expression
+
+        Raises
+        ------
+        exceptions.ResolveExpressionError
+            If the expression is not set
+        """
         if self.value is None:
             raise exceptions.ResolveExpressionError(name=self.name)
         expr = self.value.resolve(symbols)
@@ -160,6 +213,7 @@ class Assignment(Atom):
         )
 
     def to_intermediate(self) -> "Intermediate":
+        """Convert the Assignment to an Intermediate"""
         return Intermediate(
             name=self.name,
             value=self.value,
@@ -173,6 +227,13 @@ class Assignment(Atom):
         )
 
     def to_state_derivative(self, state: State) -> "StateDerivative":
+        """Convert the Assignment to a StateDerivative
+
+        Parameters
+        ----------
+        state : State
+            The associated state
+        """
         return StateDerivative(
             name=self.name,
             value=self.value,
@@ -187,6 +248,10 @@ class Assignment(Atom):
         )
 
     def simplify(self) -> "Assignment":
+        """Simplify the expression of the assignment using sympy's
+        simplify function. This function returns a new Assignment
+        object with the simplified expression.
+        """
         return type(self)(
             name=self.name,
             value=self.value,
@@ -228,4 +293,5 @@ class StateDerivative(Assignment):
             expr=expr,
             state=self.state,
             description=self.description,
+            comment=self.comment,
         )

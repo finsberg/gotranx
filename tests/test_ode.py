@@ -121,15 +121,16 @@ def test_make_ode(parser, trans):
     "assignments_only, expected",
     [
         (True, ("y", "a", "z", "x", "dV_dt")),
-        (False, ("V", "y", "a", "z", "x", "dV_dt")),
+        (False, ("V", "c", "y", "a", "z", "x", "dV_dt")),
     ],
 )
 def test_sort_assignment(assignments_only, expected, parser, trans):
     expr = """
     states(V=0)
+    parameters(c=1)
     dV_dt = x * z
     x = y + z + V
-    z = a - 2
+    z = a - 2 * c
     a = y + 3
     y = 2 * V
     """

@@ -13,6 +13,20 @@ logger = get_logger()
 
 
 def ode_from_string(text: str, name="ode") -> ODE:
+    """Create an ODE from a string
+
+    Parameters
+    ----------
+    text : str
+        The string to parse
+    name : str, optional
+        Name of the ODE, by default "ode"
+
+    Returns
+    -------
+    ODE
+        The ODE
+    """
     parser = Parser(parser="lalr", transformer=TreeToODE(), propagate_positions=True)
     result = parser.parse(text)
     ode = make_ode(
@@ -25,7 +39,24 @@ def ode_from_string(text: str, name="ode") -> ODE:
     return ode
 
 
-def load_ode(path: str | Path):
+def load_ode(path: str | Path) -> ODE:
+    """Load an ODE from a file
+
+    Parameters
+    ----------
+    path : str | Path
+        Path to the file
+
+    Returns
+    -------
+    ODE
+        The ODE
+
+    Raises
+    ------
+    exceptions.ODEFileNotFound
+        Raised if the file is not found
+    """
     fname = Path(path)
 
     logger.info(f"Load ode {path}")
