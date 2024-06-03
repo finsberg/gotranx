@@ -193,6 +193,7 @@ class Component(BaseComponent):
         self._handle_assignments()
 
     def _handle_assignments(self):
+        """Handle assignments and create intermediates and state derivatives"""
         state_derivatives = set()
         intermediates = set()
         for assignment in self.assignments:
