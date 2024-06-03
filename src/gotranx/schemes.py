@@ -105,9 +105,9 @@ def forward_explicit_euler(
 
     The forward Euler scheme is given by
 
-    .. math::
-        x_{n+1} = x_n + dt f(x_n, t_n)
-
+    $$
+    x_{n+1} = x_n + dt f(x_n, t_n)
+    $$
 
     Parameters
     ----------
@@ -158,10 +158,11 @@ def forward_generalized_rush_larsen(
 
     The forward generalized Rush-Larsen scheme is given by
 
-    .. math::
-        x_{n+1} = x_n + \\frac{f(x_n, t_n)}{g(x_n, t_n)} \\left( e^{g(x_n, t_n) dt} - 1 \\right)
+    $$
+    x_{n+1} = x_n + \\frac{f(x_n, t_n)}{g(x_n, t_n)} \\left( e^{g(x_n, t_n) dt} - 1 \\right)
+    $$
 
-    where :math:`g(x_n, t_n)` is the linearization of :math:`f(x_n, t_n)` around :math:`x_n`
+    where $g(x_n, t_n)$ is the linearization of $f(x_n, t_n)$ around $x_n$
 
     We fall back to forward Euler if the derivative is zero.
 
