@@ -49,7 +49,7 @@ V_index_ep = ep_model["state_index"]("v")
 # Forwared generalized rush larsen scheme for the electrophysiology model
 fgr_ep = ep_model["forward_generalized_rush_larsen"]
 # Monitor function for the electrophysiology model
-mon_ep = ep_model["monitor"]
+mon_ep = ep_model["monitor_values"]
 # Missing values function for the electrophysiology model
 mv_ep = ep_model["missing_values"]
 # Index of the calcium concentration
@@ -58,7 +58,7 @@ Ca_index_ep = ep_model["state_index"]("cai")
 # Forwared generalized rush larsen scheme for the mechanics model
 fgr_mechanics = mechanics_model["forward_generalized_rush_larsen"]
 # Monitor function for the mechanics model
-mon_mechanics = mechanics_model["monitor"]
+mon_mechanics = mechanics_model["monitor_values"]
 # Missing values function for the mechanics model
 mv_mechanics = mechanics_model["missing_values"]
 # Index of the active tension
@@ -69,7 +69,7 @@ J_TRPN_index_mechanics = mechanics_model["monitor_index"]("J_TRPN")
 # Forwared generalized rush larsen scheme for the full model
 fgr = model["forward_generalized_rush_larsen"]
 # Monitor function for the full model
-mon = model["monitor"]
+mon = model["monitor_values"]
 # Index of the active tension for the full model
 Ta_index = model["monitor_index"]("Ta")
 # Index of the J_TRPN for the full model
