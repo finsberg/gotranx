@@ -29,7 +29,7 @@ Ta_index = model["monitor_index"]("Ta")
 Istim_index = model["monitor_index"]("Istim")
 
 fgr = model["forward_generalized_rush_larsen"]
-mon = model["monitor"]
+mon = model["monitor_values"]
 
 # Simulate the model
 V = np.zeros(len(t))

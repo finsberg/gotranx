@@ -53,7 +53,7 @@ void monitored_values(double* monitored, double* states,
         for (j = 0; j < NUM_STATES; j++) {
             u[j] = states[i * NUM_STATES + j];
         }
-        monitor(t, u, parameters, m_temp);
+        monitor_values(t, u, parameters, m_temp);
         for (j = 0; j < num; j++) {
             monitored[i * num + j] = m_temp[indices[j]];
         }
