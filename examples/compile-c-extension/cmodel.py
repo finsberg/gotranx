@@ -126,9 +126,6 @@ class CModel:
         self.lib.monitor_index.restype = c_int
         self.lib.monitor_index.argtypes = [c_char_p]  # state_name
 
-        self.lib.monitor.restype = None
-        self.lib.monitor.argtypes = [float64_array_2d]  # states
-
         self.lib.monitored_values.restype = None
         self.lib.monitored_values.argtypes = [
             float64_array_2d,  # monitored
