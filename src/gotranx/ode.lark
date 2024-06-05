@@ -48,6 +48,7 @@ variable: VARIABLE
     | SQRT
     | EXP
     | ABS
+    | ABSL
     | FLOOR
     | MOD
 
@@ -74,6 +75,7 @@ ACOS: "acos"
 ASIN: "asin"
 ATAN: "atan"
 ABS: "Abs"
+ABSL: "abs"
 FLOOR: "floor"
 LN: "ln"
 LOG: "log"
