@@ -1,0 +1,22 @@
+# Table of contents
+# Learn more at https://jupyterbook.org/customize/toc.html
+
+format: jb-book
+root: README
+parts:
+  - caption: Tutorials
+    chapters:
+    - file: docs/cli
+    - file: "examples/run-python/main.py"
+  - caption: How to guides
+    chapters:
+    - file: "docs/new_language"
+    - file: "examples/split-ode/main.py"
+  - caption: Explanation
+    chapters:
+    - file: "docs/grammar"
+  - caption: Reference
+    chapters:
+    - file: "docs/api.rst"
+    - file: CONTRIBUTING
+    - file: CODE_OF_CONDUCT

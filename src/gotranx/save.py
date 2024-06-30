@@ -15,7 +15,7 @@ def write_ODE_to_ode_file(ode: ODE, path: Path) -> None:
 
     Parameters
     ----------
-    ode : ODE
+    ode : gotranx.ode.ODE
         The ODE
     path : Path
         The path to write the ODE to

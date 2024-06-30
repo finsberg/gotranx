@@ -48,13 +48,8 @@ dev = [
     "wheel",
 ]
 docs = [
-    "mkdocs",
-    "mkdocs-material",
-    "mkdocs-embed-external-markdown",
-    "griffe-inherited-docstrings>=1.0",
-    "mkdocs-gen-files>=0.5",
-    "mkdocstrings-python",
-    "mkdocs-literate-nav>=0.6",
+    "jupyter-book",
+    "jupytext",
 ]
 test = [
     "pre-commit",
@@ -103,6 +98,7 @@ omit = ["src/gotranx/__main__.py", "src/gotranx/templates/__init__.py"]
 
 # Exclude a variety of commonly ignored directories.
 exclude = [
+    "examples",
     ".bzr",
     ".direnv",
     ".eggs",

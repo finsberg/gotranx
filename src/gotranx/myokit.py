@@ -30,13 +30,13 @@ def extract_unit(unit: str | None) -> str | None:
 
     Parameters
     ----------
-    unit : _type_
-        _description_
+    unit : str | None
+        The myokit unit
 
     Returns
     -------
-    _type_
-        _description_
+    str | None
+        Return the unit as a string
     """
     if unit is None:
         return None
@@ -91,7 +91,7 @@ def mmt_to_gotran(filename: str | Path) -> ODE:
 
     Returns
     -------
-    ODE
+    gotranx.ode.ODE
         The gotran ODE
     """
     model, protocol, _ = myokit.load(filename)
@@ -111,7 +111,7 @@ def myokit_to_gotran(model: myokit.Model, protocol=None) -> ODE:
 
     Returns
     -------
-    ODE
+    gotranx.ode.ODE
         The gotran ODE
     """
     # Embed protocol
@@ -218,7 +218,7 @@ def gotran_to_myokit(ode: ODE) -> myokit.Model:
 
     Parameters
     ----------
-    ode : ODE
+    ode : gotranx.ode.ODE
         The gotran ODE
 
     Returns
@@ -289,7 +289,7 @@ def cellml_to_gotran(filename: str | Path) -> ODE:
 
     Returns
     -------
-    ODE
+    goranx.ode.ODE
         The gotran ODE
     """
     myokit_model = myokit.formats.cellml.CellMLImporter().model(filename)
@@ -301,7 +301,7 @@ def gotran_to_cellml(ode: ODE, filename: str | Path) -> None:
 
     Parameters
     ----------
-    ode : ODE
+    ode : gotranx.ode.ODE
         The gotran ODE
     filename : str | Path
         The filename of the cellml file

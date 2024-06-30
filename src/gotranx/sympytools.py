@@ -1,17 +1,13 @@
 from __future__ import annotations
-import typing
 import sympy
 
-if typing.TYPE_CHECKING:  # pragma: no cover
-    from .ode import ODE
 
-
-def states_matrix(ode: "ODE") -> sympy.Matrix:
+def states_matrix(ode) -> sympy.Matrix:
     """Return a sympy matrix of the states in the ODE
 
     Parameters
     ----------
-    ode : ODE
+    ode : gotranx.ode.ODE
         The ODE
 
     Returns
@@ -22,12 +18,12 @@ def states_matrix(ode: "ODE") -> sympy.Matrix:
     return sympy.Matrix([state.symbol for state in ode.sorted_states()])
 
 
-def rhs_matrix(ode: "ODE", max_tries: int = 20) -> sympy.Matrix:
+def rhs_matrix(ode, max_tries: int = 20) -> sympy.Matrix:
     """Return a sympy matrix of the right hand side of the ODE
 
     Parameters
     ----------
-    ode : ODE
+    ode : gotranx.ode.ODE
         The ODE
     max_tries : int, optional
         Maximum number of tries to try to replace the symbols, by default 20
@@ -55,12 +51,12 @@ def rhs_matrix(ode: "ODE", max_tries: int = 20) -> sympy.Matrix:
     return rhs
 
 
-def jacobi_matrix(ode: "ODE") -> sympy.Matrix:
+def jacobi_matrix(ode) -> sympy.Matrix:
     """Return the Jacobian matrix of the ODE
 
     Parameters
     ----------
-    ode : ODE
+    ode : gotranx.ode.ODE
         The ODE
 
     Returns
