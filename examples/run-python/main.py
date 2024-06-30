@@ -12,12 +12,14 @@ import matplotlib.pyplot as plt
 # We load the model using the {py:func}`load_ode` function
 
 ode = gotranx.load_ode("ORdmm_Land.ode")
-
 # Now we can generate code in python using the `cli` subpackage and the `gotran2py` module`. We will also generate code for the generalized rush larsen scheme
+
 code = gotranx.cli.gotran2py.get_code(
     ode, scheme=[gotranx.schemes.Scheme.forward_generalized_rush_larsen]
 )
+
 # Now we get back the code as a string. To actually execute this code you can either save it to a python file and import it, or you can execute it directly into some namespace (e.g a dictionary). Let's do the latter
+#
 
 model: dict[str, Any] = {}
 exec(code, model)

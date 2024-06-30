@@ -25,6 +25,7 @@ mechanics_ode = mechanics_comp.to_ode()
 ep_ode = ode - mechanics_comp
 
 # Now let us generate code for all the ODEs. We generate code for full model
+
 code = gotranx.cli.gotran2py.get_code(
     ode,
     scheme=[gotranx.schemes.Scheme.forward_generalized_rush_larsen],
@@ -233,4 +234,4 @@ for j, (col, tol) in enumerate(zip(colors, tols)):
         axi.legend()
 
     fig.tight_layout()
-    plt.show()
+plt.show()

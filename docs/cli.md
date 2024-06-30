@@ -81,7 +81,7 @@ This will generate a source code file for the given extension, containing the fo
 - {py:func}`state_index<gotranx.templates.Template.state_index>`
 - {py:func}`monitor_index<gotranx.templates.Template.monitor_index>`
 - {py:func}`init_parameter_values<gotranx.templates.Template.init_parameter_values>`
-- {py:func}`init_state_values<gotranx.templates.Template.init_states_values>`
+- {py:func}`init_state_values<gotranx.templates.Template.init_state_values>`
 - {py:func}`rhs<gotranx.templates.Template.method>`
 - {py:func}`monitor<gotranx.templates.Template.method>`
 
