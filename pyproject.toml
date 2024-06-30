@@ -50,6 +50,7 @@ dev = [
 docs = [
     "jupyter-book",
     "jupytext",
+    "scipy",
 ]
 test = [
     "pre-commit",
