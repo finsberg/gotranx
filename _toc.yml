@@ -12,6 +12,7 @@ parts:
     chapters:
     - file: "docs/new_language"
     - file: "examples/split-ode/main.py"
+    - file: "examples/compile-c-extension/main.py"
   - caption: Explanation
     chapters:
     - file: "docs/grammar"
