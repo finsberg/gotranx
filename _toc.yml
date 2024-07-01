@@ -11,11 +11,13 @@ parts:
   - caption: How to guides
     chapters:
     - file: "docs/new_language"
+    - file: "docs/new_scheme"
     - file: "examples/split-ode/main.py"
     - file: "examples/compile-c-extension/main.py"
     - file: "docs/vectorized_computations"
   - caption: Explanation
     chapters:
+    - file: "docs/about"
     - file: "docs/grammar"
   - caption: Reference
     chapters:
