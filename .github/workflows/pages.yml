@@ -18,7 +18,7 @@ concurrency:
 
 env:
   # Directory that will be published on github pages
-  PUBLISH_DIR: ./site
+  PUBLISH_DIR: ./_build/html
 
 
 jobs:
