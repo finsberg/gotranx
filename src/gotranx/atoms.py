@@ -171,12 +171,53 @@ class Expression:
 
 
 @attr.s(frozen=True, kw_only=True, slots=True)
+class Singularity:
+    symbol: sp.Symbol = attr.ib()
+    value: float | sp.core.Number = attr.ib()
+    replacement: sp.Expr = attr.ib()
+
+
+@attr.s(frozen=True, kw_only=True, slots=True)
 class Assignment(Atom):
     """Assignments are object of the form `name = value`."""
 
     value: Expression | None = attr.ib()
     expr: sp.Expr = attr.ib(sp.S.Zero)
     comment: Comment | None = attr.ib(None)
+
+    def singularities(self, lookup: dict[str, sp.Symbol]) -> frozenset[Singularity]:
+        """Check if the expression has any singularities
+        and return a list of singularities"""
+        from sympy import singularities, limit
+
+        singularity_list: set[Singularity] = set()
+        if self.value is None:
+            return frozenset(singularity_list)
+
+        for dep in self.value.dependencies:
+            try:
+                state = lookup[dep]
+            except KeyError:
+                continue
+            if not isinstance(state, State):
+                continue
+
+            values = singularities(self.expr, state.symbol)
+            if not values:
+                continue
+
+            if not isinstance(values, sp.sets.sets.FiniteSet):
+                continue
+
+            for value in values:
+                singularity_list.add(
+                    Singularity(
+                        symbol=state.symbol,
+                        value=value,
+                        replacement=limit(self.expr, state.symbol, value),
+                    )
+                )
+        return frozenset(singularity_list)
 
     def resolve_expression(self, symbols: dict[str, sp.Symbol]) -> Assignment:
         """Resolve the expression of the assignment by
