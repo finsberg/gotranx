@@ -101,7 +101,7 @@ def forward_explicit_euler(
     printer: printer_func = default_printer,
     remove_unused: bool = False,
 ) -> list[str]:
-    """Generate forward Euler equations for the ODE
+    r"""Generate forward Euler equations for the ODE
 
     The forward Euler scheme is given by
 
@@ -159,7 +159,7 @@ def forward_generalized_rush_larsen(
     The forward generalized Rush-Larsen scheme is given by
 
     .. math::
-        x_{n+1} = x_n + \\frac{f(x_n, t_n)}{g(x_n, t_n)} \\left( e^{g(x_n, t_n) dt} - 1 \\right)
+        x_{n+1} = x_n + \frac{f(x_n, t_n)}{g(x_n, t_n)} \left( e^{g(x_n, t_n) dt} - 1 \right)
 
 
     where :math:`g(x_n, t_n)` is the linearization of :math:`f(x_n, t_n)` around :math:`x_n`
