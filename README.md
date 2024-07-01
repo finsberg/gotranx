@@ -34,5 +34,8 @@ python3 -m pip install git+https://github.com/finsberg/gotranx
 Check out the demos in the [documentation](https://finsberg.github.io/gotranx/)
 
 
+## License
+MIT
+
 ## Contributing
-Contributions are very welcomed, but please read the [contributing guide](https://finsberg.github.io/gotranx/CONTRIBUTING/) first
+Contributions are very welcomed, but please read the [contributing guide](https://finsberg.github.io/gotranx/CONTRIBUTING.html) first
