@@ -31,35 +31,8 @@ python3 -m pip install git+https://github.com/finsberg/gotranx
 ```
 
 ## Quick start
-Check out the demos in the [documentation](https://finsberg.github.io/gotranx/demos/cli) and the [examples in the repository](https://github.com/finsberg/gotranx/tree/main/examples).
+Check out the demos in the [documentation](https://finsberg.github.io/gotranx/)
 
-
-## Road map
-The plan is to have all the features from the old [gotran](https://github.com/ComputationalPhysiology/gotran) implemented in `gotranx` (and some more). This includes
-
-- [ ] More numerical schemes
-    - [x] Forward Euler
-    - [ ] Rush Larsen
-    - [x] Generalized Rush Larsen
-    - [ ] Hybrid Generalized Rush Larsen
-    - [ ] Simplified Implicit Euler
-    - [ ] Newton's method for implicit schemes
-- [ ] Code generation for more languages
-    - [x] Python
-    - [x] C
-    - [ ] C++
-    - [ ] Julia
-    - [ ] CUDA
-    - [ ] OpenCL
-    - [ ] Rust
-    - [ ] Latex
-    - [ ] Markdown
-- [x] Converters between commonly used ODE markup languages
-    - [x] [`Myokit`](https://github.com/myokit/myokit) (still some limited support for unit conversion, see [issue #26](https://github.com/finsberg/gotranx/issues/26))
-    - [x] CellML (supported via MyoKit)
-
-
-If you have additional feature requests, please [open an issue](https://github.com/finsberg/gotranx/issues)
 
 ## Contributing
 Contributions are very welcomed, but please read the [contributing guide](https://finsberg.github.io/gotranx/CONTRIBUTING/) first

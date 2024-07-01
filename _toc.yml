@@ -20,5 +20,6 @@ parts:
   - caption: Reference
     chapters:
     - file: "docs/api.rst"
+    - file: "docs/roadmap"
     - file: CONTRIBUTING
     - file: CODE_OF_CONDUCT
