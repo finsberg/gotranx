@@ -99,3 +99,7 @@ def state_index(data: dict[str, int]) -> str:
 
 def monitor_index(data: dict[str, int]) -> str:
     return method_index(data, "monitor")
+
+
+def missing_index(data: dict[str, int]) -> str:
+    return method_index(data, "monitor")

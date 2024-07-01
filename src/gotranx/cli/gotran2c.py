@@ -21,7 +21,7 @@ def get_code(
 
     Parameters
     ----------
-    ode : ODE
+    ode : gotranx.ode.ODE
         The ODE
     scheme : list[Scheme] | None, optional
         Optional numerical scheme, by default None

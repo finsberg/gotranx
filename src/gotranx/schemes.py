@@ -105,13 +105,13 @@ def forward_explicit_euler(
 
     The forward Euler scheme is given by
 
-    $$
-    x_{n+1} = x_n + dt f(x_n, t_n)
-    $$
+    .. math::
+        x_{n+1} = x_n + dt f(x_n, t_n)
+
 
     Parameters
     ----------
-    ode : ODE
+    ode : gotranx.ode.ODE
         The ODE
     dt : sympy.Symbol
         The time step
@@ -154,21 +154,21 @@ def forward_generalized_rush_larsen(
     remove_unused: bool = False,
     delta: float = 1e-8,
 ) -> list[str]:
-    """Generate the forward generalized Rush-Larsen scheme for the ODE
+    r"""Generate the forward generalized Rush-Larsen scheme for the ODE
 
     The forward generalized Rush-Larsen scheme is given by
 
-    $$
-    x_{n+1} = x_n + \\frac{f(x_n, t_n)}{g(x_n, t_n)} \\left( e^{g(x_n, t_n) dt} - 1 \\right)
-    $$
+    .. math::
+        x_{n+1} = x_n + \\frac{f(x_n, t_n)}{g(x_n, t_n)} \\left( e^{g(x_n, t_n) dt} - 1 \\right)
 
-    where $g(x_n, t_n)$ is the linearization of $f(x_n, t_n)$ around $x_n$
+
+    where :math:`g(x_n, t_n)` is the linearization of :math:`f(x_n, t_n)` around :math:`x_n`
 
     We fall back to forward Euler if the derivative is zero.
 
     Parameters
     ----------
-    ode : ODE
+    ode : gotranx.ode.ODE
         The ODE
     dt : sympy.Symbol
         The time step

@@ -24,7 +24,7 @@ def ode_from_string(text: str, name="ode") -> ODE:
 
     Returns
     -------
-    ODE
+    gotranx.ode.ODE
         The ODE
     """
     parser = Parser(parser="lalr", transformer=TreeToODE(), propagate_positions=True)
@@ -49,7 +49,7 @@ def load_ode(path: str | Path) -> ODE:
 
     Returns
     -------
-    ODE
+    gotranx.ode.ODE
         The ODE
 
     Raises
