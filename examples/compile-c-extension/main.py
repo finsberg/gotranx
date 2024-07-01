@@ -6,16 +6,16 @@
 #
 # First we import the modules `utils` where we add all the functionality as well as `matplotlib` for plotting
 
-#  ```python
-# import matplotlib.pyplot as plt
-# import utils
-# ```
+
+import matplotlib.pyplot as plt
+import utils
+
 #
 # Next we load the model. This is function contains the functionality for generating code and compiling the C-extension. Currently it will also regenerate the code as well as recompiling the code code every time you run the code. It is also possible to only do this if the relevant files do not exist.
 #
-# ```python
-# model = utils.load_model("ORdmm_Land.ode", rebuild=True, regenerate=True)
-# ```
+
+model = utils.load_model("ORdmm_Land.ode", rebuild=True, regenerate=True)
+
 #
 # Next we get the initial states and parameters. The parameters we get back from `initial_parameter_values` are a `numpy` array. We also convert the parameters to a dictionary which is easier to work with since we can use the name of the parameter rather than the index.
 
