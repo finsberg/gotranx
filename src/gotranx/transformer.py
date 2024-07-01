@@ -21,16 +21,44 @@ class LarkODE(NamedTuple):
 
 
 def remove_quotes(s: str) -> str:
+    """Remove quotes from a string
+
+    Parameters
+    ----------
+    s : str
+        The string
+
+    Returns
+    -------
+    str
+        The string without quotes
+    """
     return s.replace("'", "").replace('"', "")
 
 
 def get_unit_and_comment_from_assignment(
     s: lark.Tree,
 ) -> tuple[str | None, atoms.Comment | None]:
+    """Get the unit and comment from an assignment
+
+    Parameters
+    ----------
+    s : lark.Tree
+        The tree
+
+    Returns
+    -------
+    tuple[str | None, atoms.Comment | None]
+        The unit and comment
+    """
+    # If there are less than 3 children, there is no unit
     if len(s.children) >= 3:
+        # The third child is the potential unit
         potential_unit = s.children[2]
+        # If it's a comment, it's not a unit
         if isinstance(potential_unit, atoms.Comment):
             try:
+                # Try to parse the unit
                 unit = units.ureg(potential_unit.text)
             except (units.pint.UndefinedUnitError, AttributeError):
                 # Not a proper unit so it's a comment
@@ -50,9 +78,23 @@ def get_unit_and_comment_from_assignment(
 
 
 def find_assignments(
-    s,
+    s: lark.Tree | lark.lexer.Token | None,
     components: tuple[str, ...],
 ) -> list[atoms.Assignment]:
+    """Find assignments in a tree
+
+    Parameters
+    ----------
+    s : lark.Tree | lark.lexer.Token | None
+        The tree
+    components : tuple[str, ...]
+        List of components
+
+    Returns
+    -------
+    list[atoms.Assignment]
+        List of assignments
+    """
     if isinstance(s, lark.Tree):
         unit_str, comment = get_unit_and_comment_from_assignment(s)
         return [
@@ -71,6 +113,18 @@ def find_assignments(
 def find_components(
     s: list[None | lark.tree.Tree | lark.lexer.Token],
 ) -> tuple[int, tuple[str, ...]]:
+    """Find components in a list
+
+    Parameters
+    ----------
+    s : list[None  |  lark.tree.Tree  |  lark.lexer.Token]
+        The list
+
+    Returns
+    -------
+    tuple[int, tuple[str, ...]]
+        The index and the components
+    """
     i = 0
     components = []
 
@@ -92,6 +146,20 @@ def lark_list_to_parameters(
     s: list[None | lark.tree.Tree | lark.lexer.Token],
     cls: Type[T],
 ) -> tuple[T, ...]:
+    """Convert a list of lark trees to parameters
+
+    Parameters
+    ----------
+    s : list[None  |  lark.tree.Tree  |  lark.lexer.Token]
+        The list
+    cls : Type[T]
+        The class of the parameters
+
+    Returns
+    -------
+    tuple[T, ...]
+        The parameters
+    """
     i, components = find_components(s)
     return tuple(
         [
@@ -107,6 +175,27 @@ def tree2parameter(
     components: tuple[str, ...],
     cls: Type[T],
 ) -> T:
+    """Convert a lark tree to a parameter
+
+    Parameters
+    ----------
+    s : lark.Tree
+        The tree
+    components : tuple[str, ...]
+        The components
+    cls : Type[T]
+        The class of the parameter
+
+    Returns
+    -------
+    T
+        The parameter
+
+    Raises
+    ------
+    exceptions.UnknownTreeTypeError
+        If the tree type is unknown
+    """
     from .expressions import build_expression
 
     if s.data == "param":
@@ -136,6 +225,12 @@ def tree2parameter(
 
 
 class TreeToODE(lark.Transformer):
+    """Transform a lark tree to an ODE
+
+    See https://lark-parser.readthedocs.io/en/latest/recipes.html
+    for more information on how to use lark transformers.
+    """
+
     def _call_userfunc(self, tree, new_children=None):  # pragma: nocover
         # Assumes tree is already transformed
         children = new_children if new_children is not None else tree.children
@@ -165,17 +260,21 @@ class TreeToODE(lark.Transformer):
                 raise
 
     def comment(self, s):
+        """Convert a comment to an atoms.Comment"""
         return atoms.Comment(" ".join(map(str.lstrip, map(lambda x: x.lstrip("#"), map(str, s)))))
 
     def states(self, s: list[None | lark.tree.Tree | lark.lexer.Token]) -> tuple[atoms.State, ...]:
+        """Convert a list of states to atoms.State"""
         return lark_list_to_parameters(s, cls=atoms.State)
 
     def parameters(
         self, s: list[None | lark.tree.Tree | lark.lexer.Token]
     ) -> tuple[atoms.Parameter, ...]:
+        """Convert a list of parameters to atoms.Parameter"""
         return lark_list_to_parameters(s, cls=atoms.Parameter)
 
     def expressions(self, s) -> tuple[atoms.Assignment, ...]:
+        """Convert a list of expressions to atoms.Assignment"""
         i, components = find_components(s)
 
         assignments = []
@@ -186,6 +285,18 @@ class TreeToODE(lark.Transformer):
         return tuple(assignments)
 
     def ode(self, s) -> LarkODE:
+        """Convert a lark tree to an ODE
+
+        Parameters
+        ----------
+        s : list[Any]
+            List of objects that could by states, parameters or assignments
+
+        Returns
+        -------
+        LarkODE
+            A tuple of components and comments
+        """
         # FIXME: Could use Enum here
         mapping = {
             atoms.Parameter: "parameters",

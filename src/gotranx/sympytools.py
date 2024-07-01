@@ -1,16 +1,43 @@
 from __future__ import annotations
-import typing
 import sympy
 
-if typing.TYPE_CHECKING:  # pragma: no cover
-    from .ode import ODE
 
+def states_matrix(ode) -> sympy.Matrix:
+    """Return a sympy matrix of the states in the ODE
 
-def states_matrix(ode: "ODE") -> sympy.Matrix:
+    Parameters
+    ----------
+    ode : gotranx.ode.ODE
+        The ODE
+
+    Returns
+    -------
+    sympy.Matrix
+        A sympy matrix of the states in the ODE
+    """
     return sympy.Matrix([state.symbol for state in ode.sorted_states()])
 
 
-def rhs_matrix(ode: "ODE", max_tries: int = 20) -> sympy.Matrix:
+def rhs_matrix(ode, max_tries: int = 20) -> sympy.Matrix:
+    """Return a sympy matrix of the right hand side of the ODE
+
+    Parameters
+    ----------
+    ode : gotranx.ode.ODE
+        The ODE
+    max_tries : int, optional
+        Maximum number of tries to try to replace the symbols, by default 20
+
+    Returns
+    -------
+    sympy.Matrix
+        A sympy matrix of the right hand side of the ODE
+
+    Raises
+    ------
+    RuntimeError
+        If the maximum number of tries is reached
+    """
     intermediates = {x.symbol: x.expr for x in ode.intermediates}
     rhs = sympy.Matrix([state.expr for state in ode.sorted_state_derivatives()])
 
@@ -24,7 +51,19 @@ def rhs_matrix(ode: "ODE", max_tries: int = 20) -> sympy.Matrix:
     return rhs
 
 
-def jacobi_matrix(ode: "ODE") -> sympy.Matrix:
+def jacobi_matrix(ode) -> sympy.Matrix:
+    """Return the Jacobian matrix of the ODE
+
+    Parameters
+    ----------
+    ode : gotranx.ode.ODE
+        The ODE
+
+    Returns
+    -------
+    sympy.Matrix
+        The Jacobian matrix of the ODE
+    """
     return rhs_matrix(ode).jacobian(states_matrix(ode))
 
 

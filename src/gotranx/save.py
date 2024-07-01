@@ -11,6 +11,15 @@ logger = get_logger()
 
 
 def write_ODE_to_ode_file(ode: ODE, path: Path) -> None:
+    """Write an ODE to a file
+
+    Parameters
+    ----------
+    ode : gotranx.ode.ODE
+        The ODE
+    path : Path
+        The path to write the ODE to
+    """
     # Just make sure it is a Path object
     printer = GotranODECodePrinter(ode)
     path = Path(path)

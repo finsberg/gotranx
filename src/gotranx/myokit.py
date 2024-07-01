@@ -2,6 +2,7 @@ from __future__ import annotations
 from collections import defaultdict
 import warnings
 from pathlib import Path
+from typing import overload
 
 import sympy as sp
 import myokit
@@ -16,15 +17,50 @@ from .ode import ODE
 reserved_names = {name for name in dir(sp) if not name.startswith("_")}
 
 
-def extract_unit(unit):
+@overload
+def extract_unit(unit: str) -> str: ...
+
+
+@overload
+def extract_unit(unit: None) -> None: ...
+
+
+def extract_unit(unit: str | None) -> str | None:
+    """Extract unit from myokit unit
+
+    Parameters
+    ----------
+    unit : str | None
+        The myokit unit
+
+    Returns
+    -------
+    str | None
+        Return the unit as a string
+    """
     if unit is None:
         return None
     return str(unit).strip("[").strip("]").replace("^", "**")
 
 
-def extract_nested_variables(model):
-    all_subs = defaultdict(dict)
-    component_subs = defaultdict(dict)
+def extract_nested_variables(
+    model: myokit.Model,
+) -> tuple[dict[sp.Symbol, sp.Symbol], dict[str, dict[sp.Symbol, sp.Symbol]]]:
+    """Extract nested variables from myokit model
+
+    Parameters
+    ----------
+    model : myokit.Model
+        The myokit model
+
+    Returns
+    -------
+    tuple[dict[sp.Symbol, sp.Symbol], dict[str, dict[sp.Symbol, sp.Symbol]]]
+        A tuple containing all substitutions and component substitutions
+    """
+
+    all_subs: dict[sp.Symbol, sp.Symbol] = {}
+    component_subs: dict[str, dict[sp.Symbol, sp.Symbol]] = defaultdict(dict)
 
     def f(component, all_subs, component_subs):
         component_subs_ = {}
@@ -46,12 +82,38 @@ def extract_nested_variables(model):
 
 
 def mmt_to_gotran(filename: str | Path) -> ODE:
+    """Convert a myokit model to gotran ODE
+
+    Parameters
+    ----------
+    filename : str | Path
+        The filename of the myokit model
+
+    Returns
+    -------
+    gotranx.ode.ODE
+        The gotran ODE
+    """
     model, protocol, _ = myokit.load(filename)
 
     return myokit_to_gotran(model, protocol=protocol)
 
 
 def myokit_to_gotran(model: myokit.Model, protocol=None) -> ODE:
+    """Convert a myokit model to gotran ODE
+
+    Parameters
+    ----------
+    model : myokit.Model
+        The myokit model
+    protocol : _type_, optional
+        The stimulus protocol used in myokit, by default None
+
+    Returns
+    -------
+    gotranx.ode.ODE
+        The gotran ODE
+    """
     # Embed protocol
     if protocol is not None:
         model = model.clone()
@@ -152,6 +214,18 @@ def myokit_to_gotran(model: myokit.Model, protocol=None) -> ODE:
 
 
 def gotran_to_myokit(ode: ODE) -> myokit.Model:
+    """Convert a gotran ODE to myokit model
+
+    Parameters
+    ----------
+    ode : gotranx.ode.ODE
+        The gotran ODE
+
+    Returns
+    -------
+    myokit.Model
+        The myokit model
+    """
     model = myokit.Model(ode.name)
     model.meta["author"] = "GotranX API"
     comp = model.add_component("engine")
@@ -205,10 +279,32 @@ def gotran_to_myokit(ode: ODE) -> myokit.Model:
 
 
 def cellml_to_gotran(filename: str | Path) -> ODE:
+    """Convert a cellml file to gotran ODE by via myokit
+
+
+    Parameters
+    ----------
+    filename : str | Path
+        The filename of the cellml file
+
+    Returns
+    -------
+    goranx.ode.ODE
+        The gotran ODE
+    """
     myokit_model = myokit.formats.cellml.CellMLImporter().model(filename)
     return myokit_to_gotran(myokit_model)
 
 
 def gotran_to_cellml(ode: ODE, filename: str | Path) -> None:
+    """Convert a gotran ODE to cellml file via myokit
+
+    Parameters
+    ----------
+    ode : gotranx.ode.ODE
+        The gotran ODE
+    filename : str | Path
+        The filename of the cellml file
+    """
     model = gotran_to_myokit(ode)
     myokit.formats.cellml.CellMLExporter().model(filename, model, version="1.0")

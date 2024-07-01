@@ -7,6 +7,13 @@ _here = Path(__file__).absolute().parent
 
 
 def load_grammar() -> str:
+    """Load the grammar
+
+    Returns
+    -------
+    str
+        The grammar
+    """
     with open(_here / "ode.lark", "r") as f:
         text = f.read()
     return text

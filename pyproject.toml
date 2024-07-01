@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gotranx"
-version = "0.3.7"
+version = "0.3.8"
 description = "A declarative language describing ordinary differential equations"
 authors = [{name = "Henrik Finsberg", email = "henriknf@simula.no"}]
 license = {text = "MIT"}
@@ -48,13 +48,9 @@ dev = [
     "wheel",
 ]
 docs = [
-    "mkdocs",
-    "mkdocs-material",
-    "mkdocs-embed-external-markdown",
-    "griffe-inherited-docstrings>=1.0",
-    "mkdocs-gen-files>=0.5",
-    "mkdocstrings-python",
-    "mkdocs-literate-nav>=0.6",
+    "jupyter-book",
+    "jupytext",
+    "scipy",
 ]
 test = [
     "pre-commit",
@@ -103,6 +99,7 @@ omit = ["src/gotranx/__main__.py", "src/gotranx/templates/__init__.py"]
 
 # Exclude a variety of commonly ignored directories.
 exclude = [
+    "examples",
     ".bzr",
     ".direnv",
     ".eggs",
@@ -157,7 +154,7 @@ tag = true
 sign_tags = false
 tag_name = "v{new_version}"
 tag_message = "Bump version: {current_version} → {new_version}"
-current_version = "0.3.7"
+current_version = "0.3.8"
 
 
 [[tool.bumpversion.files]]

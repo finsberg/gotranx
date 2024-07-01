@@ -1,36 +1,54 @@
+# # Splitting an ODE into two sub-ODEs
+#
+# In some cases it might be useful to split an ODE into two separate ODEs, for example when you are modeling different dynamics and these are happening on different time scales. One example of this is when we model both the electrical and the mechanics of heart cells. We can model them within the same ODE, but you might want to embed the model inside a 3D tissue model, in which it is important to solve the dependent variables within the correct model (the PDEs for mechanics are typically more expensive to solve, so we want to solve them less frequently)
+#
+# In this demo we will show how to split a model containing both the mechanical and the electrical models for a human heart cell.
+#
+# First lest to the necessary imports
+
+from pathlib import Path
 import gotranx
 from typing import Any
 import numpy as np
 import matplotlib.pyplot as plt
 
-# Load the model
-ode = gotranx.load_ode("ORdmm_Land.ode")
+# And load the model
+ode = gotranx.load_ode(Path.cwd() / "ORdmm_Land.ode")
+
+# We will now pull out the component called `"mechanics"` and turn it into a separate ODE
 
 mechanics_comp = ode.get_component("mechanics")
 mechanics_ode = mechanics_comp.to_ode()
 
+# We can now find the remaining ODE by subtracting the full ODE from the mechanics ODE
+
 ep_ode = ode - mechanics_comp
 
-# Generate code for full model
+# Now let us generate code for all the ODEs. We generate code for full model
+
 code = gotranx.cli.gotran2py.get_code(
     ode,
     scheme=[gotranx.schemes.Scheme.forward_generalized_rush_larsen],
 )
 
-# Generate code for the electrophysiology model
+# the electrophysiology model
+
 code_ep = gotranx.cli.gotran2py.get_code(
     ep_ode,
     scheme=[gotranx.schemes.Scheme.forward_generalized_rush_larsen],
     missing_values=mechanics_ode.missing_variables,
 )
-# Generate code for the mechanics model
+
+# and for the mechanics model
+
 code_mechanics = gotranx.cli.gotran2py.get_code(
     mechanics_ode,
     scheme=[gotranx.schemes.Scheme.forward_generalized_rush_larsen],
     missing_values=ep_ode.missing_variables,
 )
 
-# # Execute code and get the models
+# Now to actually get the models we can execute them into their own namespace (i.e dictionaries)
+
 model: dict[str, Any] = {}
 exec(code, model)
 ep_model: dict[str, Any] = {}
@@ -38,60 +56,65 @@ exec(code_ep, ep_model)
 mechanics_model: dict[str, Any] = {}
 exec(code_mechanics, mechanics_model)
 
+# We set time step to 0.1 ms, and simulate model for 1000 ms
 
-# Set time step to 0.1 ms
 dt = 0.1
-# Simulate model for 1000 ms
 t = np.arange(0, 1000, dt)
+
+# Now we need to set up all variables
 
 # Get the index of the membrane potential
 V_index_ep = ep_model["state_index"]("v")
 # Forwared generalized rush larsen scheme for the electrophysiology model
 fgr_ep = ep_model["forward_generalized_rush_larsen"]
 # Monitor function for the electrophysiology model
-mon_ep = ep_model["monitor"]
+mon_ep = ep_model["monitor_values"]
 # Missing values function for the electrophysiology model
 mv_ep = ep_model["missing_values"]
 # Index of the calcium concentration
 Ca_index_ep = ep_model["state_index"]("cai")
-
 # Forwared generalized rush larsen scheme for the mechanics model
 fgr_mechanics = mechanics_model["forward_generalized_rush_larsen"]
 # Monitor function for the mechanics model
-mon_mechanics = mechanics_model["monitor"]
+mon_mechanics = mechanics_model["monitor_values"]
 # Missing values function for the mechanics model
 mv_mechanics = mechanics_model["missing_values"]
 # Index of the active tension
 Ta_index_mechanics = mechanics_model["monitor_index"]("Ta")
 # Index of the J_TRPN
 J_TRPN_index_mechanics = mechanics_model["monitor_index"]("J_TRPN")
-
 # Forwared generalized rush larsen scheme for the full model
 fgr = model["forward_generalized_rush_larsen"]
 # Monitor function for the full model
-mon = model["monitor"]
+mon = model["monitor_values"]
 # Index of the active tension for the full model
 Ta_index = model["monitor_index"]("Ta")
 # Index of the J_TRPN for the full model
 J_TRPN_index = model["monitor_index"]("J_TRPN")
 
+# We will now see how many steps we need to ensure that the missing variables that are passed from the EP model to the mechanics model are below a certain tolerance. Lower tolerance will typically mean more steps, and we would like to see how the solution depends on how often we solve the ODE
+
 # Tolerances to test for when to perform steps in the mechanics model
-tols = [2e-5, 4e-5, 6e-5, 8e-5, 1e-4]
+tols = [2e-5, 4e-5, 6e-5]
 # Colors for the plots
 colors = ["r", "g", "b", "c", "m"]
 
+# We create some arrays to store the results
+
+# +
 # Create arrays to store the results
 V_ep = np.zeros(len(t))
 Ca_ep = np.zeros(len(t))
-
 J_TRPN_full = np.zeros(len(t))
 Ta_full = np.zeros(len(t))
 
 Ta_mechanics = np.zeros(len(t))
 J_TRPN_mechanics = np.zeros(len(t))
+# -
+
+# And we run the loop
 
 fig, ax = plt.subplots(3, 2, sharex=True, figsize=(10, 10))
-
 for j, (col, tol) in enumerate(zip(colors, tols)):
     # Get initial values from the EP model
     y_ep = ep_model["init_state_values"]()
@@ -108,9 +131,7 @@ for j, (col, tol) in enumerate(zip(colors, tols)):
     p = model["init_parameter_values"]()
 
     # Get the default values of the missing values
-    # A little bit chicken and egg problem here, but in this specific case we know that
-    # the mechanics_missing_values is only the calcium concentration, which is a state variable
-    # and this doesn't require any additional information to be calculated.
+    # A little bit chicken and egg problem here, but in this specific case we know that the mechanics_missing_values is only the calcium concentration, which is a state variable and this doesn't require any additional information to be calculated.
     mechanics_missing_values[:] = mv_ep(0, y_ep, p_ep, ep_missing_values)
     ep_missing_values[:] = mv_mechanics(0, y_mechanics, p_mechanics, mechanics_missing_values)
 
@@ -213,4 +234,4 @@ for j, (col, tol) in enumerate(zip(colors, tols)):
         axi.legend()
 
     fig.tight_layout()
-    fig.savefig("V_and_Ta.png")
+plt.show()

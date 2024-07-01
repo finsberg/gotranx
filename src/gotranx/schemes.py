@@ -101,7 +101,33 @@ def forward_explicit_euler(
     printer: printer_func = default_printer,
     remove_unused: bool = False,
 ) -> list[str]:
-    """Generate forward Euler equations for the ODE"""
+    r"""Generate forward Euler equations for the ODE
+
+    The forward Euler scheme is given by
+
+    .. math::
+        x_{n+1} = x_n + dt f(x_n, t_n)
+
+
+    Parameters
+    ----------
+    ode : gotranx.ode.ODE
+        The ODE
+    dt : sympy.Symbol
+        The time step
+    name : str, optional
+        Name of array to be returned by the scheme, by default "values"
+    printer : printer_func, optional
+        A code printer, by default default_printer
+    remove_unused : bool, optional
+        Remove unused variables, by default False
+
+    Returns
+    -------
+    list[str]
+        A list of equations as strings
+
+    """
     eqs = []
     values = sympy.IndexedBase(name, shape=(len(ode.state_derivatives),))
     i = 0
@@ -126,9 +152,40 @@ def forward_generalized_rush_larsen(
     name: str = "values",
     printer: printer_func = default_printer,
     remove_unused: bool = False,
-    delta=1e-8,
+    delta: float = 1e-8,
 ) -> list[str]:
-    """Generate forward Generalized Rush Larsen equations for the ODE"""
+    r"""Generate the forward generalized Rush-Larsen scheme for the ODE
+
+    The forward generalized Rush-Larsen scheme is given by
+
+    .. math::
+        x_{n+1} = x_n + \frac{f(x_n, t_n)}{g(x_n, t_n)} \left( e^{g(x_n, t_n) dt} - 1 \right)
+
+
+    where :math:`g(x_n, t_n)` is the linearization of :math:`f(x_n, t_n)` around :math:`x_n`
+
+    We fall back to forward Euler if the derivative is zero.
+
+    Parameters
+    ----------
+    ode : gotranx.ode.ODE
+        The ODE
+    dt : sympy.Symbol
+        The time step
+    name : str, optional
+        Name of array to be returned by the scheme, by default "values"
+    printer : printer_func, optional
+        A code printer, by default default_printer
+    remove_unused : bool, optional
+        Remove unused variables, by default False
+    delta : float, optional
+        Tolerance for zero division check, by default 1e-8
+
+    Returns
+    -------
+    list[str]
+        A list of equations as strings
+    """
     eqs = []
     values = sympy.IndexedBase(name, shape=(len(ode.state_derivatives),))
     i = 0
