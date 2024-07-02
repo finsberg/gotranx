@@ -21,7 +21,7 @@ class GotranPythonCodePrinter(PythonCodePrinter):
 
     def _print_MatrixElement(self, expr):
         if expr.parent.shape[1] == 1:
-            # Then this is a colum vector
+            # Then this is a column vector
             return f"{self._print(expr.parent)}[{expr.i}]"
         elif expr.parent.shape[0] == 1:
             # Then this is a row vector

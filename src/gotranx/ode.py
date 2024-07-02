@@ -418,9 +418,9 @@ class ODE:
         return self._symbols
 
     def __sub__(self, other: BaseComponent) -> ODE:
-        new_compooents = [comp for comp in self.components if comp != other]
+        new_components = [comp for comp in self.components if comp != other]
         return ODE(
-            components=new_compooents,
+            components=new_components,
             t=self.t,
             name=f"{self.name} - {other.name}",
             comments=self.comments,

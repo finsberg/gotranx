@@ -29,7 +29,7 @@ We will now go through the basic building block for creating an ODE
     ```
     will create three parameters `sigma`, `rho` and `beta` with a default value of `12`, `21.0` and `2.4` respectively.
 
-- `states` defines the state variables which are the variables you want to solve for. For exampele
+- `states` defines the state variables which are the variables you want to solve for. For example
   ```
   states(x=1.0, y=2.0, z=3.05)
   ```

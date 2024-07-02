@@ -49,12 +49,12 @@ def test_Conditional_invalid_condition():
         sympytools.Conditional(sympy.Eq, 1, 2)
 
 
-def test_ContinousConditional_invalid_condition():
+def test_ContinuousConditional_invalid_condition():
     with pytest.raises(TypeError):
         sympytools.ContinuousConditional(sympy.Eq, 1, 2)
 
 
-def test_rhs_matrx(ode: ODE):
+def test_rhs_matrix(ode: ODE):
     rhs = sympytools.rhs_matrix(ode)
     assert len(rhs) == 3
     assert str(rhs[0]) == "sigma*(-x + y)"

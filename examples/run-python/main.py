@@ -1,7 +1,7 @@
 # # Using the Python API
 #
 # Since `gotranx` is a python library you can also use it directly in python.
-# First we will import `gotranx` as well as a few other pacakges
+# First we will import `gotranx` as well as a few other packages
 #
 
 import gotranx

@@ -29,3 +29,11 @@ repos:
         additional_dependencies: ["types-attrs"]
         files: ^src/|^tests/
         args: ["--config-file", "pyproject.toml"]
+
+  - repo: https://github.com/streetsidesoftware/cspell-cli
+    rev: v8.9.0
+    hooks:
+      - id: cspell
+        files: src/|docs/(.+).md|tests|README.md|examples/(.+).py
+        # Exclude .cellml and .ode files from spell checking.
+        exclude: \.cellml$|\.ode$|\.lark$|\.mmt$
