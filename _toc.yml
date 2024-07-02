@@ -8,6 +8,7 @@ parts:
     chapters:
     - file: docs/cli
     - file: "examples/run-python/main.py"
+    - file: "examples/lorentz.py"
   - caption: How to guides
     chapters:
     - file: "docs/new_language"
