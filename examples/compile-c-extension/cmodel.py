@@ -435,7 +435,7 @@ class Solution(NamedTuple):
     def keys(self):
         return self.model.state_names
 
-    def montior_keys(self):
+    def monitor_keys(self):
         return self.model.monitor_names
 
     def monitor(self, names: list[str]):

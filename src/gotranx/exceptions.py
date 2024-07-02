@@ -89,7 +89,7 @@ class InvalidTreeError(GotranxError):
     tree: lark.Tree
 
     def __str__(self) -> str:
-        return f"Invaild tree with data attribute {self.tree.data!r} \n{self.tree.pretty()}"
+        return f"Invalid tree with data attribute {self.tree.data!r} \n{self.tree.pretty()}"
 
 
 @dataclass

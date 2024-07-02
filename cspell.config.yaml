@@ -1,0 +1,7 @@
+dictionaryDefinitions:
+  - name: gotranx
+    path: .cspell_dict.txt
+    addWords: true
+dictionaries:
+  - gotranx
+ignoreWords: []

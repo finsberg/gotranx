@@ -14,12 +14,11 @@ kernelspec:
 
 The primary usage of `gotranx` is through the command line interface. For this demonstration we will use a pre-made model that is hosted in the [CellML repository](https://models.physiomeproject.org/cellml). In particular we will be using the original [Noble model from 1962](https://models.physiomeproject.org/e/2a6/noble_1962.cellml/view) which is probably one of the simplest models for modeling cardiac cells.
 
-First we download the model from the CellML repository either by cloning the git repo
+First we download the model from the CellML repository by cloning the git repo
 ```{code-cell} shell
 !git clone https://models.physiomeproject.org/workspace/noble_1962
 ```
-vising the [model page](https://models.physiomeproject.org/e/2a6/noble_1962.cellml/view) and downloading the model manually.
-Once downloaded you will find the following files
+You could also visit the [model page](https://models.physiomeproject.org/e/2a6/noble_1962.cellml/view) and download the model manually. Once downloaded you will find the following files inside the folder
 ```{code-cell} shell
 !ls noble_1962
 ```
@@ -31,7 +30,10 @@ We will now convert the `.cellml` file to a `.ode` file using the following comm
 ```{code-cell} shell
 !python3 -m gotranx convert noble_1962/noble_1962.cellml --to .ode
 ```
-We see now that a new file `noble_1962.ode` has been created with the following content
+This `cellml` converter is actually based on a different project called [`myokit`](https://github.com/myokit/myokit). `gotranx` allows for converting to and from `myokit` models and `myokit` allows for conversion to and from `cellml`.
+
+
+Once the conversion is done, we see that a new file called `noble_1962.ode` has been created with the following content
 ```{code-cell} shell
 :tags: [scroll-output]
 
@@ -39,8 +41,10 @@ We see now that a new file `noble_1962.ode` has been created with the following 
 !cat noble_1962.ode
 ```
 
+This file contains the ODE representation that is used by `gotranx`. Note that you could also just write your own `.ode` file. Take a look at the [grammar](grammar.md) to learn more about the DSL.
+
 ## Generating source code
-Now that we have a `.ode` file we can use this to generate source code in python that can be used to solve the ODE. To do this we can use the commands
+Now that we have a `.ode` file we can use this to generate source code in python (or C) that can be used to solve the ODE. To do this we can use the commands
 
 
 `````{tab-set}
@@ -67,6 +71,7 @@ Let us generate some code in python
 !python3 -m gotranx convert noble_1962.ode --to .py
 ```
 
+Now let us take a look at the generated code
 
 ```{code-cell} shell
 :tags: [scroll-output]
@@ -75,7 +80,7 @@ Let us generate some code in python
 ```
 
 
-This will generate a source code file for the given extension, containing the following functions
+We wee the the code contains the following functions
 
 - {py:func}`parameter_index<gotranx.templates.Template.parameter_index>`
 - {py:func}`state_index<gotranx.templates.Template.state_index>`
@@ -86,9 +91,9 @@ This will generate a source code file for the given extension, containing the fo
 - {py:func}`monitor<gotranx.templates.Template.method>`
 
 
-You will find more information about the different functions further down in this document.
+You can click on each of them so see what is the purpose and use of them.
 
-In the case of Python the source code will be saved in a file called `noble_1962.py`, and we could use this code as follows
+In the case of Python the source code will be saved in a file called `noble_1962.py`, and we can solve use the code to solve the ODE as follows
 
 ```{code-cell} python
 import noble_1962 as model
@@ -120,19 +125,19 @@ ax[1].set_title("Potassium current")
 plt.show()
 ```
 
-
 Here we have also used [`scipy.integrate.solve_ivp`](https://docs.scipy.org/doc/scipy/reference/generated/scipy.integrate.solve_ivp.html) for solving the initial value problem.
 
 
 ### Generating schemes for ODE
-In the example above we only generated the right hand side (function `rhs`) which can be passed `solve_ivp`, but it might be more appropriate to use a specific numerical scheme for solving the ODE. One example of a numerical scheme is the *forward euler*  scheme. Another popular scheme for solving cardiac cell models is the [Generalized Rush Larsen scheme](https://doi.org/10.1109/TBME.2009.2014739).
+In the example above we only generated the right hand side (function `rhs`) which can be passed to `solve_ivp`, but it might be more appropriate to use a specific numerical scheme for solving the ODE. One example of a numerical scheme is the *forward euler*  scheme. Another popular scheme for solving cardiac cell models is the [Generalized Rush Larsen scheme](https://doi.org/10.1109/TBME.2009.2014739).
 
 We can generate this scheme using the following command
 ```{code-cell} shell
 !python3 -m gotranx convert noble_1962.ode --to .py --scheme forward_generalized_rush_larsen -o noble_1962_grl.py
 ```
+Here we also specify that the code should be saved to a new file called `noble_1962_grl.py` (just to not conflict with the existing file)
 
-The file `noble_1962.py` will now also contain the function
+The file `noble_1962_grl.py` will now also contain the function
 ```python
 def forward_generalized_rush_larsen(states, t, dt, parameters): ...
 ```
