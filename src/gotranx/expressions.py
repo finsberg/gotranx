@@ -61,8 +61,8 @@ def binary_op(op: str, fst, snd):
     raise RuntimeError(f"Invalid binary operation {op}")
 
 
-def uniary_op(op: str, arg):
-    """Uniary operation
+def unary_op(op: str, arg):
+    """Unary operation
 
     Parameters
     ----------
@@ -81,7 +81,7 @@ def uniary_op(op: str, arg):
     if op == "+":
         return arg
 
-    raise RuntimeError(f"Invalid uniary operation {op}")
+    raise RuntimeError(f"Invalid unary operation {op}")
 
 
 def build_expression(
@@ -118,7 +118,7 @@ def build_expression(
             return fst
 
         if tree.data == "factor":
-            return uniary_op(tree.children[0], expr2symbols(tree.children[1]))
+            return unary_op(tree.children[0], expr2symbols(tree.children[1]))
         if tree.data == "power":
             return binary_op(
                 "**",

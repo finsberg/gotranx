@@ -289,7 +289,7 @@ def cellml_to_gotran(filename: str | Path) -> ODE:
 
     Returns
     -------
-    goranx.ode.ODE
+    gotranx.ode.ODE
         The gotran ODE
     """
     myokit_model = myokit.formats.cellml.CellMLImporter().model(filename)

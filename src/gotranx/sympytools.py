@@ -121,7 +121,7 @@ def ContinuousConditional(cond, true_value, false_value, sigma=1.0):
 
     cond = sympy.sympify(cond)
     # FIXME: Use the rel_op for check, as some changes has been applied
-    # FIXME: in latest sympy making comparision difficult
+    # FIXME: in latest sympy making comparison difficult
     if "<" not in cond.rel_op and ">" not in cond.rel_op:
         TypeError(
             "Expected a lesser or greater than relational for " "a continuous conditional .",
@@ -130,7 +130,7 @@ def ContinuousConditional(cond, true_value, false_value, sigma=1.0):
     # Create Heaviside
     H = 1 / (1 + sympy.exp((cond.args[0] - cond.args[1]) / sigma))
 
-    # Desides which should be weighted with 1 and 0
+    # Decides which should be weighted with 1 and 0
     if ">" in cond.rel_op:
         return true_value * (1 - H) + false_value * H
 
