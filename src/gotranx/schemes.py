@@ -58,6 +58,11 @@ def get_scheme(scheme: str) -> scheme_func:
         raise ValueError(f"Unknown scheme {scheme}")
 
 
+def list_schemes() -> list[str]:
+    """List available schemes"""
+    return [s.value for s in Scheme]
+
+
 def fraction_numerator_is_nonzero(expr):
     """Perform a very cheap check to detect if a fraction is definitely non-zero."""
 
