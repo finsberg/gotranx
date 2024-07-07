@@ -120,6 +120,9 @@ class PythonCodeGenerator(CodeGenerator):
     def template(self):
         return templates.python
 
+    def imports(self) -> str:
+        return "import numpy"
+
     def _rhs_arguments(
         self,
         order: RHSArgument | str = RHSArgument.stp,

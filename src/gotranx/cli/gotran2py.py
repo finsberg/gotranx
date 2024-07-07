@@ -47,8 +47,7 @@ def get_code(
         _missing_values = ""
 
     comp = [
-        "import math",
-        "import numpy",
+        codegen.imports(),
         codegen.parameter_index(),
         codegen.state_index(),
         codegen.monitor_index(),
