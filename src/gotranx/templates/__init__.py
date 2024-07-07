@@ -3,6 +3,7 @@ import typing
 
 from . import c
 from . import python
+from . import jax
 
 
 class Template(typing.Protocol):
@@ -189,4 +190,4 @@ class Template(typing.Protocol):
         """
 
 
-__all__ = ["c", "python", "Template"]
+__all__ = ["c", "python", "jax", "Template"]

@@ -78,6 +78,11 @@ def convert(
         "--remove-unused",
         help="Remove unused variables",
     ),
+    jax: bool = typer.Option(
+        False,
+        "--jax",
+        help="Use JAX",
+    ),
     version: bool = typer.Option(
         None,
         "--version",
@@ -110,7 +115,7 @@ def convert(
         else:
             to = Path(outname).suffix
 
-    if to in {".c", ".h"}:
+    if to in {".c", ".h", "c"}:
         gotran2c.main(
             fname=fname,
             suffix=to,
@@ -119,7 +124,7 @@ def convert(
             remove_unused=remove_unused,
             verbose=verbose,
         )
-    if to in {".py"}:
+    if to in {".py", "python", "py"}:
         gotran2py.main(
             fname=fname,
             suffix=to,
@@ -127,6 +132,7 @@ def convert(
             scheme=scheme,
             remove_unused=remove_unused,
             verbose=verbose,
+            jax=jax,
         )
 
     if to in {".ode"}:

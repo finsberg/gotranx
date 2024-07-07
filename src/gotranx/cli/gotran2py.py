@@ -4,6 +4,7 @@ import logging
 import structlog
 
 from ..codegen.python import PythonCodeGenerator
+from ..codegen.jax import JaxCodeGenerator
 from ..load import load_ode
 from ..schemes import Scheme
 from ..ode import ODE
@@ -17,6 +18,7 @@ def get_code(
     apply_black: bool = True,
     remove_unused: bool = False,
     missing_values: dict[str, int] | None = None,
+    jax: bool = False,
 ) -> str:
     """Generate the Python code for the ODE
 
@@ -30,25 +32,36 @@ def get_code(
         Apply black formatter, by default True
     remove_unused : bool, optional
         Remove unused variables, by default False
+    missing_values : dict[str, int] | None, optional
+        Missing values, by default None
+    jax : bool, optional
+        Use JAX, by default False
 
     Returns
     -------
     str
         The Python code
     """
-    codegen = PythonCodeGenerator(
-        ode,
-        apply_black=apply_black,
-        remove_unused=remove_unused,
-    )
+    if not jax:
+        codegen = PythonCodeGenerator(
+            ode,
+            apply_black=apply_black,
+            remove_unused=remove_unused,
+        )
+    else:
+        codegen = JaxCodeGenerator(
+            ode,
+            apply_black=apply_black,
+            remove_unused=remove_unused,
+        )
+
     if missing_values is not None:
         _missing_values = codegen.missing_values(missing_values)
     else:
         _missing_values = ""
 
     comp = [
-        "import math",
-        "import numpy",
+        codegen.imports(),
         codegen.parameter_index(),
         codegen.state_index(),
         codegen.monitor_index(),
@@ -75,6 +88,7 @@ def main(
     scheme: list[Scheme] | None = None,
     remove_unused: bool = False,
     verbose: bool = True,
+    jax: bool = False,
 ) -> None:
     loglevel = logging.DEBUG if verbose else logging.INFO
     structlog.configure(
@@ -87,6 +101,7 @@ def main(
         scheme=scheme,
         apply_black=apply_black,
         remove_unused=remove_unused,
+        jax=jax,
     )
     out = fname if outname is None else Path(outname)
     out_name = out.with_suffix(suffix=suffix)
