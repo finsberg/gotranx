@@ -110,7 +110,7 @@ def convert(
         else:
             to = Path(outname).suffix
 
-    if to in {".c", ".h"}:
+    if to in {".c", ".h", "c"}:
         gotran2c.main(
             fname=fname,
             suffix=to,
@@ -119,7 +119,7 @@ def convert(
             remove_unused=remove_unused,
             verbose=verbose,
         )
-    if to in {".py"}:
+    if to in {".py", "python", "py"}:
         gotran2py.main(
             fname=fname,
             suffix=to,
