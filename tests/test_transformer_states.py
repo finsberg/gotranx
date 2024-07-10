@@ -131,14 +131,14 @@ def test_different_sets_of_states(parser, trans):
     [
         (
             'states(x=ScalarParam(1, unit="pA"))',
-            (atoms.State(name="x", value=1.0, unit_str="pA"),),
+            (atoms.State(name="x", value=1, unit_str="pA"),),
         ),
         (
             'states(x=ScalarParam(1, unit="pA", description="Info about x"))',
             (
                 atoms.State(
                     name="x",
-                    value=1.0,
+                    value=1,
                     unit_str="pA",
                     description="Info about x",
                 ),
@@ -149,7 +149,7 @@ def test_different_sets_of_states(parser, trans):
             (
                 atoms.State(
                     name="x",
-                    value=1.0,
+                    value=1,
                     unit_str="pA*pF**-1",
                     description="Info about x",
                 ),
@@ -163,7 +163,7 @@ def test_different_sets_of_states(parser, trans):
             (
                 atoms.State(
                     name="x",
-                    value=1.0,
+                    value=1,
                     unit_str="pA",
                     description="Info about x",
                 ),

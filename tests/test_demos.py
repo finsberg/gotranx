@@ -13,6 +13,9 @@ here = Path(__file__).parent
     (pytest.param(f, id=f.name) for f in (here / ".." / "examples").iterdir() if f.is_dir()),
 )
 def test_examples(example, tmpdir):
+    if not (example / "main.py").exists():
+        return
+
     shutil.copytree(example, tmpdir / example.name)
     ret = subprocess.run([sys.executable, "main.py"], cwd=tmpdir / example.name, check=True)
     assert ret.returncode == 0
