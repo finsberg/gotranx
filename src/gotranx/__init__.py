@@ -47,3 +47,10 @@ __all__ = [
     "templates",
     "myokit",
 ]
+
+import structlog as _structlog
+import logging as _logging
+
+_structlog.configure(
+    wrapper_class=_structlog.make_filtering_bound_logger(_logging.INFO),
+)
