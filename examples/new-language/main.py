@@ -35,7 +35,7 @@ import gotranx
 from codegen import JaxCodeGenerator
 
 # Load ode
-ode = gotranx.load_ode("../lorentz.ode")
+ode = gotranx.load_ode("lorentz.ode")
 
 # Generate code (note that we add the jax=True flag)
 codegen = JaxCodeGenerator(ode)
