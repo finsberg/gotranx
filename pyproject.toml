@@ -52,11 +52,13 @@ docs = [
     "jupytext",
     "scipy",
     "sphinxcontrib-mermaid",
+    "jax",
 ]
 test = [
     "pre-commit",
     "pytest",
     "pytest-cov",
+    "jax",
 ]
 
 [project.scripts]

@@ -25,6 +25,7 @@ dxdt
 elif
 evalf
 fenics
+fgrl
 figsize
 funcname
 gammasu
