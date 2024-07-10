@@ -26,6 +26,7 @@
 # This first thing you might want to do is to add a test to check that your implementation is working correctly. For example you could try to simply load and solve the Lorentz attraction using the new Jax code generator. That code could look as follows
 
 # +
+from pathlib import Path
 import time
 import numpy as np
 import matplotlib.pyplot as plt
@@ -34,8 +35,18 @@ import gotranx
 
 from codegen import JaxCodeGenerator
 
+# Define an ODE
+ode_fname = Path("lorentz.ode")
+ode_fname.write_text("""
+parameters(sigma=12.0, rho=21.0, beta=2.4)
+states(x=1.0, y=2.0,z=3.05)
+dx_dt = sigma * (y - x)
+dy_dt = x * (rho - z) - y  # m/s
+dz_dt = x * y - beta * z
+""")
+
 # Load ode
-ode = gotranx.load_ode("lorentz.ode")
+ode = gotranx.load_ode(ode_fname)
 
 # Generate code (note that we add the jax=True flag)
 codegen = JaxCodeGenerator(ode)
