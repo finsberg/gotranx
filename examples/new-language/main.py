@@ -501,3 +501,9 @@ plt.show()
 # """,
 #     )
 # ```
+#
+# Finally let us print out the generated code
+
+print(code)
+
+#

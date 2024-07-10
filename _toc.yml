@@ -11,7 +11,7 @@ parts:
     - file: "examples/lorentz.py"
   - caption: How to guides
     chapters:
-    - file: "docs/new_language"
+    - file: "examples/new-language/main.py"
     - file: "docs/new_scheme"
     - file: "examples/split-ode/main.py"
     - file: "examples/compile-c-extension/main.py"
