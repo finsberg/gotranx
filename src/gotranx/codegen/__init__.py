@@ -5,7 +5,7 @@ from . import ode
 
 from .c import CCodeGenerator, GotranCCodePrinter
 from .python import PythonCodeGenerator, GotranPythonCodePrinter
-from .base import CodeGenerator, Func, RHSArgument, SchemeArgument
+from .base import CodeGenerator, RHSFunc, SchemeFunc, RHSArgument, SchemeArgument
 from .ode import GotranODECodePrinter, BaseGotranODECodePrinter
 
 __all__ = [
@@ -13,7 +13,8 @@ __all__ = [
     "c",
     "CCodeGenerator",
     "CodeGenerator",
-    "Func",
+    "RHSFunc",
+    "SchemeFunc",
     "RHSArgument",
     "SchemeArgument",
     "python",

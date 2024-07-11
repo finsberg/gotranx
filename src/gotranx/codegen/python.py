@@ -8,11 +8,15 @@ from functools import partial
 
 from ..ode import ODE
 from .. import templates
-from .base import CodeGenerator, Func, RHSArgument, SchemeArgument, _print_Piecewise
+from .base import CodeGenerator, RHSFunc, SchemeFunc, RHSArgument, SchemeArgument, _print_Piecewise
 
 
 # class GotranPythonCodePrinter(NumPyPrinter):
 class GotranPythonCodePrinter(PythonCodePrinter):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._settings["allow_unknown_functions"] = True
+
     _kf = {k: f"numpy.{v.replace('math.', '')}" for k, v in PythonCodePrinter._kf.items()}
     _kc = {k: f"numpy.{v.replace('math.', '')}" for k, v in PythonCodePrinter._kc.items()}
 
@@ -96,6 +100,9 @@ class GotranPythonCodePrinter(PythonCodePrinter):
 
         return value
 
+    # def _print_Function(self, expr):
+    #     return "%s(%s)" % (self._print(expr.func), ", ".join(map(self._print, expr.args)))
+
 
 class PythonCodeGenerator(CodeGenerator):
     def __init__(self, ode: ODE, apply_black: bool = True, *args, **kwargs) -> None:
@@ -125,8 +132,10 @@ class PythonCodeGenerator(CodeGenerator):
 
     def _rhs_arguments(
         self,
-        order: RHSArgument | str = RHSArgument.stp,
-    ) -> Func:
+        order: RHSArgument | str | None = None,
+    ) -> RHSFunc:
+        if order is None:
+            order = self.order
         value = RHSArgument.get_value(order)
 
         argument_dict = {
@@ -140,7 +149,7 @@ class PythonCodeGenerator(CodeGenerator):
         parameters = sympy.IndexedBase("parameters", shape=(self.ode.num_parameters,))
         values = sympy.IndexedBase("values", shape=(self.ode.num_states,))
 
-        return Func(
+        return RHSFunc(
             arguments=argument_list,
             states=states,
             parameters=parameters,
@@ -148,12 +157,13 @@ class PythonCodeGenerator(CodeGenerator):
             return_name="values",
             num_return_values=self.ode.num_states,
             values_type="numpy.zeros_like(states, dtype=numpy.float64)",
+            order=RHSArgument[order],
         )
 
     def _scheme_arguments(
         self,
         order: SchemeArgument | str = SchemeArgument.stdp,
-    ) -> Func:
+    ) -> SchemeFunc:
         value = SchemeArgument.get_value(order)
 
         argument_dict = {
@@ -168,7 +178,7 @@ class PythonCodeGenerator(CodeGenerator):
         parameters = sympy.IndexedBase("parameters", shape=(self.ode.num_parameters,))
         values = sympy.IndexedBase("values", shape=(self.ode.num_states,))
 
-        return Func(
+        return SchemeFunc(
             arguments=argument_list,
             states=states,
             parameters=parameters,
@@ -176,4 +186,5 @@ class PythonCodeGenerator(CodeGenerator):
             return_name="values",
             num_return_values=self.ode.num_states,
             values_type="numpy.zeros_like(states, dtype=numpy.float64)",
+            order=SchemeArgument[order],
         )
