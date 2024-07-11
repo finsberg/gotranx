@@ -145,6 +145,9 @@ class CodeGenerator(abc.ABC):
     def _comment(self, text: str) -> str:
         return self.printer._get_comment(text).strip()
 
+    def imports(self) -> str:
+        return ""
+
     def missing_index(self) -> str:
         if self._missing_variables:
             code = self.template.missing_index(data=self._missing_variables)

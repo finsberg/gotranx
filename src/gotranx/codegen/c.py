@@ -73,6 +73,16 @@ class CCodeGenerator(CodeGenerator):
     def template(self):
         return templates.c
 
+    def imports(self) -> str:
+        return self._format(
+            "\n".join(
+                [
+                    "#include <math.h>",
+                    "#include <string.h>\n",
+                ]
+            )
+        )
+
     def _rhs_arguments(
         self, order: RHSArgument | str = RHSArgument.stp, const_states: bool = True
     ) -> Func:
