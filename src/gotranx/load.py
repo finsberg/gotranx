@@ -6,7 +6,7 @@ from structlog import get_logger
 from . import exceptions
 from .ode import make_ode, ODE
 from .parser import Parser
-from .transformer import TreeToODE
+from .transformer import TreeToODE, LarkODE
 
 
 logger = get_logger()
@@ -29,6 +29,9 @@ def ode_from_string(text: str, name="ode") -> ODE:
     """
     parser = Parser(parser="lalr", transformer=TreeToODE(), propagate_positions=True)
     result = parser.parse(text)
+    if not isinstance(result, LarkODE):
+        raise exceptions.InvalidODEException(text=text, atoms=result)
+
     ode = make_ode(
         components=result.components,
         name=name,

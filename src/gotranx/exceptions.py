@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import typing
 from dataclasses import dataclass
 from pathlib import Path
 
 import lark
+
+if typing.TYPE_CHECKING:
+    from .atoms import Atom
 
 
 class GotranxError(Exception):
@@ -13,6 +17,15 @@ class GotranxError(Exception):
 @dataclass
 class ODEFileNotFound(GotranxError):
     fname: Path
+
+
+@dataclass
+class InvalidODEException(GotranxError):
+    text: str
+    atoms: tuple[Atom, ...]
+
+    def __str__(self) -> str:
+        return f"Invalid ODE: \n{self.text!r}\n with output \n{self.atoms}\n"
 
 
 @dataclass

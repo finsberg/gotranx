@@ -1,8 +1,8 @@
 from pathlib import Path
 
 import pytest
-from gotranx import load_ode
-from gotranx.exceptions import ODEFileNotFound
+from gotranx.load import load_ode, ode_from_string
+from gotranx.exceptions import ODEFileNotFound, InvalidODEException, ComponentNotCompleteError
 
 
 @pytest.fixture
@@ -51,3 +51,13 @@ def test_load_ode(path):
     }
     assert ode.num_states == 4
     assert ode.num_parameters == 3
+
+
+def test_load_invalid_ode():
+    with pytest.raises(InvalidODEException):
+        ode_from_string("states(x=1)")
+
+
+def test_load_incomplete_ode():
+    with pytest.raises(ComponentNotCompleteError):
+        ode_from_string("states(x=1, y=2)\ndx_dt = x + y")
