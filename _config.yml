@@ -46,4 +46,4 @@ sphinx:
   - 'sphinx.ext.viewcode'
   - 'sphinxcontrib.mermaid'
 
-exclude_patterns: [".pytest_cache/*" ,"tests/.pytest_cache/*"]
+exclude_patterns: [".pytest_cache/*" ,"tests", venv, sandbox, joss-paper, demo, .vcode, .ruff_cache, .github, .git]
