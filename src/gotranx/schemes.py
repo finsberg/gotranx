@@ -148,6 +148,7 @@ def explicit_euler(
         A list of equations as strings
 
     """
+    logger.debug("Generating explicit Euler scheme")
     eqs = []
     values = sympy.IndexedBase(name, shape=(len(ode.state_derivatives),))
     i = 0
@@ -214,6 +215,7 @@ def hybrid_rush_larsen(
         A list of equations as strings
 
     """
+    logger.debug("Generating hybrid Rush-Larsen scheme")
     stiff_states = stiff_states or []
     eqs = []
     values = sympy.IndexedBase(name, shape=(len(ode.state_derivatives),))
@@ -304,6 +306,7 @@ def generalized_rush_larsen(
     list[str]
         A list of equations as strings
     """
+    logger.debug("Generating generalized Rush-Larsen scheme")
     eqs = []
     values = sympy.IndexedBase(name, shape=(len(ode.state_derivatives),))
     i = 0
