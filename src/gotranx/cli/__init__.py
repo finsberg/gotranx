@@ -98,7 +98,18 @@ def convert(
         "-v",
         help="Verbose output",
     ),
-    scheme: Annotated[typing.Optional[typing.List[Scheme]], typer.Option()] = None,
+    scheme: Annotated[
+        typing.Optional[typing.List[Scheme]],
+        typer.Option(help="Numerical scheme for solving the ODE"),
+    ] = None,
+    stiff_states: Annotated[
+        typing.Optional[typing.List[str]],
+        typer.Option(help="Stiff states for the hybrid rush larsen scheme"),
+    ] = None,
+    delta: float = typer.Option(
+        1e-8,
+        help="Delta value for the rush larsen schemes",
+    ),
 ):
     if fname is None:
         return typer.echo("No file specified")
@@ -118,6 +129,8 @@ def convert(
             scheme=scheme,
             remove_unused=remove_unused,
             verbose=verbose,
+            stiff_states=stiff_states,
+            delta=delta,
         )
     if to in {".py", "python", "py"}:
         gotran2py.main(
@@ -127,6 +140,8 @@ def convert(
             scheme=scheme,
             remove_unused=remove_unused,
             verbose=verbose,
+            stiff_states=stiff_states,
+            delta=delta,
         )
 
     if to in {".ode"}:

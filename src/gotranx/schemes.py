@@ -54,6 +54,7 @@ class Scheme(DeprecatedEnum):
         "forward_generalized_rush_larsen",
         "Use 'generalized_rush_larsen' instead",
     )
+    hybrid_rush_larsen = "hybrid_rush_larsen"
 
 
 def get_scheme(scheme: str) -> scheme_func:
@@ -185,7 +186,8 @@ def hybrid_rush_larsen(
             continue
 
         expr_diff = x.expr.diff(x.state.symbol)
-        state_is_stiff = x.name in stiff_states
+        state_is_stiff = x.state.name in stiff_states
+        # breakpoint()
 
         if not state_is_stiff or expr_diff.is_zero:
             # Use forward Euler

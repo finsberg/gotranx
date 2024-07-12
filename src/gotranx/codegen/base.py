@@ -431,7 +431,7 @@ class CodeGenerator(abc.ABC):
 
         return self._format(code)
 
-    def scheme(self, f: schemes.scheme_func, order=SchemeArgument.stdp) -> str:
+    def scheme(self, f: schemes.scheme_func, order=SchemeArgument.stdp, /, **kwargs) -> str:
         """Generate code for the scheme
 
         Parameters
@@ -440,6 +440,8 @@ class CodeGenerator(abc.ABC):
             Function for generating the scheme
         order : SchemeArgument | str, optional
             The order of the arguments, by default SchemeArgument.stdp
+        kwargs : dict
+            Additional keyword arguments to be passed to the scheme function
 
         Returns
         -------
@@ -463,6 +465,7 @@ class CodeGenerator(abc.ABC):
             name=rhs.return_name,
             printer=self._doprint,
             remove_unused=self.remove_unused,
+            **kwargs,
         )
         values = "\n".join(eqs)
 

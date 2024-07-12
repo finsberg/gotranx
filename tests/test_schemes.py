@@ -66,29 +66,27 @@ def test_generalized_rush_larsen(ode: ODE):
         "/dy_dt_linearized) if (abs(dy_dt_linearized) > 1.0e-8) "
         "else (dt*dy_dt))"
     )
+    assert str(eqs[8]) == "dz_dt = x*y + z_int"
+    assert str(eqs[9]) == "values[2] = dt*dz_dt + z"
 
 
 def test_hybrid_rush_larsen(ode: ODE):
     dt = sympy.Symbol("dt")
-    eqs = schemes.hybrid_rush_larsen(ode, dt)
+    eqs = schemes.hybrid_rush_larsen(ode, dt, stiff_states=["y", "z"])
 
-    assert len(eqs) == 10
+    assert len(eqs) == 9
 
     assert str(eqs[0]) == "y_int = x*(rho - z)"
     assert str(eqs[1]) == "z_int = (-beta)*z"
     assert str(eqs[2]) == "dx_dt = sigma*(-x + y)"
-    assert str(eqs[3]) == "dx_dt_linearized = -sigma"
-    assert str(eqs[4]) == (
-        "values[0] = x + "
-        "((dx_dt*(math.exp(dt*dx_dt_linearized) - 1)"
-        "/dx_dt_linearized) if (abs(dx_dt_linearized) > 1.0e-8) "
-        "else (dt*dx_dt))"
-    )
-    assert str(eqs[5]) == "dy_dt = -y + y_int"
-    assert str(eqs[6]) == "dy_dt_linearized = -1"
-    assert str(eqs[7]) == (
+    assert str(eqs[3]) == "values[0] = dt*dx_dt + x"
+    assert str(eqs[4]) == "dy_dt = -y + y_int"
+    assert str(eqs[5]) == "dy_dt_linearized = -1"
+    assert str(eqs[6]) == (
         "values[1] = y + "
         "((dy_dt*(math.exp(dt*dy_dt_linearized) - 1)"
         "/dy_dt_linearized) if (abs(dy_dt_linearized) > 1.0e-8) "
         "else (dt*dy_dt))"
     )
+    assert str(eqs[7]) == "dz_dt = x*y + z_int"
+    assert str(eqs[8]) == "values[2] = dt*dz_dt + z"
