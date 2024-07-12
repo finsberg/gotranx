@@ -78,11 +78,13 @@ class CCodeGenerator(CodeGenerator):
         return templates.c
 
     def imports(self) -> str:
-        return "\n".join(
-            [
-                "#include <math.h>",
-                "#include <string.h>\n",
-            ]
+        return self._format(
+            "\n".join(
+                [
+                    "#include <math.h>",
+                    "#include <string.h>\n",
+                ]
+            )
         )
 
     def _rhs_arguments(

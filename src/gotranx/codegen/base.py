@@ -182,6 +182,9 @@ class CodeGenerator(abc.ABC):
     def _comment(self, text: str) -> str:
         return self.printer._get_comment(text).strip()
 
+    def imports(self) -> str:
+        return ""
+
     def missing_index(self) -> str:
         if self._missing_variables:
             code = self.template.missing_index(data=self._missing_variables)
@@ -465,19 +468,17 @@ class CodeGenerator(abc.ABC):
 
         return self._format(code)
 
-    def scheme(self, f: schemes.scheme_func, order=SchemeArgument.stdp) -> str:
+    def scheme(self, f: schemes.scheme_func, order=SchemeArgument.stdp, **kwargs) -> str:
         """Generate code for the scheme
 
         Parameters
         ----------
         f : schemes.scheme_func
-            A callable scheme function following the protocol of
-            :py:class:`gotranx.schemes.scheme_func`.
-            You can get a list of available schemes by calling
-            :py:func:`gotranx.schemes.list_schemes`, and
-            you can use ``gotranx.schemes.get_scheme(name)`` to get a specific scheme.
+            Function for generating the scheme
         order : SchemeArgument | str, optional
             The order of the arguments, by default SchemeArgument.stdp
+        kwargs : dict
+            Additional keyword arguments to be passed to the scheme function
 
         Notes
         -----
@@ -508,7 +509,6 @@ class CodeGenerator(abc.ABC):
             arguments += ["missing_variables"]
 
         dt = sympy.Symbol("dt")
-
         eqs = f(
             self.ode,
             dt,
@@ -516,6 +516,7 @@ class CodeGenerator(abc.ABC):
             printer=self._doprint,
             remove_unused=self.remove_unused,
             rhs=rhs,
+            **kwargs,
         )
         values = "\n".join(eqs)
 
@@ -532,9 +533,6 @@ class CodeGenerator(abc.ABC):
             missing_variables=missing_variables,
         )
         return self._format(code)
-
-    def imports(self) -> str:
-        return ""
 
     @property
     @abc.abstractmethod

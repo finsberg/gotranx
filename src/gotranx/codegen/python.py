@@ -128,7 +128,7 @@ class PythonCodeGenerator(CodeGenerator):
         return templates.python
 
     def imports(self) -> str:
-        return "import numpy"
+        return self._format("import numpy")
 
     def _rhs_arguments(
         self,
