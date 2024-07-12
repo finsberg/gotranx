@@ -4,11 +4,14 @@ from sympy.printing.pycode import PythonCodePrinter
 # from sympy.printing.numpy import NumPyPrinter
 from sympy.codegen.ast import Assignment
 import sympy
+import structlog
 from functools import partial
 
 from ..ode import ODE
 from .. import templates
 from .base import CodeGenerator, Func, RHSArgument, SchemeArgument, _print_Piecewise
+
+logger = structlog.get_logger()
 
 
 # class GotranPythonCodePrinter(NumPyPrinter):
@@ -97,6 +100,17 @@ class GotranPythonCodePrinter(PythonCodePrinter):
         return value
 
 
+def get_formatter():
+    try:
+        import black
+    except ImportError:
+        logger.warning("Cannot apply black, please install 'black'")
+        return None
+    else:
+        # TODO: add options for black in Mode
+        return partial(black.format_str, mode=black.Mode())
+
+
 class PythonCodeGenerator(CodeGenerator):
     def __init__(self, ode: ODE, apply_black: bool = True, *args, **kwargs) -> None:
         super().__init__(ode, *args, **kwargs)
@@ -104,13 +118,7 @@ class PythonCodeGenerator(CodeGenerator):
         self._printer = GotranPythonCodePrinter()
 
         if apply_black:
-            try:
-                import black
-            except ImportError:
-                print("Cannot apply black, please install 'black'")
-            else:
-                # TODO: add options for black in Mode
-                setattr(self, "_formatter", partial(black.format_str, mode=black.Mode()))
+            setattr(self, "_formatter", get_formatter())
 
     @property
     def printer(self):
