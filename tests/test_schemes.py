@@ -27,9 +27,9 @@ def ode(trans, parser) -> ODE:
     return make_ode(*trans.transform(tree))
 
 
-def test_forward_explicit_euler(ode: ODE):
+def test_explicit_euler(ode: ODE):
     dt = sympy.Symbol("dt")
-    eqs = schemes.forward_explicit_euler(ode, dt)
+    eqs = schemes.explicit_euler(ode, dt)
     assert len(eqs) == 8
 
     assert eqs[0] == "y_int = x*(rho - z)"
@@ -42,9 +42,9 @@ def test_forward_explicit_euler(ode: ODE):
     assert eqs[7] == "values[2] = dt*dz_dt + z"
 
 
-def test_forward_generalized_rush_larsen(ode: ODE):
+def test_generalized_rush_larsen(ode: ODE):
     dt = sympy.Symbol("dt")
-    eqs = schemes.forward_generalized_rush_larsen(ode, dt)
+    eqs = schemes.generalized_rush_larsen(ode, dt)
 
     assert len(eqs) == 10
 

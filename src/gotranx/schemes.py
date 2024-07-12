@@ -1,13 +1,13 @@
 from __future__ import annotations
 import typing
 import sympy
-from enum import Enum
 
 from structlog import get_logger
 
 from . import atoms
 from .ode import ODE
 from . import sympytools
+from ._enum import DeprecatedEnum
 
 logger = get_logger()
 
@@ -43,17 +43,22 @@ class scheme_func(typing.Protocol):
     ) -> list[str]: ...
 
 
-class Scheme(str, Enum):
-    forward_explicit_euler = "forward_explicit_euler"
-    forward_generalized_rush_larsen = "forward_generalized_rush_larsen"
+class Scheme(DeprecatedEnum):
+    explicit_euler = "explicit_euler"
+    generalized_rush_larsen = "generalized_rush_larsen"
+    forward_explicit_euler = "forward_explicit_euler", "Use 'explicit_euler' instead"
+    forward_generalized_rush_larsen = (
+        "forward_generalized_rush_larsen",
+        "Use 'generalized_rush_larsen' instead",
+    )
 
 
 def get_scheme(scheme: str) -> scheme_func:
     """Get the scheme function from a string"""
     if scheme in ["forward_euler", "forward_explicit_euler", "euler", "explicit_euler"]:
-        return forward_explicit_euler
+        return explicit_euler
     elif scheme in ["forward_generalized_rush_larsen", "generalized_rush_larsen"]:
-        return forward_generalized_rush_larsen
+        return generalized_rush_larsen
     else:
         raise ValueError(f"Unknown scheme {scheme}")
 
@@ -99,7 +104,7 @@ def fraction_numerator_is_nonzero(expr):
         return False
 
 
-def forward_explicit_euler(
+def explicit_euler(
     ode: ODE,
     dt: sympy.Symbol,
     name: str = "values",
@@ -151,7 +156,7 @@ def forward_explicit_euler(
     return eqs
 
 
-def forward_generalized_rush_larsen(
+def generalized_rush_larsen(
     ode: ODE,
     dt: sympy.Symbol,
     name: str = "values",
