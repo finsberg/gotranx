@@ -25,4 +25,4 @@ jobs:
         uses: CodSpeedHQ/action@v2
         with:
           token: ${{ secrets.CODSPEED_TOKEN }}
-          run: pytest tests/test_benchmarks.py --codspeed --benchmark-warmup-iterations 10 --benchmark-min-rounds 2 --benchmark-calibration-precision 3
+          run: pytest tests/test_benchmarks.py --codspeed --benchmark-warmup-iterations 1 --benchmark-min-rounds 1 --benchmark-calibration-precision 1
