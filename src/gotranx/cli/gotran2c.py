@@ -5,7 +5,7 @@ import structlog
 
 from ..codegen.c import CCodeGenerator
 from ..load import load_ode
-from ..schemes import Scheme
+from ..schemes import Scheme, get_scheme
 from ..ode import ODE
 
 logger = structlog.get_logger()
@@ -53,7 +53,7 @@ def get_code(
     ]
     if scheme is not None:
         for s in scheme:
-            comp.append(codegen.scheme(s.value))
+            comp.append(codegen.scheme(get_scheme(s.value)))
 
     return codegen._format("\n".join(comp))
 

@@ -1,7 +1,8 @@
 from __future__ import annotations
 import typing
-import sympy
+from types import CodeType
 
+import sympy
 from structlog import get_logger
 
 from . import atoms
@@ -33,6 +34,8 @@ class printer_func(typing.Protocol):
 
 
 class scheme_func(typing.Protocol):
+    __code__: CodeType
+
     def __call__(
         self,
         ode: ODE,
@@ -56,11 +59,15 @@ class Scheme(DeprecatedEnum):
 def get_scheme(scheme: str) -> scheme_func:
     """Get the scheme function from a string"""
     if scheme in ["forward_euler", "forward_explicit_euler", "euler", "explicit_euler"]:
-        return explicit_euler
+        func = explicit_euler
     elif scheme in ["forward_generalized_rush_larsen", "generalized_rush_larsen"]:
-        return generalized_rush_larsen
+        func = generalized_rush_larsen
     else:
         raise ValueError(f"Unknown scheme {scheme}")
+
+    # Replace the name of the function
+    func.__code__ = func.__code__.replace(co_name=scheme)
+    return func
 
 
 def list_schemes() -> list[str]:

@@ -14,6 +14,7 @@ from . import schemes
 from . import templates
 from . import myokit
 from .load import load_ode
+from .schemes import get_scheme
 from .ode import ODE
 from .ode_component import Component
 from .parser import Parser
@@ -46,6 +47,7 @@ __all__ = [
     "schemes",
     "templates",
     "myokit",
+    "get_scheme",
 ]
 
 import structlog as _structlog
