@@ -431,13 +431,13 @@ class CodeGenerator(abc.ABC):
 
         return self._format(code)
 
-    def scheme(self, name: str, order=SchemeArgument.stdp) -> str:
+    def scheme(self, f: schemes.scheme_func, order=SchemeArgument.stdp) -> str:
         """Generate code for the scheme
 
         Parameters
         ----------
-        name : str
-            The name of the scheme
+        f : schemes.scheme_func
+            Function for generating the scheme
         order : SchemeArgument | str, optional
             The order of the arguments, by default SchemeArgument.stdp
 
@@ -457,7 +457,6 @@ class CodeGenerator(abc.ABC):
             arguments += ["missing_variables"]
 
         dt = sympy.Symbol("dt")
-        f = schemes.get_scheme(name)
         eqs = f(
             self.ode,
             dt,
@@ -468,7 +467,7 @@ class CodeGenerator(abc.ABC):
         values = "\n".join(eqs)
 
         code = self.template.method(
-            name=name,
+            name=f.__code__.co_name,
             args=", ".join(arguments),
             states=states,
             parameters=parameters,

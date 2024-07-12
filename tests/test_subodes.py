@@ -143,7 +143,7 @@ def test_codegen_component_ode_monitor(z_ode_codegen):
 
 
 def test_codegen_component_ode_fe(z_ode_codegen):
-    assert z_ode_codegen.scheme("forward_euler") == (
+    assert z_ode_codegen.scheme(gotranx.get_scheme("forward_euler")) == (
         "def forward_euler(states, t, dt, parameters, missing_variables):"
         "\n"
         "\n    # Assign states"

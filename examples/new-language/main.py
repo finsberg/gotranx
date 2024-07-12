@@ -61,7 +61,7 @@ comp = [
     codegen.initial_state_values(),
     codegen.rhs(),
     codegen.monitor_values(),
-    codegen.scheme("forward_explicit_euler")
+    codegen.scheme(gotranx.schemes.get_scheme("forward_explicit_euler"))
 ]
 
 code = codegen._format("\n".join(comp))
