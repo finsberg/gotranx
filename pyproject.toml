@@ -55,10 +55,13 @@ docs = [
     "jax",
 ]
 test = [
-    "pre-commit",
     "pytest",
     "pytest-cov",
     "jax",
+]
+benchmark = [
+    "pytest-codspeed",
+    "gotranx[test]",
 ]
 
 [project.scripts]
