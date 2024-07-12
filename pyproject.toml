@@ -22,7 +22,7 @@ requires-python = ">=3.8"
 dependencies = [
     "attrs",
     "clang-format-docs",
-    "black",
+    "ruff",
     "lark",
     "pint",
     "rich-click",

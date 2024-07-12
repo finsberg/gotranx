@@ -101,14 +101,28 @@ class GotranPythonCodePrinter(PythonCodePrinter):
 
 
 def get_formatter():
+    # First try ruff
     try:
-        import black
+        import ruff.__main__
+
+        ruff_bin = ruff.__main__.find_ruff_bin()
     except ImportError:
-        logger.warning("Cannot apply black, please install 'black'")
-        return None
+        logger.warning("Cannot apply ruff, please install 'ruff'")
+        try:
+            import black
+        except ImportError:
+            logger.warning("Cannot apply black, please install 'black'")
+            return None
+        else:
+            # TODO: add options for black in Mode
+            return partial(black.format_str, mode=black.Mode())
     else:
-        # TODO: add options for black in Mode
-        return partial(black.format_str, mode=black.Mode())
+        import subprocess
+
+        def formatter(code: str) -> str:
+            return subprocess.check_output([ruff_bin, "format", "-"], input=code, encoding="utf-8")
+
+        return formatter
 
 
 class PythonCodeGenerator(CodeGenerator):
