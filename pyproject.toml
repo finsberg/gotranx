@@ -55,10 +55,15 @@ docs = [
     "jax",
 ]
 test = [
-    "pre-commit",
     "pytest",
     "pytest-cov",
     "jax",
+]
+benchmark = [
+    "pytest-benchmark>=4.0.0",
+    # TODO: remove bound once pytest-codspeed supports 3.13, blocked by `python-cffi`
+    "pytest-codspeed~=2.2.0; python_version < '3.13'",
+    "gotranx[test]",
 ]
 
 [project.scripts]
@@ -80,7 +85,6 @@ namespaces = false
 test = "pytest"
 
 [tool.pytest.ini_options]
-addopts = "--cov=gotranx --cov-report html --cov-report xml --cov-report term-missing -v"
 testpaths = ["tests"]
 
 [tool.isort]
