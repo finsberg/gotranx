@@ -431,7 +431,7 @@ class CodeGenerator(abc.ABC):
 
         return self._format(code)
 
-    def scheme(self, f: schemes.scheme_func, order=SchemeArgument.stdp, /, **kwargs) -> str:
+    def scheme(self, f: schemes.scheme_func, order=SchemeArgument.stdp, **kwargs) -> str:
         """Generate code for the scheme
 
         Parameters
