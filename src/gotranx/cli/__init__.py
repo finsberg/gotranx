@@ -102,6 +102,10 @@ def convert(
         typing.Optional[typing.List[Scheme]],
         typer.Option(help="Numerical scheme for solving the ODE"),
     ] = None,
+    stiff_states: Annotated[
+        typing.Optional[typing.List[str]],
+        typer.Option(help="Stiff states for the hybrid rush larsen scheme"),
+    ] = None,
     delta: float = typer.Option(
         1e-8,
         help="Delta value for the rush larsen schemes",
@@ -125,6 +129,7 @@ def convert(
             scheme=scheme,
             remove_unused=remove_unused,
             verbose=verbose,
+            stiff_states=stiff_states,
             delta=delta,
         )
     if to in {".py", "python", "py"}:
@@ -135,6 +140,7 @@ def convert(
             scheme=scheme,
             remove_unused=remove_unused,
             verbose=verbose,
+            stiff_states=stiff_states,
             delta=delta,
         )
 

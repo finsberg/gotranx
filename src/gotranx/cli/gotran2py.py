@@ -20,6 +20,7 @@ def get_code(
     remove_unused: bool = False,
     missing_values: dict[str, int] | None = None,
     delta: float = 1e-8,
+    stiff_states: list[str] | None = None,
 ) -> str:
     """Generate the Python code for the ODE
 
@@ -37,6 +38,9 @@ def get_code(
         Missing values, by default None
     delta : float, optional
         Delta value for the rush larsen schemes, by default 1e-8
+    stiff_states : list[str] | None, optional
+        Stiff states, by default None. Only applicable for
+        the hybrid rush larsen scheme
 
     Returns
     -------
@@ -68,6 +72,7 @@ def get_code(
         codegen,
         scheme=scheme,
         delta=delta,
+        stiff_states=stiff_states,
     )
     return codegen._format("\n".join(comp))
 
@@ -80,6 +85,7 @@ def main(
     scheme: list[Scheme] | None = None,
     remove_unused: bool = False,
     verbose: bool = True,
+    stiff_states: list[str] | None = None,
     delta: float = 1e-8,
 ) -> None:
     loglevel = logging.DEBUG if verbose else logging.INFO

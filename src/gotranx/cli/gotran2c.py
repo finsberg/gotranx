@@ -20,6 +20,7 @@ def get_code(
     remove_unused: bool = False,
     missing_values: dict[str, int] | None = None,
     delta: float = 1e-8,
+    stiff_states: list[str] | None = None,
 ) -> str:
     """Generate the Python code for the ODE
 
@@ -37,6 +38,9 @@ def get_code(
         Missing values, by default None
     delta : float, optional
         Delta value for the rush larsen schemes, by default 1e-8
+    stiff_states : list[str] | None, optional
+        Stiff states, by default None. Only applicable for
+        the hybrid rush larsen scheme
 
     Returns
     -------
@@ -70,6 +74,7 @@ def get_code(
         codegen,
         scheme=scheme,
         delta=delta,
+        stiff_states=stiff_states,
     )
 
     return codegen._format("\n".join(comp))
@@ -85,6 +90,7 @@ def main(
     verbose: bool = False,
     missing_values: dict[str, int] | None = None,
     delta: float = 1e-8,
+    stiff_states: list[str] | None = None,
 ) -> None:
     loglevel = logging.DEBUG if verbose else logging.INFO
     structlog.configure(
@@ -98,6 +104,7 @@ def main(
         remove_unused=remove_unused,
         missing_values=missing_values,
         delta=delta,
+        stiff_states=stiff_states,
     )
     out = fname if outname is None else Path(outname)
     out_name = out.with_suffix(suffix=suffix)
