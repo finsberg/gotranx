@@ -175,6 +175,45 @@ def hybrid_rush_larsen(
     delta: float = 1e-8,
     stiff_states: list[str] | None = None,
 ) -> list[str]:
+    """Generate the hybrid Rush-Larsen scheme for the ODE
+
+    The hybrid Rush-Larsen scheme follows the standard Rush_Larsen scheme is given by
+
+    .. math::
+        x_{n+1} = x_n + \frac{f(x_n, t_n)}{g(x_n, t_n)} \left( e^{g(x_n, t_n) dt} - 1 \right)
+
+
+    where :math:`g(x_n, t_n)` is the linearization of :math:`f(x_n, t_n)`
+    around :math:`x_n`. The difference between the hybrid and the standard
+    is that the user can specify which states are stiff, and the RL scheme
+    will only be used for these states. If the derivative
+    of a state is zero, the scheme falls back to forward Euler.
+
+    We fall back to forward Euler if the derivative is zero.
+
+    Parameters
+    ----------
+    ode : ODE
+        The ODE
+    dt : sympy.Symbol
+        The time step
+    name : str, optional
+        Name of array to be returned by the scheme, by default "values"
+    printer : printer_func, optional
+        A code printer, by default default_printer
+    remove_unused : bool, optional
+        Remove unused variables, by default False
+    delta : float, optional
+        Tolerance for zero division check, by default 1e-8
+    stiff_states : list[str] | None, optional
+        Stiff states, by default None. If no stiff states are provided,
+        the hybrid rush larsen scheme will be the same as the explicit Euler scheme
+
+    Returns
+    -------
+    list[str]
+        A list of equations as strings
+    """
     stiff_states = stiff_states or []
     eqs = []
     values = sympy.IndexedBase(name, shape=(len(ode.state_derivatives),))
