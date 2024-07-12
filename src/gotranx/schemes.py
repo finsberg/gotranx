@@ -44,16 +44,19 @@ class scheme_func(typing.Protocol):
 
 
 class Scheme(str, Enum):
-    forward_explicit_euler = "forward_explicit_euler"
-    forward_generalized_rush_larsen = "forward_generalized_rush_larsen"
+    explicit_euler = "explicit_euler"
+    hybrid_rush_larsen = "hybrid_rush_larsen"
+    generalized_rush_larsen = "generalized_rush_larsen"
 
 
 def get_scheme(scheme: str) -> scheme_func:
     """Get the scheme function from a string"""
     if scheme in ["forward_euler", "forward_explicit_euler", "euler", "explicit_euler"]:
-        return forward_explicit_euler
+        return explicit_euler
     elif scheme in ["forward_generalized_rush_larsen", "generalized_rush_larsen"]:
-        return forward_generalized_rush_larsen
+        return generalized_rush_larsen
+    elif scheme in ["forward_rush_larsen", "rush_larsen", "hybrid_rush_larsen"]:
+        return hybrid_rush_larsen
     else:
         raise ValueError(f"Unknown scheme {scheme}")
 
@@ -99,7 +102,7 @@ def fraction_numerator_is_nonzero(expr):
         return False
 
 
-def forward_explicit_euler(
+def explicit_euler(
     ode: ODE,
     dt: sympy.Symbol,
     name: str = "values",
@@ -151,7 +154,65 @@ def forward_explicit_euler(
     return eqs
 
 
-def forward_generalized_rush_larsen(
+def hybrid_rush_larsen(
+    ode: ODE,
+    dt: sympy.Symbol,
+    name: str = "values",
+    printer: printer_func = default_printer,
+    remove_unused: bool = False,
+    delta: float = 1e-8,
+    stiff_states: list[str] | None = None,
+) -> list[str]:
+    stiff_states = stiff_states or []
+    eqs = []
+    values = sympy.IndexedBase(name, shape=(len(ode.state_derivatives),))
+    i = 0
+    for x in ode.sorted_assignments(remove_unused=remove_unused):
+        eqs.append(printer(x.symbol, x.expr, use_variable_prefix=True))
+
+        if not isinstance(x, atoms.StateDerivative):
+            continue
+
+        expr_diff = x.expr.diff(x.state.symbol)
+        state_is_stiff = x.name in stiff_states
+
+        if not state_is_stiff or expr_diff.is_zero:
+            # Use forward Euler
+            eqs.append(
+                printer(
+                    values[i],
+                    x.state.symbol + dt * x.symbol,
+                )
+            )
+            i += 1
+            continue
+
+        linearized_name = x.name + "_linearized"
+        linearized = sympy.Symbol(linearized_name)
+        eqs.append(printer(linearized, expr_diff, use_variable_prefix=True))
+
+        need_zero_div_check = not fraction_numerator_is_nonzero(expr_diff)
+        if not need_zero_div_check:
+            logger.debug(f"{linearized_name} cannot be zero. Skipping zero division check")
+
+        RL_term = x.symbol / linearized * (sympy.exp(linearized * dt) - 1)
+        if need_zero_div_check:
+            RL_term = sympytools.Conditional(
+                abs(linearized) > delta,
+                RL_term,
+                dt * x.symbol,
+            )
+        eqs.append(
+            printer(
+                values[i],
+                x.state.symbol + RL_term,
+            )
+        )
+        i += 1
+    return eqs
+
+
+def generalized_rush_larsen(
     ode: ODE,
     dt: sympy.Symbol,
     name: str = "values",

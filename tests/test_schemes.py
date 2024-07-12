@@ -27,9 +27,9 @@ def ode(trans, parser) -> ODE:
     return make_ode(*trans.transform(tree))
 
 
-def test_forward_explicit_euler(ode: ODE):
+def test_explicit_euler(ode: ODE):
     dt = sympy.Symbol("dt")
-    eqs = schemes.forward_explicit_euler(ode, dt)
+    eqs = schemes.explicit_euler(ode, dt)
     assert len(eqs) == 8
 
     assert eqs[0] == "y_int = x*(rho - z)"
@@ -42,9 +42,35 @@ def test_forward_explicit_euler(ode: ODE):
     assert eqs[7] == "values[2] = dt*dz_dt + z"
 
 
-def test_forward_generalized_rush_larsen(ode: ODE):
+def test_generalized_rush_larsen(ode: ODE):
     dt = sympy.Symbol("dt")
-    eqs = schemes.forward_generalized_rush_larsen(ode, dt)
+    eqs = schemes.generalized_rush_larsen(ode, dt)
+
+    assert len(eqs) == 10
+
+    assert str(eqs[0]) == "y_int = x*(rho - z)"
+    assert str(eqs[1]) == "z_int = (-beta)*z"
+    assert str(eqs[2]) == "dx_dt = sigma*(-x + y)"
+    assert str(eqs[3]) == "dx_dt_linearized = -sigma"
+    assert str(eqs[4]) == (
+        "values[0] = x + "
+        "((dx_dt*(math.exp(dt*dx_dt_linearized) - 1)"
+        "/dx_dt_linearized) if (abs(dx_dt_linearized) > 1.0e-8) "
+        "else (dt*dx_dt))"
+    )
+    assert str(eqs[5]) == "dy_dt = -y + y_int"
+    assert str(eqs[6]) == "dy_dt_linearized = -1"
+    assert str(eqs[7]) == (
+        "values[1] = y + "
+        "((dy_dt*(math.exp(dt*dy_dt_linearized) - 1)"
+        "/dy_dt_linearized) if (abs(dy_dt_linearized) > 1.0e-8) "
+        "else (dt*dy_dt))"
+    )
+
+
+def test_hybrid_rush_larsen(ode: ODE):
+    dt = sympy.Symbol("dt")
+    eqs = schemes.hybrid_rush_larsen(ode, dt)
 
     assert len(eqs) == 10
 
