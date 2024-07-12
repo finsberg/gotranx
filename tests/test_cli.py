@@ -8,6 +8,15 @@ runner = CliRunner(mix_stderr=False)
 
 
 @pytest.fixture(scope="module")
+def all_schemes():
+    args = []
+    for scheme in gotranx.schemes.Scheme:
+        args.append("--scheme")
+        args.append(scheme.value)
+    return args
+
+
+@pytest.fixture(scope="module")
 def odefile(tmp_path_factory):
     expr = """
     parameters(a=0)
@@ -41,27 +50,51 @@ def test_cli_license():
     assert "MIT" in result.stdout
 
 
-def test_gotran2py(odefile):
+def test_gotran2py(odefile, all_schemes):
     outfile = odefile.with_suffix(".py")
+
     result = runner.invoke(
-        gotranx.cli.app, ["convert", str(odefile), "--to", ".py", "-o", str(outfile)]
+        gotranx.cli.app, ["convert", str(odefile), "--to", ".py", "-o", str(outfile)] + all_schemes
     )
     assert result.exit_code == 0
     assert "lorentz.py" in result.stdout
     assert "lorentz" in result.stdout
     assert outfile.is_file()
+
+    code = outfile.read_text()
+    for scheme in gotranx.schemes.Scheme:
+        assert scheme.value in code
+    assert "rhs" in code
+    assert "init_state_values" in code
+    assert "init_parameter_values" in code
+    assert "monitor_index" in code
+    assert "state_index" in code
+    assert "parameter_index" in code
+
     outfile.unlink()
 
 
-def test_gotran2c(odefile):
+def test_gotran2c(odefile, all_schemes):
     outfile = odefile.with_suffix(".h")
     result = runner.invoke(
-        gotranx.cli.app, ["convert", str(odefile), "--to", ".h", "-o", str(outfile)]
+        gotranx.cli.app, ["convert", str(odefile), "--to", ".h", "-o", str(outfile)] + all_schemes
     )
     assert result.exit_code == 0
+
     assert "lorentz.h" in result.stdout
     assert "lorentz" in result.stdout
     assert outfile.is_file()
+
+    code = outfile.read_text()
+    for scheme in gotranx.schemes.Scheme:
+        assert scheme.value in code
+    assert "rhs" in code
+    assert "init_state_values" in code
+    assert "init_parameter_values" in code
+    assert "monitor_index" in code
+    assert "state_index" in code
+    assert "parameter_index" in code
+
     outfile.with_suffix(".h").unlink()
 
 
