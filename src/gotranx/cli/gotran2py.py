@@ -3,7 +3,7 @@ from pathlib import Path
 import logging
 import structlog
 
-from ..codegen.python import PythonCodeGenerator
+from ..codegen.python import PythonCodeGenerator, get_formatter
 from ..load import load_ode
 from ..schemes import Scheme
 from ..ode import ODE
@@ -49,9 +49,10 @@ def get_code(
     """
     codegen = PythonCodeGenerator(
         ode,
-        apply_black=apply_black,
+        apply_black=False,
         remove_unused=remove_unused,
     )
+    formatter = get_formatter()
     if missing_values is not None:
         _missing_values = codegen.missing_values(missing_values)
     else:
@@ -74,7 +75,10 @@ def get_code(
         delta=delta,
         stiff_states=stiff_states,
     )
-    return codegen._format("\n".join(comp))
+    code = codegen._format("\n".join(comp))
+    if apply_black:
+        code = formatter(code)
+    return code
 
 
 def main(
