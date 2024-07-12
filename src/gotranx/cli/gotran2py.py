@@ -99,6 +99,7 @@ def main(
         scheme=scheme,
         apply_black=apply_black,
         remove_unused=remove_unused,
+        delta=delta,
     )
     out = fname if outname is None else Path(outname)
     out_name = out.with_suffix(suffix=suffix)

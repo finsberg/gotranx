@@ -1,3 +1,4 @@
+from __future__ import annotations
 from typing import Any
 from ..codegen import CodeGenerator
 from ..schemes import Scheme, get_scheme
