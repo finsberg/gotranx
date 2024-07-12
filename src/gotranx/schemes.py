@@ -176,13 +176,12 @@ def hybrid_rush_larsen(
     delta: float = 1e-8,
     stiff_states: list[str] | None = None,
 ) -> list[str]:
-    """Generate the hybrid Rush-Larsen scheme for the ODE
+    r"""Generate the hybrid Rush-Larsen scheme for the ODE
 
     The hybrid Rush-Larsen scheme follows the standard Rush_Larsen scheme is given by
 
     .. math::
         x_{n+1} = x_n + \frac{f(x_n, t_n)}{g(x_n, t_n)} \left( e^{g(x_n, t_n) dt} - 1 \right)
-
 
     where :math:`g(x_n, t_n)` is the linearization of :math:`f(x_n, t_n)`
     around :math:`x_n`. The difference between the hybrid and the standard
@@ -194,7 +193,7 @@ def hybrid_rush_larsen(
 
     Parameters
     ----------
-    ode : ODE
+    ode : gotranx.ODE
         The ODE
     dt : sympy.Symbol
         The time step
@@ -214,6 +213,7 @@ def hybrid_rush_larsen(
     -------
     list[str]
         A list of equations as strings
+
     """
     logger.debug("Generating hybrid Rush-Larsen scheme")
     stiff_states = stiff_states or []
