@@ -1,4 +1,5 @@
 from __future__ import annotations
+import typing
 from sympy.printing.pycode import PythonCodePrinter
 
 # from sympy.printing.numpy import NumPyPrinter
@@ -100,7 +101,7 @@ class GotranPythonCodePrinter(PythonCodePrinter):
         return value
 
 
-def get_formatter():
+def get_formatter() -> typing.Callable[[str], str]:
     # First try ruff
     try:
         import ruff.__main__
@@ -112,7 +113,7 @@ def get_formatter():
             import black
         except ImportError:
             logger.warning("Cannot apply black, please install 'black'")
-            return None
+            return lambda x: x
         else:
             # TODO: add options for black in Mode
             return partial(black.format_str, mode=black.Mode())
@@ -126,12 +127,12 @@ def get_formatter():
 
 
 class PythonCodeGenerator(CodeGenerator):
-    def __init__(self, ode: ODE, apply_black: bool = True, *args, **kwargs) -> None:
+    def __init__(self, ode: ODE, format: bool = True, *args, **kwargs) -> None:
         super().__init__(ode, *args, **kwargs)
 
         self._printer = GotranPythonCodePrinter()
 
-        if apply_black:
+        if format:
             setattr(self, "_formatter", get_formatter())
 
     @property

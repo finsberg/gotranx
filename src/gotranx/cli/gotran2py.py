@@ -16,7 +16,7 @@ logger = structlog.get_logger()
 def get_code(
     ode: ODE,
     scheme: list[Scheme] | None = None,
-    apply_black: bool = True,
+    format: bool = True,
     remove_unused: bool = False,
     missing_values: dict[str, int] | None = None,
     delta: float = 1e-8,
@@ -30,8 +30,8 @@ def get_code(
         The ODE
     scheme : list[Scheme] | None, optional
         Optional numerical scheme, by default None
-    apply_black : bool, optional
-        Apply black formatter, by default True
+    format : bool, optional
+        Apply ruff / black formatter, by default True
     remove_unused : bool, optional
         Remove unused variables, by default False
     missing_values : dict[str, int] | None, optional
@@ -49,7 +49,7 @@ def get_code(
     """
     codegen = PythonCodeGenerator(
         ode,
-        apply_black=False,
+        format=False,
         remove_unused=remove_unused,
     )
     formatter = get_formatter()
@@ -76,7 +76,7 @@ def get_code(
         stiff_states=stiff_states,
     )
     code = codegen._format("\n".join(comp))
-    if apply_black:
+    if format:
         code = formatter(code)
     return code
 
@@ -85,7 +85,7 @@ def main(
     fname: Path,
     suffix: str = ".py",
     outname: str | None = None,
-    apply_black: bool = True,
+    format: bool = True,
     scheme: list[Scheme] | None = None,
     remove_unused: bool = False,
     verbose: bool = True,
@@ -101,7 +101,7 @@ def main(
     code = get_code(
         ode,
         scheme=scheme,
-        apply_black=apply_black,
+        format=format,
         remove_unused=remove_unused,
         delta=delta,
     )

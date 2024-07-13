@@ -7,11 +7,14 @@ from enum import Enum
 import sympy
 from sympy.codegen.ast import Assignment
 from sympy.printing.codeprinter import CodePrinter
+import structlog
 
 from .. import templates
 from ..ode import ODE
 from .. import atoms
 from .. import schemes
+
+logger = structlog.get_logger()
 
 
 class Func(typing.NamedTuple):
@@ -132,7 +135,7 @@ class CodeGenerator(abc.ABC):
             formatted_code = self._formatter(code)
         except Exception:
             # FIXME: handle this
-            print("An exception was raised")
+            logger.error("An exception was raised")
             formatted_code = code
 
         return formatted_code

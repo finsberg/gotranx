@@ -92,7 +92,6 @@ def test_codegen_component_ode_missing_index(z_ode_codegen):
 def test_codegen_component_ode_rhs(z_ode_codegen):
     assert z_ode_codegen.rhs() == (
         "def rhs(t, states, parameters, missing_variables):"
-        "\n"
         "\n    # Assign states"
         "\n    z = states[0]"
         "\n"
@@ -118,7 +117,6 @@ def test_codegen_component_ode_rhs(z_ode_codegen):
 def test_codegen_component_ode_monitor(z_ode_codegen):
     assert z_ode_codegen.monitor_values() == (
         "def monitor_values(t, states, parameters, missing_variables):"
-        "\n"
         "\n    # Assign states"
         "\n    z = states[0]"
         "\n"
@@ -145,7 +143,6 @@ def test_codegen_component_ode_monitor(z_ode_codegen):
 def test_codegen_component_ode_fe(z_ode_codegen):
     assert z_ode_codegen.scheme(gotranx.get_scheme("forward_euler")) == (
         "def forward_euler(states, t, dt, parameters, missing_variables):"
-        "\n"
         "\n    # Assign states"
         "\n    z = states[0]"
         "\n"
@@ -207,7 +204,6 @@ def test_codegen_remaining_ode_missing_index(remaining_ode_codegen):
 def test_codegen_remaining_ode_rhs(remaining_ode_codegen):
     assert remaining_ode_codegen.rhs() == (
         "def rhs(t, states, parameters, missing_variables):"
-        "\n"
         "\n    # Assign states"
         "\n    x = states[0]"
         "\n    y = states[1]"
@@ -236,7 +232,6 @@ def test_codegen_remaining_ode_rhs(remaining_ode_codegen):
 def test_codegen_remaining_ode_generate_missing_values(remaining_ode_codegen):
     assert remaining_ode_codegen.missing_values({"x": 0, "rhoz": 1}) == (
         "def missing_values(t, states, parameters, missing_variables):"
-        "\n"
         "\n    # Assign states"
         "\n    x = states[0]"
         "\n    y = states[1]"
