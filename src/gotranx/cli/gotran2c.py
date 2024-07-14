@@ -3,7 +3,7 @@ from pathlib import Path
 import logging
 import structlog
 
-from ..codegen.c import CCodeGenerator
+from ..codegen.c import CCodeGenerator, Format
 from ..load import load_ode
 from ..schemes import Scheme
 from ..ode import ODE
@@ -16,7 +16,7 @@ logger = structlog.get_logger()
 def get_code(
     ode: ODE,
     scheme: list[Scheme] | None = None,
-    apply_clang_format: bool = True,
+    format: Format = Format.clang_format,
     remove_unused: bool = False,
     missing_values: dict[str, int] | None = None,
     delta: float = 1e-8,
@@ -30,8 +30,8 @@ def get_code(
         The ODE
     scheme : list[Scheme] | None, optional
         Optional numerical scheme, by default None
-    apply_clang_format : bool, optional
-        Apply clang formatter, by default True
+    format : gotranx.codegen.python.Format, optional
+        The formatter, by default gotranx.codegen.python.Format.black
     remove_unused : bool, optional
         Remove unused variables, by default False
     missing_values : dict[str, int] | None, optional
@@ -47,9 +47,7 @@ def get_code(
     str
         The C code
     """
-    codegen = CCodeGenerator(
-        ode, remove_unused=remove_unused, apply_clang_format=apply_clang_format
-    )
+    codegen = CCodeGenerator(ode, remove_unused=remove_unused, format=format)
 
     if missing_values is not None:
         _missing_values = codegen.missing_values(missing_values)
@@ -86,7 +84,7 @@ def main(
     outname: str | None = None,
     scheme: list[Scheme] | None = None,
     remove_unused: bool = False,
-    apply_clang_format: bool = True,
+    format: Format = Format.clang_format,
     verbose: bool = False,
     missing_values: dict[str, int] | None = None,
     delta: float = 1e-8,
@@ -100,7 +98,7 @@ def main(
     code = get_code(
         ode,
         scheme=scheme,
-        apply_clang_format=apply_clang_format,
+        format=format,
         remove_unused=remove_unused,
         missing_values=missing_values,
         delta=delta,

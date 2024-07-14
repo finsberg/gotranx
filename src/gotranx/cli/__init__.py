@@ -12,6 +12,7 @@ import typer
 from ..schemes import Scheme
 from ..codegen import PythonFormatter, CFormatter
 from . import gotran2c, gotran2py
+from .utils import read_config
 
 app = typer.Typer()
 
@@ -204,7 +205,9 @@ def cellml2ode(
     if fname is None:
         return typer.echo("No file specified")
 
-    # config_data = read_config(config)
+    config_data = read_config(config)
+    verbose = config_data.get("verbose", verbose)
+
     from .cellml2ode import main as _main
 
     _main(fname=fname, outname=outname, verbose=verbose)
@@ -220,11 +223,6 @@ def ode2py(
         writable=False,
         readable=True,
         resolve_path=True,
-    ),
-    to: str = typer.Option(
-        "",
-        "--to",
-        help="Generate code to another programming language",
     ),
     outname: typing.Optional[str] = typer.Option(
         None,
@@ -284,11 +282,12 @@ def ode2py(
     if fname is None:
         return typer.echo("No file specified")
 
-    # config_data = read_config(config)
+    config_data = read_config(config)
+    verbose = config_data.get("verbose", verbose)
+    formatter = config_data.get("formatter", formatter)
 
     gotran2py.main(
         fname=fname,
-        suffix=to,
         outname=outname,
         scheme=scheme,
         remove_unused=remove_unused,

@@ -30,8 +30,8 @@ def get_code(
         The ODE
     scheme : list[Scheme] | None, optional
         Optional numerical scheme, by default None
-    format : Format, optional
-        The formatter, by default Format.black
+    format : gotranx.codegen.python.Format, optional
+        The formatter, by default gotranx.codegen.python.Format.black
     remove_unused : bool, optional
         Remove unused variables, by default False
     missing_values : dict[str, int] | None, optional
@@ -85,7 +85,6 @@ def get_code(
 
 def main(
     fname: Path,
-    suffix: str = ".py",
     outname: str | None = None,
     format: Format = Format.black,
     scheme: list[Scheme] | None = None,
@@ -93,6 +92,7 @@ def main(
     verbose: bool = True,
     stiff_states: list[str] | None = None,
     delta: float = 1e-8,
+    suffix: str = ".py",
 ) -> None:
     loglevel = logging.DEBUG if verbose else logging.INFO
     structlog.configure(

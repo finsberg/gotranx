@@ -58,18 +58,22 @@ class CCodeGenerator(CodeGenerator):
     variable_prefix = "const double "
 
     def __init__(
-        self, ode: ODE, apply_clang_format: bool = True, remove_unused: bool = False
+        self, ode: ODE, format: Format = Format.clang_format, remove_unused: bool = False
     ) -> None:
         super().__init__(ode, remove_unused=remove_unused)
         self._printer = GotranCCodePrinter()
 
-        if apply_clang_format:
+        if format == Format.clang_format:
             try:
                 import clang_format_docs
             except ImportError:
                 print("Cannot apply clang-format, please install 'clang-format-docs'")
             else:
                 setattr(self, "_formatter", clang_format_docs.clang_format_str)
+        elif format == Format.none:
+            setattr(self, "_formatter", lambda x: x)
+        else:
+            raise ValueError(f"Unknown format {format}")
 
     @property
     def printer(self):
