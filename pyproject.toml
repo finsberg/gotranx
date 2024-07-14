@@ -22,7 +22,7 @@ requires-python = ">=3.8"
 dependencies = [
     "attrs",
     "clang-format-docs",
-    "ruff",
+    "black",
     "lark",
     "pint",
     "rich-click",
@@ -63,6 +63,9 @@ test = [
 
 [project.scripts]
 gotranx = "gotranx.cli:app"
+ode2py = "gotranx.cli:ode2py"
+ode2c = "gotranx.cli:ode2c"
+cellml2ode = "gotranx.cli:cellml2ode"
 
 [tool.setuptools]
 include-package-data = true
@@ -162,3 +165,10 @@ current_version = "1.0.0"
 filename = "pyproject.toml"
 search = 'version = "{current_version}"'
 replace = 'version = "{new_version}"'
+
+[tool.gotranx]
+verbose = true
+
+[tool.gotranx.formatter]
+c = "clang-format"
+python = "black"

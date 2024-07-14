@@ -36,12 +36,12 @@ def codegen(ode) -> PythonCodeGenerator:
 
 
 @pytest.fixture(scope="module")
-def codegen_no_format(ode) -> PythonCodeGenerator:
+def codegen_no_formatter(ode) -> PythonCodeGenerator:
     with mock.patch.dict(sys.modules, {"black": None, "ruff": None}):
         return PythonCodeGenerator(ode)
 
 
-def test_python_codegen_state_index_no_format(codegen: PythonCodeGenerator):
+def test_python_codegen_state_index_no_formatter(codegen: PythonCodeGenerator):
     assert codegen.state_index() == (
         'state = {"x": 0, "z": 1, "y": 2}'
         "\n"
@@ -86,8 +86,8 @@ def test_python_codegen_initial_state_values(codegen: PythonCodeGenerator):
     )
 
 
-def test_python_codegen_parameter_index_no_format(codegen_no_format: PythonCodeGenerator):
-    assert codegen_no_format.parameter_index() == (
+def test_python_codegen_parameter_index_no_formatter(codegen_no_formatter: PythonCodeGenerator):
+    assert codegen_no_formatter.parameter_index() == (
         "\nparameter = {'a': 0, 'beta': 1, 'rho': 2, 'sigma': 3}"
         "\n"
         "\n"
@@ -184,6 +184,7 @@ def test_python_codegen_missing_index_is_empty(codegen: PythonCodeGenerator):
 def test_python_codegen_rhs(order: str, arguments: str, codegen: PythonCodeGenerator):
     assert codegen.rhs(order=order) == (
         f"def rhs({arguments}):"
+        "\n"
         "\n    # Assign states"
         "\n    x = states[0]"
         "\n    z = states[1]"
@@ -215,6 +216,7 @@ def test_python_codegen_rhs(order: str, arguments: str, codegen: PythonCodeGener
 def test_python_codegen_forward_explicit_euler(codegen: PythonCodeGenerator):
     assert codegen.scheme(get_scheme("forward_explicit_euler")) == (
         "def forward_explicit_euler(states, t, dt, parameters):"
+        "\n"
         "\n    # Assign states"
         "\n    x = states[0]"
         "\n    z = states[1]"
@@ -246,6 +248,7 @@ def test_python_codegen_forward_explicit_euler(codegen: PythonCodeGenerator):
 def test_python_codegen_forward_generalized_rush_larsen(codegen: PythonCodeGenerator):
     assert codegen.scheme(get_scheme("forward_generalized_rush_larsen")) == (
         "def forward_generalized_rush_larsen(states, t, dt, parameters):"
+        "\n"
         "\n    # Assign states"
         "\n    x = states[0]"
         "\n    z = states[1]"
@@ -296,6 +299,7 @@ def test_python_conditional_expression(parser, trans):
     codegen = PythonCodeGenerator(ode)
     assert codegen.rhs() == (
         "def rhs(t, states, parameters):"
+        "\n"
         "\n    # Assign states"
         "\n    v = states[0]"
         "\n"
@@ -326,6 +330,7 @@ def test_python_exponential_with_power(parser, trans):
 
     assert codegen.rhs() == (
         "def rhs(t, states, parameters):"
+        "\n"
         "\n    # Assign states"
         "\n    v = states[0]"
         "\n"
@@ -347,6 +352,7 @@ def test_python_remove_unused_rhs(ode_unused):
     codegen_orig = PythonCodeGenerator(ode_unused)
     assert codegen_orig.rhs() == (
         "def rhs(t, states, parameters):"
+        "\n"
         "\n    # Assign states"
         "\n    unused_state = states[0]"
         "\n    x = states[1]"
@@ -379,6 +385,7 @@ def test_python_remove_unused_rhs(ode_unused):
     codegen_remove = PythonCodeGenerator(ode_unused, remove_unused=True)
     assert codegen_remove.rhs() == (
         "def rhs(t, states, parameters):"
+        "\n"
         "\n    # Assign states"
         "\n    x = states[1]"
         "\n    y = states[2]"
@@ -410,6 +417,7 @@ def test_python_remove_unused_forward_explicit_euler(ode_unused):
     codegen_orig = PythonCodeGenerator(ode_unused)
     assert codegen_orig.scheme(get_scheme("forward_explicit_euler")) == (
         "def forward_explicit_euler(states, t, dt, parameters):"
+        "\n"
         "\n    # Assign states"
         "\n    unused_state = states[0]"
         "\n    x = states[1]"
@@ -442,6 +450,7 @@ def test_python_remove_unused_forward_explicit_euler(ode_unused):
     codegen_remove = PythonCodeGenerator(ode_unused, remove_unused=True)
     assert codegen_remove.scheme(get_scheme("forward_explicit_euler")) == (
         "def forward_explicit_euler(states, t, dt, parameters):"
+        "\n"
         "\n    # Assign states"
         "\n    unused_state = states[0]"
         "\n    x = states[1]"
@@ -474,6 +483,7 @@ def test_python_remove_unused_forward_generalized_rush_larsen(ode_unused):
     codegen_orig = PythonCodeGenerator(ode_unused)
     assert codegen_orig.scheme(get_scheme("forward_generalized_rush_larsen")) == (
         "def forward_generalized_rush_larsen(states, t, dt, parameters):"
+        "\n"
         "\n    # Assign states"
         "\n    unused_state = states[0]"
         "\n    x = states[1]"
@@ -521,6 +531,7 @@ def test_python_remove_unused_forward_generalized_rush_larsen(ode_unused):
     codegen_remove = PythonCodeGenerator(ode_unused, remove_unused=True)
     assert codegen_remove.scheme(get_scheme("forward_generalized_rush_larsen")) == (
         "def forward_generalized_rush_larsen(states, t, dt, parameters):"
+        "\n"
         "\n    # Assign states"
         "\n    unused_state = states[0]"
         "\n    x = states[1]"
@@ -567,6 +578,7 @@ def test_python_remove_unused_forward_generalized_rush_larsen(ode_unused):
 def test_python_monitored(codegen: PythonCodeGenerator):
     assert codegen.monitor_values() == (
         "def monitor_values(t, states, parameters):"
+        "\n"
         "\n    # Assign states"
         "\n    x = states[0]"
         "\n    z = states[1]"

@@ -1,4 +1,5 @@
 from enum import Enum, EnumMeta
+
 # https://stackoverflow.com/questions/62299740/how-do-i-detect-and-invoke-a-function-when-a-python-enum-member-is-accessed
 
 

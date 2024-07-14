@@ -1,5 +1,6 @@
 from __future__ import annotations
 import typing
+from enum import Enum
 from sympy.printing.pycode import PythonCodePrinter
 
 # from sympy.printing.numpy import NumPyPrinter
@@ -13,6 +14,12 @@ from .. import templates
 from .base import CodeGenerator, Func, RHSArgument, SchemeArgument, _print_Piecewise
 
 logger = structlog.get_logger()
+
+
+class Format(Enum):
+    black = "black"
+    ruff = "ruff"
+    none = "none"
 
 
 # class GotranPythonCodePrinter(NumPyPrinter):
@@ -101,39 +108,49 @@ class GotranPythonCodePrinter(PythonCodePrinter):
         return value
 
 
-def get_formatter() -> typing.Callable[[str], str]:
-    # First try ruff
-    try:
-        import ruff.__main__
+def get_formatter(format: Format) -> typing.Callable[[str], str]:
+    if format == Format.none:
+        return lambda x: x
 
-        ruff_bin = ruff.__main__.find_ruff_bin()
-    except ImportError:
-        logger.warning("Cannot apply ruff, please install 'ruff'")
+    elif format == Format.black:
         try:
             import black
         except ImportError:
             logger.warning("Cannot apply black, please install 'black'")
             return lambda x: x
         else:
-            # TODO: add options for black in Mode
             return partial(black.format_str, mode=black.Mode())
+
+    elif format == Format.ruff:
+        try:
+            import ruff.__main__
+
+            ruff_bin = ruff.__main__.find_ruff_bin()
+        except ImportError:
+            logger.warning("Cannot apply ruff, please install 'ruff'")
+            return lambda x: x
+        else:
+            import subprocess
+
+            def func(code: str) -> str:
+                return subprocess.check_output(
+                    [ruff_bin, "format", "-"], input=code, encoding="utf-8"
+                )
+
+            return func
+
     else:
-        import subprocess
-
-        def formatter(code: str) -> str:
-            return subprocess.check_output([ruff_bin, "format", "-"], input=code, encoding="utf-8")
-
-        return formatter
+        raise ValueError(f"Unknown format {format}")
 
 
 class PythonCodeGenerator(CodeGenerator):
-    def __init__(self, ode: ODE, format: bool = True, *args, **kwargs) -> None:
+    def __init__(self, ode: ODE, format: Format = Format.black, *args, **kwargs) -> None:
         super().__init__(ode, *args, **kwargs)
 
         self._printer = GotranPythonCodePrinter()
 
         if format:
-            setattr(self, "_formatter", get_formatter())
+            setattr(self, "_formatter", get_formatter(format=format))
 
     @property
     def printer(self):

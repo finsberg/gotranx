@@ -1,4 +1,5 @@
 from __future__ import annotations
+import enum
 from sympy.printing.c import C99CodePrinter
 from sympy.codegen.ast import Assignment
 import sympy
@@ -6,6 +7,11 @@ import sympy
 from ..ode import ODE
 from .. import templates
 from .base import CodeGenerator, Func, RHSArgument, SchemeArgument
+
+
+class Format(enum.Enum):
+    clang_format = "clang-format"
+    none = "none"
 
 
 def bool_to_int(expr: str) -> str:
