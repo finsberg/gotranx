@@ -159,7 +159,7 @@ V_index = model.state_index("V")
 V = [y[V_index]]
 
 for ti in t[1:]:
-    y = model.forward_generalized_rush_larsen(y, ti, dt, p)
+    y = model.generalized_rush_larsen(y, ti, dt, p)
     V.append(y[V_index])
 
 plt.plot(t, V)
