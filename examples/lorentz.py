@@ -162,11 +162,11 @@ print(codegen.initial_state_values())
 # To generate code for a specific scheme you can use the `scheme` method and pass the scheme and the order of the arguments, for example
 
 
-print(codegen.scheme(name="forward_explicit_euler", order="stdp"))
+print(codegen.scheme(f=gotranx.get_scheme("forward_explicit_euler"), order="stdp"))
 
 # Note that with this order you get the arguments in the order  `states`, `time`, `dt` and `parameters`.  Passing `order="ptsd"` will give the following order
 
-print(codegen.scheme(name="forward_explicit_euler", order="ptsd"))
+print(codegen.scheme(f=gotranx.get_scheme("forward_explicit_euler"), order="ptsd"))
 
 # To list the available schemes you can do
 

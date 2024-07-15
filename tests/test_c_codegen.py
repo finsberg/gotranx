@@ -3,6 +3,7 @@ import sys
 from unittest import mock
 
 import pytest
+from gotranx.schemes import get_scheme
 from gotranx.codegen import CCodeGenerator
 from gotranx.codegen import RHSArgument
 from gotranx.ode import make_ode
@@ -132,7 +133,7 @@ def test_c_codegen_rhs(order: str, arguments: str, codegen: CCodeGenerator):
 
 
 def test_c_codegen_forward_euler(codegen: CCodeGenerator):
-    assert codegen.scheme("forward_euler") == (
+    assert codegen.scheme(get_scheme("forward_euler")) == (
         "\nvoid forward_euler(const double *__restrict states, const double t, const double dt,"
         "\n                   const double *__restrict parameters, double *values)"
         "\n{"
@@ -161,7 +162,7 @@ def test_c_codegen_forward_euler(codegen: CCodeGenerator):
 
 
 def test_c_codegen_forward_generalized_rush_larsen(codegen: CCodeGenerator):
-    assert codegen.scheme("forward_generalized_rush_larsen") == (
+    assert codegen.scheme(get_scheme("forward_generalized_rush_larsen")) == (
         "\nvoid forward_generalized_rush_larsen(const double *__restrict states, const double t, const double dt,"
         "\n                                     const double *__restrict parameters, double *values)"
         "\n{"
@@ -258,7 +259,7 @@ def test_c_remove_unused_rhs(ode_unused):
 
 def test_c_remove_unused_forward_explicit_euler(ode_unused):
     codegen_orig = CCodeGenerator(ode_unused)
-    assert codegen_orig.scheme("forward_euler") == (
+    assert codegen_orig.scheme(get_scheme("forward_euler")) == (
         "\nvoid forward_euler(const double *__restrict states, const double t, const double dt,"
         "\n                   const double *__restrict parameters, double *values)"
         "\n{"
@@ -290,7 +291,7 @@ def test_c_remove_unused_forward_explicit_euler(ode_unused):
         "\n"
     )
     codegen_remove = CCodeGenerator(ode_unused, remove_unused=True)
-    assert codegen_remove.scheme("forward_euler") == (
+    assert codegen_remove.scheme(get_scheme("forward_euler")) == (
         "\nvoid forward_euler(const double *__restrict states, const double t, const double dt,"
         "\n                   const double *__restrict parameters, double *values)"
         "\n{"
@@ -322,7 +323,7 @@ def test_c_remove_unused_forward_explicit_euler(ode_unused):
 
 def test_c_remove_unused_forward_generalized_rush_larsen(ode_unused):
     codegen_orig = CCodeGenerator(ode_unused)
-    assert codegen_orig.scheme("forward_generalized_rush_larsen") == (
+    assert codegen_orig.scheme(get_scheme("forward_generalized_rush_larsen")) == (
         "\nvoid forward_generalized_rush_larsen(const double *__restrict states, const double t, const double dt,"
         "\n                                     const double *__restrict parameters, double *values)"
         "\n{"
@@ -360,7 +361,7 @@ def test_c_remove_unused_forward_generalized_rush_larsen(ode_unused):
         "\n"
     )
     codegen_remove = CCodeGenerator(ode_unused, remove_unused=True)
-    assert codegen_remove.scheme("forward_generalized_rush_larsen") == (
+    assert codegen_remove.scheme(get_scheme("forward_generalized_rush_larsen")) == (
         "\nvoid forward_generalized_rush_larsen(const double *__restrict states, const double t, const double dt,"
         "\n                                     const double *__restrict parameters, double *values)"
         "\n{"

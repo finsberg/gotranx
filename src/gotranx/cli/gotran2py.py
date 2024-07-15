@@ -1,24 +1,34 @@
 from __future__ import annotations
 from pathlib import Path
 import logging
+import enum
 import structlog
 
-from ..codegen.python import PythonCodeGenerator
 from ..codegen.jax import JaxCodeGenerator
+from ..codegen.python import PythonCodeGenerator, get_formatter, Format
 from ..load import load_ode
 from ..schemes import Scheme
 from ..ode import ODE
 
+from .utils import add_schemes
+
 logger = structlog.get_logger()
+
+
+class Backend(str, enum.Enum):
+    numpy = "numpy"
+    jax = "jax"
 
 
 def get_code(
     ode: ODE,
     scheme: list[Scheme] | None = None,
-    apply_black: bool = True,
+    format: Format = Format.black,
     remove_unused: bool = False,
     missing_values: dict[str, int] | None = None,
-    jax: bool = False,
+    delta: float = 1e-8,
+    stiff_states: list[str] | None = None,
+    backend: Backend = Backend.numpy,
 ) -> str:
     """Generate the Python code for the ODE
 
@@ -28,33 +38,39 @@ def get_code(
         The ODE
     scheme : list[Scheme] | None, optional
         Optional numerical scheme, by default None
-    apply_black : bool, optional
-        Apply black formatter, by default True
+    format : gotranx.codegen.python.Format, optional
+        The formatter, by default gotranx.codegen.python.Format.black
     remove_unused : bool, optional
         Remove unused variables, by default False
     missing_values : dict[str, int] | None, optional
         Missing values, by default None
-    jax : bool, optional
-        Use JAX, by default False
+    delta : float, optional
+        Delta value for the rush larsen schemes, by default 1e-8
+    stiff_states : list[str] | None, optional
+        Stiff states, by default None. Only applicable for
+        the hybrid rush larsen scheme
+    backend : Backend, optional
+        The backend, by default Backend.numpy
+
 
     Returns
     -------
     str
         The Python code
     """
-    if not jax:
-        codegen = PythonCodeGenerator(
-            ode,
-            apply_black=apply_black,
-            remove_unused=remove_unused,
-        )
+    if backend == Backend.numpy:
+        CodeGenerator = PythonCodeGenerator
+    elif backend == Backend.jax:
+        CodeGenerator = JaxCodeGenerator
     else:
-        codegen = JaxCodeGenerator(
-            ode,
-            apply_black=apply_black,
-            remove_unused=remove_unused,
-        )
+        raise ValueError(f"Unknown backend {backend}")
 
+    codegen = CodeGenerator(
+        ode,
+        format=Format.none,
+        remove_unused=remove_unused,
+    )
+    formatter = get_formatter(format=format)
     if missing_values is not None:
         _missing_values = codegen.missing_values(missing_values)
     else:
@@ -71,24 +87,32 @@ def get_code(
         codegen.rhs(),
         codegen.monitor_values(),
         _missing_values,
-    ]
+    ] + add_schemes(
+        codegen,
+        scheme=scheme,
+        delta=delta,
+        stiff_states=stiff_states,
+    )
+    code = codegen._format("\n".join(comp))
 
-    if scheme is not None:
-        for s in scheme:
-            comp.append(codegen.scheme(s.value))
-
-    return codegen._format("\n".join(comp))
+    if format != Format.none:
+        # Run the formatter only once
+        logger.debug("Applying formatter", format=format)
+        code = formatter(code)
+    return code
 
 
 def main(
     fname: Path,
-    suffix: str = ".py",
     outname: str | None = None,
-    apply_black: bool = True,
+    format: Format = Format.black,
     scheme: list[Scheme] | None = None,
     remove_unused: bool = False,
     verbose: bool = True,
-    jax: bool = False,
+    stiff_states: list[str] | None = None,
+    delta: float = 1e-8,
+    suffix: str = ".py",
+    backend: Backend = Backend.numpy,
 ) -> None:
     loglevel = logging.DEBUG if verbose else logging.INFO
     structlog.configure(
@@ -99,9 +123,11 @@ def main(
     code = get_code(
         ode,
         scheme=scheme,
-        apply_black=apply_black,
+        format=format,
         remove_unused=remove_unused,
-        jax=jax,
+        stiff_states=stiff_states,
+        delta=delta,
+        backend=backend,
     )
     out = fname if outname is None else Path(outname)
     out_name = out.with_suffix(suffix=suffix)

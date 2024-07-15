@@ -15,7 +15,7 @@ ode = gotranx.load_ode("ORdmm_Land.ode")
 # Now we can generate code in python using the `cli` subpackage and the `gotran2py` module`. We will also generate code for the generalized rush larsen scheme
 
 code = gotranx.cli.gotran2py.get_code(
-    ode, scheme=[gotranx.schemes.Scheme.forward_generalized_rush_larsen]
+    ode, scheme=[gotranx.schemes.Scheme.generalized_rush_larsen]
 )
 
 # Now we get back the code as a string. To actually execute this code you can either save it to a python file and import it, or you can execute it directly into some namespace (e.g a dictionary). Let's do the latter
@@ -39,7 +39,7 @@ Ca_index = model["state_index"]("cai")
 # Get the index of the active tension from the land model
 Ta_index = model["monitor_index"]("Ta")
 Istim_index = model["monitor_index"]("Istim")
-fgr = model["forward_generalized_rush_larsen"]
+fgr = model["generalized_rush_larsen"]
 mon = model["monitor_values"]
 
 # Let us simulate the model

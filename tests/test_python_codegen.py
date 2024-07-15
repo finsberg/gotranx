@@ -2,6 +2,7 @@ import sys
 from unittest import mock
 
 import pytest
+from gotranx.schemes import get_scheme
 from gotranx.codegen import PythonCodeGenerator
 from gotranx.codegen import RHSArgument
 from gotranx.ode import make_ode
@@ -35,12 +36,12 @@ def codegen(ode) -> PythonCodeGenerator:
 
 
 @pytest.fixture(scope="module")
-def codegen_no_black(ode) -> PythonCodeGenerator:
-    with mock.patch.dict(sys.modules, {"black": None}):
+def codegen_no_formatter(ode) -> PythonCodeGenerator:
+    with mock.patch.dict(sys.modules, {"black": None, "ruff": None}):
         return PythonCodeGenerator(ode)
 
 
-def test_python_codegen_state_index_no_black(codegen: PythonCodeGenerator):
+def test_python_codegen_state_index_no_formatter(codegen: PythonCodeGenerator):
     assert codegen.state_index() == (
         'state = {"x": 0, "z": 1, "y": 2}'
         "\n"
@@ -85,8 +86,8 @@ def test_python_codegen_initial_state_values(codegen: PythonCodeGenerator):
     )
 
 
-def test_python_codegen_parameter_index_no_black(codegen_no_black: PythonCodeGenerator):
-    assert codegen_no_black.parameter_index() == (
+def test_python_codegen_parameter_index_no_formatter(codegen_no_formatter: PythonCodeGenerator):
+    assert codegen_no_formatter.parameter_index() == (
         "\nparameter = {'a': 0, 'beta': 1, 'rho': 2, 'sigma': 3}"
         "\n"
         "\n"
@@ -213,7 +214,7 @@ def test_python_codegen_rhs(order: str, arguments: str, codegen: PythonCodeGener
 
 
 def test_python_codegen_forward_explicit_euler(codegen: PythonCodeGenerator):
-    assert codegen.scheme("forward_explicit_euler") == (
+    assert codegen.scheme(get_scheme("forward_explicit_euler")) == (
         "def forward_explicit_euler(states, t, dt, parameters):"
         "\n"
         "\n    # Assign states"
@@ -245,7 +246,7 @@ def test_python_codegen_forward_explicit_euler(codegen: PythonCodeGenerator):
 
 
 def test_python_codegen_forward_generalized_rush_larsen(codegen: PythonCodeGenerator):
-    assert codegen.scheme("forward_generalized_rush_larsen") == (
+    assert codegen.scheme(get_scheme("forward_generalized_rush_larsen")) == (
         "def forward_generalized_rush_larsen(states, t, dt, parameters):"
         "\n"
         "\n    # Assign states"
@@ -414,7 +415,7 @@ def test_python_remove_unused_rhs(ode_unused):
 
 def test_python_remove_unused_forward_explicit_euler(ode_unused):
     codegen_orig = PythonCodeGenerator(ode_unused)
-    assert codegen_orig.scheme("forward_explicit_euler") == (
+    assert codegen_orig.scheme(get_scheme("forward_explicit_euler")) == (
         "def forward_explicit_euler(states, t, dt, parameters):"
         "\n"
         "\n    # Assign states"
@@ -447,7 +448,7 @@ def test_python_remove_unused_forward_explicit_euler(ode_unused):
         "\n"
     )
     codegen_remove = PythonCodeGenerator(ode_unused, remove_unused=True)
-    assert codegen_remove.scheme("forward_explicit_euler") == (
+    assert codegen_remove.scheme(get_scheme("forward_explicit_euler")) == (
         "def forward_explicit_euler(states, t, dt, parameters):"
         "\n"
         "\n    # Assign states"
@@ -480,7 +481,7 @@ def test_python_remove_unused_forward_explicit_euler(ode_unused):
 
 def test_python_remove_unused_forward_generalized_rush_larsen(ode_unused):
     codegen_orig = PythonCodeGenerator(ode_unused)
-    assert codegen_orig.scheme("forward_generalized_rush_larsen") == (
+    assert codegen_orig.scheme(get_scheme("forward_generalized_rush_larsen")) == (
         "def forward_generalized_rush_larsen(states, t, dt, parameters):"
         "\n"
         "\n    # Assign states"
@@ -528,7 +529,7 @@ def test_python_remove_unused_forward_generalized_rush_larsen(ode_unused):
         "\n"
     )
     codegen_remove = PythonCodeGenerator(ode_unused, remove_unused=True)
-    assert codegen_remove.scheme("forward_generalized_rush_larsen") == (
+    assert codegen_remove.scheme(get_scheme("forward_generalized_rush_larsen")) == (
         "def forward_generalized_rush_larsen(states, t, dt, parameters):"
         "\n"
         "\n    # Assign states"

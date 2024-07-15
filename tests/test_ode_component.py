@@ -114,7 +114,7 @@ def test_component_intermediates(parser, trans):
                 tree=lark.Tree("scientific", [lark.Token("SCIENTIFIC_NUMBER", "0")]),
             ),
             components=("",),
-            state=atoms.State(name="a", value=2.0, components=("",)),
+            state=atoms.State(name="a", value=2, components=("",)),
         ),
         atoms.StateDerivative(
             name="db_dt",
@@ -128,7 +128,7 @@ def test_component_intermediates(parser, trans):
                 ),
             ),
             components=("",),
-            state=atoms.State(name="b", value=3.0, components=("",)),
+            state=atoms.State(name="b", value=3, components=("",)),
         ),
     }
 
