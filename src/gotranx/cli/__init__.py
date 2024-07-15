@@ -107,7 +107,7 @@ def convert(
     ] = None,
     stiff_states: Annotated[
         typing.Optional[typing.List[str]],
-        typer.Option(help="Stiff states for the hybrid rush larsen scheme"),
+        typer.Option("-s", "--stiff-states", help="Stiff states for the hybrid rush larsen scheme"),
     ] = None,
     delta: float = typer.Option(
         1e-8,
@@ -267,16 +267,18 @@ def ode2py(
     ] = [],
     stiff_states: Annotated[
         typing.List[str],
-        typer.Option(help="Stiff states for the hybrid rush larsen scheme"),
+        typer.Option("-s", "--stiff-states", help="Stiff states for the hybrid rush larsen scheme"),
     ] = [],
     delta: float = typer.Option(
         1e-8,
         help="Delta value for the rush larsen schemes",
     ),
-    format: Annotated[
-        PythonFormat,
-        typer.Option(help="Formatter for the output code"),
-    ] = PythonFormat.black,
+    format: PythonFormat = typer.Option(
+        PythonFormat.black,
+        "--format",
+        "-f",
+        help="Formatter for the output code",
+    ),
 ):
     if fname is None:
         return typer.echo("No file specified")
@@ -287,7 +289,7 @@ def ode2py(
     stiff_states = config_data.get("stiff_states", stiff_states)
     scheme = config_data.get("scheme", scheme)
     scheme = utils.validate_scheme(scheme)
-    format = PythonFormat[config_data.get("format", {}).get("python", format)]
+    format = PythonFormat(config_data.get("format", {}).get("python", format))
 
     gotran2py.main(
         fname=fname,
@@ -313,7 +315,6 @@ def ode2c(
         resolve_path=True,
     ),
     to: str = typer.Option(
-        "",
         "--to",
         help="Generate code to another programming language",
     ),
@@ -360,7 +361,7 @@ def ode2c(
     ] = [],
     stiff_states: Annotated[
         typing.List[str],
-        typer.Option(help="Stiff states for the hybrid rush larsen scheme"),
+        typer.Option("-s", "--stiff-states", help="Stiff states for the hybrid rush larsen scheme"),
     ] = [],
     delta: float = typer.Option(
         1e-8,
@@ -382,7 +383,7 @@ def ode2c(
     stiff_states = config_data.get("stiff_states", stiff_states)
     scheme = config_data.get("scheme", scheme)
     scheme = utils.validate_scheme(scheme)
-    format = CFormat[config_data.get("format", {}).get("c", format)]
+    format = CFormat(config_data.get("format", {}).get("c", format))
 
     gotran2c.main(
         fname=fname,

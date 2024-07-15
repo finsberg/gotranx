@@ -130,3 +130,54 @@ def test_cellml2ode():
     ode = gotranx.load_ode(out_odefile)
     assert ode is not None
     out_odefile.unlink()
+
+
+def test_gotran2py(odefile, all_schemes):
+    outfile = odefile.with_suffix(".py")
+
+    stiff_states = ["-s", "x", "-s", "y", "-s", "w"]
+
+    result = runner.invoke(
+        gotranx.cli.app, ["ode2py", str(odefile), "-o", str(outfile)] + all_schemes + stiff_states
+    )
+    assert result.exit_code == 0
+    assert "lorentz.py" in result.stdout
+    assert "lorentz" in result.stdout
+    assert outfile.is_file()
+
+    code = outfile.read_text()
+    for scheme in gotranx.schemes.Scheme:
+        assert scheme.value in code
+    assert "rhs" in code
+    assert "init_state_values" in code
+    assert "init_parameter_values" in code
+    assert "monitor_index" in code
+    assert "state_index" in code
+    assert "parameter_index" in code
+
+    outfile.unlink()
+
+
+@pytest.mark.parametrize("suffix", [".h", ".c"])
+def test_gotran2c(suffix, odefile, all_schemes):
+    outfile = odefile.with_suffix(suffix)
+    result = runner.invoke(
+        gotranx.cli.app, ["ode2c", str(odefile), "--to", suffix, "-o", str(outfile)] + all_schemes
+    )
+    assert result.exit_code == 0
+
+    assert f"lorentz{suffix}" in result.stdout
+    assert "lorentz" in result.stdout
+    assert outfile.is_file()
+
+    code = outfile.read_text()
+    for scheme in gotranx.schemes.Scheme:
+        assert scheme.value in code
+    assert "rhs" in code
+    assert "init_state_values" in code
+    assert "init_parameter_values" in code
+    assert "monitor_index" in code
+    assert "state_index" in code
+    assert "parameter_index" in code
+
+    outfile.with_suffix(suffix).unlink()
