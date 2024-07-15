@@ -3,7 +3,7 @@ from pathlib import Path
 import logging
 import structlog
 
-from ..codegen.c import CCodeGenerator, Format
+from ..codegen.c import CCodeGenerator, Format, get_formatter
 from ..load import load_ode
 from ..schemes import Scheme
 from ..ode import ODE
@@ -47,7 +47,8 @@ def get_code(
     str
         The C code
     """
-    codegen = CCodeGenerator(ode, remove_unused=remove_unused, format=format)
+    codegen = CCodeGenerator(ode, remove_unused=remove_unused, format=Format.none)
+    formatter = get_formatter(format=format)
 
     if missing_values is not None:
         _missing_values = codegen.missing_values(missing_values)
@@ -75,7 +76,13 @@ def get_code(
         stiff_states=stiff_states,
     )
 
-    return codegen._format("\n".join(comp))
+    code = codegen._format("\n".join(comp))
+
+    if format != Format.none:
+        logger.debug("Applying formatter", format=format)
+        code = formatter(code)
+
+    return code
 
 
 def main(

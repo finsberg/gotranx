@@ -289,7 +289,8 @@ def ode2py(
     stiff_states = config_data.get("stiff_states", stiff_states)
     scheme = config_data.get("scheme", scheme)
     scheme = utils.validate_scheme(scheme)
-    format = PythonFormat(config_data.get("format", {}).get("python", format))
+    py_config = config_data.get("python", {})
+    format = PythonFormat(py_config.get("format", format))
 
     gotran2py.main(
         fname=fname,
@@ -315,6 +316,7 @@ def ode2c(
         resolve_path=True,
     ),
     to: str = typer.Option(
+        ".h",
         "--to",
         help="Generate code to another programming language",
     ),
@@ -383,7 +385,9 @@ def ode2c(
     stiff_states = config_data.get("stiff_states", stiff_states)
     scheme = config_data.get("scheme", scheme)
     scheme = utils.validate_scheme(scheme)
-    format = CFormat(config_data.get("format", {}).get("c", format))
+    c_config = config_data.get("c", {})
+    to = c_config.get("to", to)
+    format = CFormat(c_config.get("format", format))
 
     gotran2c.main(
         fname=fname,

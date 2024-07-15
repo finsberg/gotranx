@@ -1,3 +1,4 @@
+from textwrap import dedent
 import gotranx
 import pytest
 from pathlib import Path
@@ -5,6 +6,30 @@ from typer.testing import CliRunner
 
 here = Path(__file__).parent.absolute()
 runner = CliRunner(mix_stderr=False)
+
+
+@pytest.fixture(scope="session")
+def config_file(tmp_path_factory):
+    text = dedent(
+        """
+        [tool.gotranx]
+        scheme = ["hybrid_rush_larsen"]
+        stiff_states = ["x", "y"]
+        verbose = true
+        delta = 1e-3
+
+        [tool.gotranx.python]
+        format = "ruff"
+
+        [tool.gotranx.c]
+        format = "none"
+        to = ".c"
+        """
+    )
+    fname = tmp_path_factory.mktemp("data") / "pyproject.toml"
+    fname.write_text(text)
+    yield fname
+    fname.unlink()
 
 
 @pytest.fixture(scope="module")
@@ -132,17 +157,25 @@ def test_cellml2ode():
     out_odefile.unlink()
 
 
-def test_gotran2py(odefile, all_schemes):
+@pytest.mark.parametrize("format", gotranx.codegen.PythonFormat)
+def test_gotran2py(format, odefile, all_schemes):
     outfile = odefile.with_suffix(".py")
 
     stiff_states = ["-s", "x", "-s", "y", "-s", "w"]
 
     result = runner.invoke(
-        gotranx.cli.app, ["ode2py", str(odefile), "-o", str(outfile)] + all_schemes + stiff_states
+        gotranx.cli.app,
+        ["ode2py", str(odefile), "-v", "-o", str(outfile), "-f", format.value]
+        + all_schemes
+        + stiff_states,
     )
     assert result.exit_code == 0
     assert "lorentz.py" in result.stdout
     assert "lorentz" in result.stdout
+    if format != gotranx.codegen.PythonFormat.none:
+        assert "Applying formatter" in result.stdout
+        assert format.value in result.stdout
+
     assert outfile.is_file()
 
     code = outfile.read_text()
@@ -158,11 +191,14 @@ def test_gotran2py(odefile, all_schemes):
     outfile.unlink()
 
 
+@pytest.mark.parametrize("format", gotranx.codegen.CFormat)
 @pytest.mark.parametrize("suffix", [".h", ".c"])
-def test_gotran2c(suffix, odefile, all_schemes):
+def test_gotran2c(format, suffix, odefile, all_schemes):
     outfile = odefile.with_suffix(suffix)
     result = runner.invoke(
-        gotranx.cli.app, ["ode2c", str(odefile), "--to", suffix, "-o", str(outfile)] + all_schemes
+        gotranx.cli.app,
+        ["ode2c", str(odefile), "-v", "--to", suffix, "-f", format.value, "-o", str(outfile)]
+        + all_schemes,
     )
     assert result.exit_code == 0
 
@@ -181,3 +217,37 @@ def test_gotran2c(suffix, odefile, all_schemes):
     assert "parameter_index" in code
 
     outfile.with_suffix(suffix).unlink()
+
+
+def test_ode2py_config_file(odefile, config_file):
+    outfile = odefile.with_suffix(".py")
+    result = runner.invoke(
+        gotranx.cli.app,
+        ["ode2py", str(odefile), "-c", str(config_file), "-o", str(outfile)],
+    )
+    assert result.exit_code == 0
+    assert "lorentz.py" in result.stdout
+    assert "lorentz" in result.stdout
+    assert "stiff_states=['x', 'y']" in result.stdout
+    assert "Applying formatter" in result.stdout
+    assert "ruff" in result.stdout
+    assert outfile.is_file()
+    code = outfile.read_text()
+    assert "hybrid_rush_larsen" in code
+    outfile.unlink()
+
+
+def test_ode2c_config_file(odefile, config_file):
+    outfile = odefile.with_suffix(".c")
+    result = runner.invoke(
+        gotranx.cli.app,
+        ["ode2c", str(odefile), "-c", str(config_file), "-o", str(outfile)],
+    )
+    assert result.exit_code == 0
+    assert "lorentz.c" in result.stdout
+    assert "lorentz" in result.stdout
+    assert "stiff_states=['x', 'y']" in result.stdout
+    assert outfile.is_file()
+    code = outfile.read_text()
+    assert "hybrid_rush_larsen" in code
+    outfile.unlink()

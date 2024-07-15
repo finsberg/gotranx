@@ -215,9 +215,9 @@ def hybrid_rush_larsen(
         A list of equations as strings
 
     """
-    logger.debug("Generating hybrid Rush-Larsen scheme")
     if stiff_states is None:
         stiff_states = []
+    logger.debug("Generating hybrid Rush-Larsen scheme", stiff_states=stiff_states)
     stiff_states_set = set(stiff_states) or set()
     found_stiff_states_set = set()
     eqs = []

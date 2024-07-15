@@ -1,5 +1,7 @@
 from __future__ import annotations
 import enum
+import typing
+import structlog
 from sympy.printing.c import C99CodePrinter
 from sympy.codegen.ast import Assignment
 import sympy
@@ -8,10 +10,27 @@ from ..ode import ODE
 from .. import templates
 from .base import CodeGenerator, Func, RHSArgument, SchemeArgument
 
+logger = structlog.get_logger()
+
 
 class Format(str, enum.Enum):
     clang_format = "clang-format"
     none = "none"
+
+
+def get_formatter(format: Format) -> typing.Callable[[str], str]:
+    if format == Format.none:
+        return lambda x: x
+    elif format == Format.clang_format:
+        try:
+            import clang_format_docs
+        except ImportError:
+            logger.warning("Cannot apply clang-format, please install 'clang-format-docs'")
+            return lambda x: x
+        else:
+            return clang_format_docs.clang_format_str
+    else:
+        raise ValueError(f"Unknown format: {format}")
 
 
 def bool_to_int(expr: str) -> str:
@@ -62,18 +81,7 @@ class CCodeGenerator(CodeGenerator):
     ) -> None:
         super().__init__(ode, remove_unused=remove_unused)
         self._printer = GotranCCodePrinter()
-
-        if format == Format.clang_format:
-            try:
-                import clang_format_docs
-            except ImportError:
-                print("Cannot apply clang-format, please install 'clang-format-docs'")
-            else:
-                setattr(self, "_formatter", clang_format_docs.clang_format_str)
-        elif format == Format.none:
-            setattr(self, "_formatter", lambda x: x)
-        else:
-            raise ValueError(f"Unknown format {format}")
+        setattr(self, "_formatter", get_formatter(format=format))
 
     @property
     def printer(self):

@@ -149,8 +149,7 @@ class PythonCodeGenerator(CodeGenerator):
 
         self._printer = GotranPythonCodePrinter()
 
-        if format:
-            setattr(self, "_formatter", get_formatter(format=format))
+        setattr(self, "_formatter", get_formatter(format=format))
 
     @property
     def printer(self):

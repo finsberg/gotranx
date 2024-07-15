@@ -79,6 +79,7 @@ def get_code(
 
     if format != Format.none:
         # Run the formatter only once
+        logger.debug("Applying formatter", format=format)
         code = formatter(code)
     return code
 
