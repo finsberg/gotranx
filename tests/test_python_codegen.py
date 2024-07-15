@@ -36,12 +36,12 @@ def codegen(ode) -> PythonCodeGenerator:
 
 
 @pytest.fixture(scope="module")
-def codegen_no_black(ode) -> PythonCodeGenerator:
-    with mock.patch.dict(sys.modules, {"black": None}):
+def codegen_no_formatter(ode) -> PythonCodeGenerator:
+    with mock.patch.dict(sys.modules, {"black": None, "ruff": None}):
         return PythonCodeGenerator(ode)
 
 
-def test_python_codegen_state_index_no_black(codegen: PythonCodeGenerator):
+def test_python_codegen_state_index_no_formatter(codegen: PythonCodeGenerator):
     assert codegen.state_index() == (
         'state = {"x": 0, "z": 1, "y": 2}'
         "\n"
@@ -86,8 +86,8 @@ def test_python_codegen_initial_state_values(codegen: PythonCodeGenerator):
     )
 
 
-def test_python_codegen_parameter_index_no_black(codegen_no_black: PythonCodeGenerator):
-    assert codegen_no_black.parameter_index() == (
+def test_python_codegen_parameter_index_no_formatter(codegen_no_formatter: PythonCodeGenerator):
+    assert codegen_no_formatter.parameter_index() == (
         "\nparameter = {'a': 0, 'beta': 1, 'rho': 2, 'sigma': 3}"
         "\n"
         "\n"

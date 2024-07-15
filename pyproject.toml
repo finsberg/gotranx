@@ -30,6 +30,7 @@ dependencies = [
     "sympy",
     "typer",
     "myokit",
+    "toml; python_version < '3.11'",
     'graphlib-backport;python_version < "3.9"',
     'typing_extensions;python_version < "3.9"',
 ]
@@ -69,6 +70,7 @@ benchmark = [
 [project.scripts]
 gotranx = "gotranx.cli:app"
 
+
 [tool.setuptools]
 include-package-data = true
 package-dir = {"" = "src"}
@@ -87,8 +89,6 @@ test = "pytest"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
-[tool.isort]
-profile = "black"
 
 [tool.mypy]
 files = ["src/gotranx", "tests"]

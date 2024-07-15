@@ -3,7 +3,7 @@ from pathlib import Path
 import logging
 import structlog
 
-from ..codegen.python import PythonCodeGenerator
+from ..codegen.python import PythonCodeGenerator, get_formatter, Format
 from ..load import load_ode
 from ..schemes import Scheme
 from ..ode import ODE
@@ -16,7 +16,7 @@ logger = structlog.get_logger()
 def get_code(
     ode: ODE,
     scheme: list[Scheme] | None = None,
-    apply_black: bool = True,
+    format: Format = Format.black,
     remove_unused: bool = False,
     missing_values: dict[str, int] | None = None,
     delta: float = 1e-8,
@@ -30,8 +30,8 @@ def get_code(
         The ODE
     scheme : list[Scheme] | None, optional
         Optional numerical scheme, by default None
-    apply_black : bool, optional
-        Apply black formatter, by default True
+    format : gotranx.codegen.python.Format, optional
+        The formatter, by default gotranx.codegen.python.Format.black
     remove_unused : bool, optional
         Remove unused variables, by default False
     missing_values : dict[str, int] | None, optional
@@ -49,9 +49,10 @@ def get_code(
     """
     codegen = PythonCodeGenerator(
         ode,
-        apply_black=apply_black,
+        format=Format.none,
         remove_unused=remove_unused,
     )
+    formatter = get_formatter(format=format)
     if missing_values is not None:
         _missing_values = codegen.missing_values(missing_values)
     else:
@@ -74,19 +75,25 @@ def get_code(
         delta=delta,
         stiff_states=stiff_states,
     )
-    return codegen._format("\n".join(comp))
+    code = codegen._format("\n".join(comp))
+
+    if format != Format.none:
+        # Run the formatter only once
+        logger.debug("Applying formatter", format=format)
+        code = formatter(code)
+    return code
 
 
 def main(
     fname: Path,
-    suffix: str = ".py",
     outname: str | None = None,
-    apply_black: bool = True,
+    format: Format = Format.black,
     scheme: list[Scheme] | None = None,
     remove_unused: bool = False,
     verbose: bool = True,
     stiff_states: list[str] | None = None,
     delta: float = 1e-8,
+    suffix: str = ".py",
 ) -> None:
     loglevel = logging.DEBUG if verbose else logging.INFO
     structlog.configure(
@@ -97,8 +104,9 @@ def main(
     code = get_code(
         ode,
         scheme=scheme,
-        apply_black=apply_black,
+        format=format,
         remove_unused=remove_unused,
+        stiff_states=stiff_states,
         delta=delta,
     )
     out = fname if outname is None else Path(outname)

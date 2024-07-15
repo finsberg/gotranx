@@ -13,6 +13,7 @@ parts:
     chapters:
     - file: "examples/new-language/main.py"
     - file: "docs/new_scheme"
+    - file: "docs/config"
     - file: "examples/split-ode/main.py"
     - file: "examples/compile-c-extension/main.py"
     - file: "docs/vectorized_computations"

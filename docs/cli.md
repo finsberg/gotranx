@@ -30,7 +30,7 @@ The `cellml` format is a format similar to XML.
 
 We will now convert the `.cellml` file to a `.ode` file using the following command
 ```{code-cell} shell
-!python3 -m gotranx convert noble_1962.cellml --to .ode
+!python3 -m gotranx cellml2ode noble_1962.cellml
 ```
 This `cellml` converter is actually based on a different project called [`myokit`](https://github.com/myokit/myokit). `gotranx` allows for converting to and from `myokit` models and `myokit` allows for conversion to and from `cellml`.
 
@@ -51,25 +51,25 @@ Now that we have a `.ode` file we can use this to generate source code in python
 `````{tab-set}
 ````{tab-item} Python
 ```shell
-python3 -m gotranx convert noble_1962.ode --to .py
+python3 -m gotranx ode2py noble_1962.ode
 ```
 ````
 
 ````{tab-item} C
 Either to at `.c` file
 ```shell
-python3 -m gotranx convert noble_1962.ode --to .c
+python3 -m gotranx ode2py noble_1962.ode --to .c
 ```
 or to a `.h` file
 ```shell
-python3 -m gotranx convert noble_1962.ode --to .h
+python3 -m gotranx ode2py noble_1962.ode --to .h
 ```
 ````
 `````
 
 Let us generate some code in python
 ```{code-cell} shell
-!python3 -m gotranx convert noble_1962.ode --to .py
+!python3 -m gotranx ode2py noble_1962.ode
 ```
 
 Now let us take a look at the generated code
@@ -134,13 +134,13 @@ In the example above we only generated the right hand side (function `rhs`) whic
 
 We can generate this scheme using the following command
 ```{code-cell} shell
-!python3 -m gotranx convert noble_1962.ode --to .py --scheme forward_generalized_rush_larsen -o noble_1962_grl.py
+!python3 -m gotranx ode2py noble_1962.ode --scheme generalized_rush_larsen -o noble_1962_grl.py
 ```
 Here we also specify that the code should be saved to a new file called `noble_1962_grl.py` (just to not conflict with the existing file)
 
 The file `noble_1962_grl.py` will now also contain the function
 ```python
-def forward_generalized_rush_larsen(states, t, dt, parameters): ...
+def generalized_rush_larsen(states, t, dt, parameters): ...
 ```
 
 and we can now solve the problem with the following program
@@ -159,7 +159,7 @@ V_index = model.state_index("V")
 V = [y[V_index]]
 
 for ti in t[1:]:
-    y = model.forward_generalized_rush_larsen(y, ti, dt, p)
+    y = model.generalized_rush_larsen(y, ti, dt, p)
     V.append(y[V_index])
 
 plt.plot(t, V)

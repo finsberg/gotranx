@@ -215,8 +215,11 @@ def hybrid_rush_larsen(
         A list of equations as strings
 
     """
-    logger.debug("Generating hybrid Rush-Larsen scheme")
-    stiff_states = stiff_states or []
+    if stiff_states is None:
+        stiff_states = []
+    logger.debug("Generating hybrid Rush-Larsen scheme", stiff_states=stiff_states)
+    stiff_states_set = set(stiff_states) or set()
+    found_stiff_states_set = set()
     eqs = []
     values = sympy.IndexedBase(name, shape=(len(ode.state_derivatives),))
     i = 0
@@ -227,8 +230,7 @@ def hybrid_rush_larsen(
             continue
 
         expr_diff = x.expr.diff(x.state.symbol)
-        state_is_stiff = x.state.name in stiff_states
-        # breakpoint()
+        state_is_stiff = x.state.name in stiff_states_set
 
         if not state_is_stiff or expr_diff.is_zero:
             # Use forward Euler
@@ -241,6 +243,8 @@ def hybrid_rush_larsen(
             i += 1
             continue
 
+        found_stiff_states_set.add(x.state.name)
+        logger.debug(f"State {x.state.name} is stiff")
         linearized_name = x.name + "_linearized"
         linearized = sympy.Symbol(linearized_name)
         eqs.append(printer(linearized, expr_diff, use_variable_prefix=True))
@@ -263,6 +267,10 @@ def hybrid_rush_larsen(
             )
         )
         i += 1
+    logger.debug(
+        "The following states where marked as stiff but not found in the ODE:",
+        extra=stiff_states_set.difference(found_stiff_states_set),
+    )
     return eqs
 
 
