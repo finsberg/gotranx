@@ -3,8 +3,8 @@ from . import c
 from . import python
 from . import ode
 
-from .c import CCodeGenerator, GotranCCodePrinter, Format as CFormatter
-from .python import PythonCodeGenerator, GotranPythonCodePrinter, Format as PythonFormatter
+from .c import CCodeGenerator, GotranCCodePrinter, Format as CFormat
+from .python import PythonCodeGenerator, GotranPythonCodePrinter, Format as PythonFormat
 from .base import CodeGenerator, Func, RHSArgument, SchemeArgument
 from .ode import GotranODECodePrinter, BaseGotranODECodePrinter
 
@@ -23,6 +23,6 @@ __all__ = [
     "GotranODECodePrinter",
     "BaseGotranODECodePrinter",
     "GotranCCodePrinter",
-    "CFormatter",
-    "PythonFormatter",
+    "CFormat",
+    "PythonFormat",
 ]

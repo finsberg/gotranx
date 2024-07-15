@@ -10,9 +10,9 @@ except ImportError:
 import typer
 
 from ..schemes import Scheme
-from ..codegen import PythonFormatter, CFormatter
+from ..codegen import PythonFormat, CFormat
 from . import gotran2c, gotran2py
-from .utils import read_config
+from . import utils
 
 app = typer.Typer()
 
@@ -205,7 +205,7 @@ def cellml2ode(
     if fname is None:
         return typer.echo("No file specified")
 
-    config_data = read_config(config)
+    config_data = utils.read_config(config)
     verbose = config_data.get("verbose", verbose)
 
     from .cellml2ode import main as _main
@@ -251,6 +251,7 @@ def ode2py(
     ),
     config: typing.Optional[Path] = typer.Option(
         None,
+        "-c",
         "--config",
         help="Read configuration options from a configuration file",
     ),
@@ -261,30 +262,32 @@ def ode2py(
         help="Verbose output",
     ),
     scheme: Annotated[
-        typing.Optional[typing.List[Scheme]],
+        typing.List[Scheme],
         typer.Option(help="Numerical scheme for solving the ODE"),
-    ] = None,
+    ] = [],
     stiff_states: Annotated[
-        typing.Optional[typing.List[str]],
+        typing.List[str],
         typer.Option(help="Stiff states for the hybrid rush larsen scheme"),
-    ] = None,
+    ] = [],
     delta: float = typer.Option(
         1e-8,
         help="Delta value for the rush larsen schemes",
     ),
-    formatter: PythonFormatter = typer.Option(
-        PythonFormatter.black,
-        "--formatter",
-        "-f",
-        help="Formatter for the output code",
-    ),
+    format: Annotated[
+        PythonFormat,
+        typer.Option(help="Formatter for the output code"),
+    ] = PythonFormat.black,
 ):
     if fname is None:
         return typer.echo("No file specified")
 
-    config_data = read_config(config)
+    config_data = utils.read_config(config)
     verbose = config_data.get("verbose", verbose)
-    formatter = config_data.get("formatter", formatter)
+    delta = config_data.get("delta", delta)
+    stiff_states = config_data.get("stiff_states", stiff_states)
+    scheme = config_data.get("scheme", scheme)
+    scheme = utils.validate_scheme(scheme)
+    format = PythonFormat[config_data.get("format", {}).get("python", format)]
 
     gotran2py.main(
         fname=fname,
@@ -294,6 +297,7 @@ def ode2py(
         verbose=verbose,
         stiff_states=stiff_states,
         delta=delta,
+        format=format,
     )
 
 
@@ -340,6 +344,7 @@ def ode2c(
     ),
     config: typing.Optional[Path] = typer.Option(
         None,
+        "-c",
         "--config",
         help="Read configuration options from a configuration file",
     ),
@@ -350,20 +355,20 @@ def ode2c(
         help="Verbose output",
     ),
     scheme: Annotated[
-        typing.Optional[typing.List[Scheme]],
+        typing.List[Scheme],
         typer.Option(help="Numerical scheme for solving the ODE"),
-    ] = None,
+    ] = [],
     stiff_states: Annotated[
-        typing.Optional[typing.List[str]],
+        typing.List[str],
         typer.Option(help="Stiff states for the hybrid rush larsen scheme"),
-    ] = None,
+    ] = [],
     delta: float = typer.Option(
         1e-8,
         help="Delta value for the rush larsen schemes",
     ),
-    formatter: CFormatter = typer.Option(
-        CFormatter.clang_format,
-        "--formatter",
+    format: CFormat = typer.Option(
+        CFormat.clang_format,
+        "--format",
         "-f",
         help="Formatter for the output code",
     ),
@@ -371,7 +376,13 @@ def ode2c(
     if fname is None:
         return typer.echo("No file specified")
 
-    # config_data = read_config(config)
+    config_data = utils.read_config(config)
+    verbose = config_data.get("verbose", verbose)
+    delta = config_data.get("delta", delta)
+    stiff_states = config_data.get("stiff_states", stiff_states)
+    scheme = config_data.get("scheme", scheme)
+    scheme = utils.validate_scheme(scheme)
+    format = CFormat[config_data.get("format", {}).get("c", format)]
 
     gotran2c.main(
         fname=fname,

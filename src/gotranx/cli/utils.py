@@ -67,3 +67,13 @@ def read_config(path: Path | None) -> dict[str, Any]:
         return {}
     else:
         return config.get("tool", {}).get("gotranx", {})
+
+
+def validate_scheme(scheme: list[Scheme] | list[str]) -> list[Scheme]:
+    lst = []
+    for s in scheme:
+        if isinstance(s, str):
+            lst.append(Scheme(s))
+        else:
+            lst.append(s)
+    return lst

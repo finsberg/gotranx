@@ -16,7 +16,7 @@ from .base import CodeGenerator, Func, RHSArgument, SchemeArgument, _print_Piece
 logger = structlog.get_logger()
 
 
-class Format(Enum):
+class Format(str, Enum):
     black = "black"
     ruff = "ruff"
     none = "none"

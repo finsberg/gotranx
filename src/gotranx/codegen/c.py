@@ -9,7 +9,7 @@ from .. import templates
 from .base import CodeGenerator, Func, RHSArgument, SchemeArgument
 
 
-class Format(enum.Enum):
+class Format(str, enum.Enum):
     clang_format = "clang-format"
     none = "none"
 

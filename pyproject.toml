@@ -64,9 +64,7 @@ test = [
 
 [project.scripts]
 gotranx = "gotranx.cli:app"
-ode2py = "gotranx.cli:ode2py"
-ode2c = "gotranx.cli:ode2c"
-cellml2ode = "gotranx.cli:cellml2ode"
+
 
 [tool.setuptools]
 include-package-data = true
@@ -166,15 +164,3 @@ current_version = "1.0.0"
 filename = "pyproject.toml"
 search = 'version = "{current_version}"'
 replace = 'version = "{new_version}"'
-
-[tool.gotranx]
-verbose = true
-delta = 1e-6
-scheme = [
-    "explicit_euler",
-    "generalized_rush_larsen",
-]
-
-[tool.gotranx.formatter]
-c = "clang-format"
-python = "black"
