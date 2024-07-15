@@ -5,7 +5,7 @@ import sympy
 
 from ..ode import ODE
 from .. import templates
-from .base import CodeGenerator, Func, RHSArgument, SchemeArgument
+from .base import CodeGenerator, RHSFunc, SchemeFunc, RHSArgument, SchemeArgument
 
 
 def bool_to_int(expr: str) -> str:
@@ -15,6 +15,7 @@ def bool_to_int(expr: str) -> str:
 class GotranCCodePrinter(C99CodePrinter):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self._settings["allow_unknown_functions"] = True
         self._settings["contract"] = False
 
     def _print_Float(self, flt):
@@ -46,6 +47,9 @@ class GotranCCodePrinter(C99CodePrinter):
             value = bool_to_int(super()._print_Piecewise(expr))
 
         return value
+
+    def _print_IndexedBase(self, expr):
+        return "Hello"
 
 
 class CCodeGenerator(CodeGenerator):
@@ -84,8 +88,10 @@ class CCodeGenerator(CodeGenerator):
         )
 
     def _rhs_arguments(
-        self, order: RHSArgument | str = RHSArgument.stp, const_states: bool = True
-    ) -> Func:
+        self, order: RHSArgument | str | None = None, const_states: bool = True
+    ) -> RHSFunc:
+        if order is None:
+            order = self.order
         value = RHSArgument.get_value(order)
         states_prefix = "const " if const_states else ""
         argument_dict = {
@@ -98,19 +104,20 @@ class CCodeGenerator(CodeGenerator):
         parameters = sympy.IndexedBase("parameters", shape=(self.ode.num_parameters,))
         values = sympy.IndexedBase("values", shape=(self.ode.num_states,))
 
-        return Func(
+        return RHSFunc(
             arguments=argument_list,
             states=states,
             parameters=parameters,
             values=values,
             values_type="",
+            order=RHSArgument[order],
         )
 
     def _scheme_arguments(
         self,
         order: SchemeArgument | str = SchemeArgument.stdp,
         const_states: bool = True,
-    ) -> Func:
+    ) -> SchemeFunc:
         value = SchemeArgument.get_value(order)
         states_prefix = "const " if const_states else ""
         argument_dict = {
@@ -124,10 +131,11 @@ class CCodeGenerator(CodeGenerator):
         parameters = sympy.IndexedBase("parameters", shape=(self.ode.num_parameters,))
         values = sympy.IndexedBase("values", shape=(self.ode.num_states,))
 
-        return Func(
+        return SchemeFunc(
             arguments=argument_list,
             states=states,
             parameters=parameters,
             values=values,
             values_type="",
+            order=SchemeArgument[order],
         )

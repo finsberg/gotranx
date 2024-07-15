@@ -14,14 +14,44 @@ from .. import atoms
 from .. import schemes
 
 
-class Func(typing.NamedTuple):
+class RHSFunc(typing.NamedTuple):
     arguments: list[str]
     states: sympy.IndexedBase
     parameters: sympy.IndexedBase
     values: sympy.IndexedBase
     values_type: str
+    order: RHSArgument
     return_name: str = "values"
     num_return_values: int = 0
+    func: sympy.Function = sympy.Function("rhs")
+    t: sympy.Symbol = sympy.Symbol("t")
+
+    def __call__(
+        self, states: sympy.core.Basic, t: sympy.core.Basic, parameters: sympy.core.Basic
+    ) -> sympy.core.Expr:
+        arg_list = [("s", states), ("t", t), ("p", parameters)]
+        sorted_args = [arg[1] for arg in sorted(arg_list, key=lambda x: self.order.index(x[0]))]
+        return self.func(*sorted_args)
+
+
+class SchemeFunc(typing.NamedTuple):
+    arguments: list[str]
+    states: sympy.IndexedBase
+    parameters: sympy.IndexedBase
+    values: sympy.IndexedBase
+    values_type: str
+    order: SchemeArgument
+    return_name: str = "values"
+    num_return_values: int = 0
+    func: sympy.Function = sympy.Function("rhs")
+    t: sympy.Symbol = sympy.Symbol("t")
+
+    def __call__(
+        self, states: sympy.core.Basic, t: sympy.core.Basic, parameters: sympy.core.Basic
+    ) -> sympy.core.Expr:
+        arg_list = [("states", states), ("t", t), ("parameters", parameters)]
+        sorted_args = [arg[1] for arg in sorted(arg_list, key=lambda x: self.arguments.index(x[0]))]
+        return self.func(*sorted_args)
 
 
 class RHSArgument(str, Enum):
@@ -98,9 +128,11 @@ class CodeGenerator(abc.ABC):
     def __init__(
         self,
         ode: ODE,
+        order: RHSArgument | str = RHSArgument.tsp,
         remove_unused: bool = False,
     ) -> None:
         self.ode = ode
+        self.order = RHSArgument[order]
         self.remove_unused = remove_unused
         self._missing_variables = ode.missing_variables
 
@@ -137,7 +169,12 @@ class CodeGenerator(abc.ABC):
 
         return formatted_code
 
+    def _print_IndexedBase(self, lhs, rhs):
+        raise NotImplementedError
+
     def _doprint(self, lhs, rhs, use_variable_prefix: bool = False) -> str:
+        if isinstance(lhs, sympy.IndexedBase):
+            return self._print_IndexedBase(lhs, rhs)
         if use_variable_prefix:
             return f"{self.variable_prefix}{self.printer.doprint(Assignment(lhs, rhs))}"
         return self.printer.doprint(Assignment(lhs, rhs))
@@ -272,7 +309,7 @@ class CodeGenerator(abc.ABC):
         )
         return "\n".join(lst)
 
-    def rhs(self, order: RHSArgument | str = RHSArgument.tsp, use_cse=False) -> str:
+    def rhs(self, use_cse=False) -> str:
         """Generate code for the right hand side of the ODE
 
         Parameters
@@ -288,7 +325,7 @@ class CodeGenerator(abc.ABC):
             The generated code
         """
 
-        rhs = self._rhs_arguments(order)
+        rhs = self._rhs_arguments(self.order)
         states = self._state_assignments(rhs.states, remove_unused=self.remove_unused)
         parameters = self._parameter_assignments(rhs.parameters)
         missing_variables = self._missing_variables_assignments()
@@ -443,18 +480,31 @@ class CodeGenerator(abc.ABC):
         kwargs : dict
             Additional keyword arguments to be passed to the scheme function
 
+        Notes
+        -----
+        The scheme function should take the following arguments:
+        - ode: gotranx.ode.ODE
+        - dt: sympy.Symbol
+        - name: str
+        - printer: printer_func
+        - remove_unused: bool
+
+        and return a list of equations as strings that can be
+        formatted into a code snippet.
+
         Returns
         -------
         str
             The generated code
         """
 
-        rhs = self._scheme_arguments(order)
-        states = self._state_assignments(rhs.states, remove_unused=False)
-        parameters = self._parameter_assignments(rhs.parameters)
+        scheme = self._scheme_arguments(order)
+        rhs = self._rhs_arguments(self.order)
+        states = self._state_assignments(scheme.states, remove_unused=False)
+        parameters = self._parameter_assignments(scheme.parameters)
         missing_variables = self._missing_variables_assignments()
 
-        arguments = rhs.arguments
+        arguments = scheme.arguments
         if self._missing_variables:
             arguments += ["missing_variables"]
 
@@ -465,6 +515,7 @@ class CodeGenerator(abc.ABC):
             name=rhs.return_name,
             printer=self._doprint,
             remove_unused=self.remove_unused,
+            rhs=rhs,
             **kwargs,
         )
         values = "\n".join(eqs)
@@ -475,10 +526,10 @@ class CodeGenerator(abc.ABC):
             states=states,
             parameters=parameters,
             values=values,
-            return_name=rhs.return_name,
-            num_return_values=rhs.num_return_values,
+            return_name=scheme.return_name,
+            num_return_values=scheme.num_return_values,
             shape_info="",
-            values_type=rhs.values_type,
+            values_type=scheme.values_type,
             missing_variables=missing_variables,
         )
         return self._format(code)
@@ -492,7 +543,7 @@ class CodeGenerator(abc.ABC):
     def template(self) -> templates.Template: ...
 
     @abc.abstractmethod
-    def _rhs_arguments(self, order: RHSArgument | str) -> Func: ...
+    def _rhs_arguments(self, order: RHSArgument | str) -> RHSFunc: ...
 
     @abc.abstractmethod
-    def _scheme_arguments(self, order: SchemeArgument | str) -> Func: ...
+    def _scheme_arguments(self, order: SchemeArgument | str) -> SchemeFunc: ...

@@ -1,6 +1,6 @@
 from __future__ import annotations
-import typing
 from types import CodeType
+import typing
 
 import sympy
 from structlog import get_logger
@@ -9,6 +9,9 @@ from . import atoms
 from .ode import ODE
 from . import sympytools
 from ._enum import DeprecatedEnum
+
+if typing.TYPE_CHECKING:
+    from .codegen.base import RHSFunc
 
 logger = get_logger()
 
@@ -40,6 +43,7 @@ class scheme_func(typing.Protocol):
         self,
         ode: ODE,
         dt: sympy.Symbol,
+        rhs: RHSFunc,
         name: str = "values",
         printer: printer_func = default_printer,
         remove_unused: bool = False,
@@ -117,6 +121,7 @@ def fraction_numerator_is_nonzero(expr):
 def explicit_euler(
     ode: ODE,
     dt: sympy.Symbol,
+    rhs: RHSFunc,
     name: str = "values",
     printer: printer_func = default_printer,
     remove_unused: bool = False,
@@ -269,6 +274,7 @@ def hybrid_rush_larsen(
 def generalized_rush_larsen(
     ode: ODE,
     dt: sympy.Symbol,
+    rhs: RHSFunc,
     name: str = "values",
     printer: printer_func = default_printer,
     remove_unused: bool = False,
