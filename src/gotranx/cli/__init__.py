@@ -9,7 +9,7 @@ except ImportError:
 
 import typer
 
-from ..schemes import Scheme
+from ..schemes import Scheme, get_scheme
 from ..codegen import PythonFormat, CFormat
 from . import gotran2c, gotran2py
 from . import utils
@@ -399,6 +399,37 @@ def ode2c(
         stiff_states=stiff_states,
         delta=delta,
     )
+
+
+@app.command()
+def list_schemes():
+    from rich.console import Console
+    from rich.table import Table
+
+    table = Table(title="Scheme")
+
+    table.add_column("Name", style="cyan", no_wrap=True)
+    table.add_column("Key", style="magenta")
+    table.add_column("Extra args", style="green")
+
+    def get_extra_arg_names(f):
+        import inspect
+
+        args = inspect.signature(f).parameters.keys()
+        return [a for a in args if a not in ["ode", "dt", "name", "printer", "remove_unused"]]
+
+    for scheme in Scheme:
+        if scheme in [Scheme.forward_explicit_euler, Scheme.forward_generalized_rush_larsen]:
+            # These are deprecated
+            continue
+        f = get_scheme(scheme.value)
+        extra_args = str(get_extra_arg_names(f))
+        table.add_row(
+            " ".join(map(str.capitalize, scheme.name.split("_"))), scheme.value, extra_args
+        )
+
+    console = Console()
+    console.print(table)
 
 
 @app.command()

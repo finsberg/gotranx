@@ -61,6 +61,7 @@ ptds
 ptsd
 pycode
 pyplot
+pyproject
 Radau
 Rdmm
 relop
