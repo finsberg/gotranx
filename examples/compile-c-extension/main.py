@@ -1,6 +1,6 @@
 #  # Compiling a C-extension
 #
-# In this demo we will show how to set up a system that takes your `.ode` file, generates C-code, compiles the code just-in-time and imports the functions into python again. Note that there are several steps involved in this process we therefore the code is split across two different modules.
+# In this demo we will show how to set up a system that takes your `.ode` file, generates C-code, compiles the code just-in-time and imports the functions into python again. Note that there are several steps involved in this process we therefore split the code across two different modules `utils.py` and `cmodel.py`
 #
 # To start with we will just run through an example how how this can be used.
 #

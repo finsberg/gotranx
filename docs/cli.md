@@ -38,7 +38,6 @@ Once the conversion is done, we see that a new file called `noble_1962.ode` has 
 ```{code-cell} shell
 :tags: [scroll-output]
 
-!cp noble_1962/noble_1962.ode .
 !cat noble_1962.ode
 ```
 
@@ -58,11 +57,11 @@ python3 -m gotranx ode2py noble_1962.ode
 ````{tab-item} C
 Either to at `.c` file
 ```shell
-python3 -m gotranx ode2py noble_1962.ode --to .c
+python3 -m gotranx ode2c noble_1962.ode --to .c
 ```
 or to a `.h` file
 ```shell
-python3 -m gotranx ode2py noble_1962.ode --to .h
+python3 -m gotranx ode2c noble_1962.ode --to .h
 ```
 ````
 `````
@@ -94,7 +93,7 @@ We wee the the code contains the following functions
 
 You can click on each of them so see what is the purpose and use of them.
 
-In the case of Python the source code will be saved in a file called `noble_1962.py`, and we can solve use the code to solve the ODE as follows
+In the case of Python, the source code will be saved in a file called `noble_1962.py`, and we can solve use the code to solve the ODE as follows
 
 ```{code-cell} python
 import noble_1962 as model
