@@ -77,6 +77,14 @@ import gotranx
 print(gotranx.codegen.PythonFormat._member_names_)
 ```
 
+- `backend` (str, default: `numpy`). Backend to use for the python code
+
+```{code-cell} python
+import gotranx
+
+print(gotranx.cli.gotran2py.Backend._member_names_)
+```
+
 ### C specific options (under `tool.gotranx.c`)
 
 - `format` (str, default: `clang-format`). Formatter to use for the C code
