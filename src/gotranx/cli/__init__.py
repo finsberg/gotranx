@@ -81,6 +81,11 @@ def convert(
         "--remove-unused",
         help="Remove unused variables",
     ),
+    jax: bool = typer.Option(
+        False,
+        "--jax",
+        help="Use JAX",
+    ),
     version: bool = typer.Option(
         None,
         "--version",
@@ -279,6 +284,12 @@ def ode2py(
         "-f",
         help="Formatter for the output code",
     ),
+    backend: gotran2py.Backend = typer.Option(
+        gotran2py.Backend.numpy,
+        "--backend",
+        "-b",
+        help="Backend for the generated code",
+    ),
 ):
     if fname is None:
         return typer.echo("No file specified")
@@ -291,6 +302,7 @@ def ode2py(
     scheme = utils.validate_scheme(scheme)
     py_config = config_data.get("python", {})
     format = PythonFormat(py_config.get("format", format))
+    backend = gotran2py.Backend(py_config.get("backend", backend))
 
     gotran2py.main(
         fname=fname,
@@ -301,6 +313,7 @@ def ode2py(
         stiff_states=stiff_states,
         delta=delta,
         format=format,
+        backend=backend,
     )
 
 

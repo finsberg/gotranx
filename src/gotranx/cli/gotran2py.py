@@ -1,8 +1,10 @@
 from __future__ import annotations
 from pathlib import Path
 import logging
+import enum
 import structlog
 
+from ..codegen.jax import JaxCodeGenerator
 from ..codegen.python import PythonCodeGenerator, get_formatter, Format
 from ..load import load_ode
 from ..schemes import Scheme
@@ -13,6 +15,11 @@ from .utils import add_schemes
 logger = structlog.get_logger()
 
 
+class Backend(str, enum.Enum):
+    numpy = "numpy"
+    jax = "jax"
+
+
 def get_code(
     ode: ODE,
     scheme: list[Scheme] | None = None,
@@ -21,6 +28,7 @@ def get_code(
     missing_values: dict[str, int] | None = None,
     delta: float = 1e-8,
     stiff_states: list[str] | None = None,
+    backend: Backend = Backend.numpy,
 ) -> str:
     """Generate the Python code for the ODE
 
@@ -41,13 +49,23 @@ def get_code(
     stiff_states : list[str] | None, optional
         Stiff states, by default None. Only applicable for
         the hybrid rush larsen scheme
+    backend : Backend, optional
+        The backend, by default Backend.numpy
+
 
     Returns
     -------
     str
         The Python code
     """
-    codegen = PythonCodeGenerator(
+    if backend == Backend.numpy:
+        CodeGenerator = PythonCodeGenerator
+    elif backend == Backend.jax:
+        CodeGenerator = JaxCodeGenerator
+    else:
+        raise ValueError(f"Unknown backend {backend}")
+
+    codegen = CodeGenerator(
         ode,
         format=Format.none,
         remove_unused=remove_unused,
@@ -94,6 +112,7 @@ def main(
     stiff_states: list[str] | None = None,
     delta: float = 1e-8,
     suffix: str = ".py",
+    backend: Backend = Backend.numpy,
 ) -> None:
     loglevel = logging.DEBUG if verbose else logging.INFO
     structlog.configure(
@@ -108,6 +127,7 @@ def main(
         remove_unused=remove_unused,
         stiff_states=stiff_states,
         delta=delta,
+        backend=backend,
     )
     out = fname if outname is None else Path(outname)
     out_name = out.with_suffix(suffix=suffix)
