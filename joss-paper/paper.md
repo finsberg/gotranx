@@ -50,7 +50,6 @@ While such a models are typically developed in one programming language, differe
 
 # Acknowledgements
 Henrik Finsberg is the main developer of `gotranx`. The original gotran library was created by Johan Hake, and he is acknowledged with co-authorship for this.
-We would also like to acknowledge Kristian Hustad for valuable discussions and contributions to the original gotran library.
-
+We would also like to acknowledge Kristian Hustad for valuable discussions and contributions to the original gotran library. This work has been financially supported by Simula Research Laboratory.
 
 # References
