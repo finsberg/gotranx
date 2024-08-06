@@ -57,9 +57,9 @@ def get_code(
 
     comp = [
         codegen.imports(),
-        f"int NUM_STATES = {len(ode.states)};",
-        f"int NUM_PARAMS = {len(ode.parameters)};",
-        f"int NUM_MONITORED = { len(ode.state_derivatives) + len(ode.intermediates)};",
+        f"const NUM_STATES = {len(ode.states)};",
+        f"const NUM_PARAMS = {len(ode.parameters)};",
+        f"const NUM_MONITORED = { len(ode.state_derivatives) + len(ode.intermediates)};",
         codegen.parameter_index(),
         codegen.state_index(),
         codegen.monitor_index(),
