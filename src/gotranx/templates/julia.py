@@ -71,14 +71,13 @@ def method_index(data: dict[str, int], method_name) -> str:
     logger.debug(f"Generating {method_name}_index with {len(data)} values")
     local_template = dedent(
         """
-    {if_stm} (name == "{name}")
+    {if_stm} name == "{name}"
         return {index}
     """
     )
     code = []
     code.append(f"# {method_name.capitalize()} index")
     code.append(f"function {method_name}_index(name::String)")
-    code.append("{")
     for i, (name, index) in enumerate(data.items()):
         if_stm = "if" if i == 0 else "elseif"
         code.append(

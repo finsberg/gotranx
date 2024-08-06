@@ -70,6 +70,10 @@ class GotranJuliaCodePrinter(JuliaCodePrinter):
 
         return value
 
+    def _print_Indexed(self, expr):
+        inds = [ self._print(i+1) for i in expr.indices ] # Reindex arrays to start at 1
+        return "%s[%s]" % (self._print(expr.base.label), ",".join(inds))
+
 
 class JuliaCodeGenerator(CodeGenerator):
     def __init__(self, ode: ODE, remove_unused: bool = False) -> None:
@@ -106,9 +110,9 @@ class JuliaCodeGenerator(CodeGenerator):
             "p": "parameters",
         }
         argument_list = [argument_dict[v] for v in value] + ["values"]
-        states = sympy.IndexedBase("states", shape=(self.ode.num_states,))
-        parameters = sympy.IndexedBase("parameters", shape=(self.ode.num_parameters,))
-        values = sympy.IndexedBase("values", shape=(self.ode.num_states,))
+        states = sympy.IndexedBase("states", shape=(self.ode.num_states,), offset=1)
+        parameters = sympy.IndexedBase("parameters", shape=(self.ode.num_parameters,), offset=1)
+        values = sympy.IndexedBase("values", shape=(self.ode.num_states,), offset=1)
 
         return Func(
             arguments=argument_list,
@@ -131,9 +135,9 @@ class JuliaCodeGenerator(CodeGenerator):
             "p": "parameters",
         }
         argument_list = [argument_dict[v] for v in value] + ["values"]
-        states = sympy.IndexedBase("states", shape=(self.ode.num_states,))
-        parameters = sympy.IndexedBase("parameters", shape=(self.ode.num_parameters,))
-        values = sympy.IndexedBase("values", shape=(self.ode.num_states,))
+        states = sympy.IndexedBase("states", shape=(self.ode.num_states,), offset=1)
+        parameters = sympy.IndexedBase("parameters", shape=(self.ode.num_parameters,), offset=1)
+        values = sympy.IndexedBase("values", shape=(self.ode.num_states,), offset=1)
 
         return Func(
             arguments=argument_list,
