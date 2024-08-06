@@ -4,6 +4,7 @@ import typing
 from . import c
 from . import python
 from . import jax
+from . import julia
 
 
 class Template(typing.Protocol):
@@ -190,4 +191,4 @@ class Template(typing.Protocol):
         """
 
 
-__all__ = ["c", "python", "jax", "Template"]
+__all__ = ["c", "python", "jax", "julia", "Template"]
