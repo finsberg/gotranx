@@ -100,7 +100,6 @@ class JuliaCodeGenerator(CodeGenerator):
         self, order: RHSArgument | str = RHSArgument.stp, const_states: bool = True
     ) -> Func:
         value = RHSArgument.get_value(order)
-        states_prefix = "const " if const_states else ""
         argument_dict = {
             "s": "states",
             "t": "t",
@@ -125,7 +124,6 @@ class JuliaCodeGenerator(CodeGenerator):
         const_states: bool = True,
     ) -> Func:
         value = SchemeArgument.get_value(order)
-        states_prefix = "const " if const_states else ""
         argument_dict = {
             "s": "states",
             "t": "t",
