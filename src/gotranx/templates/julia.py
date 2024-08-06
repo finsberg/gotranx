@@ -81,8 +81,10 @@ def method_index(data: dict[str, int], method_name) -> str:
     code.append("{")
     for i, (name, index) in enumerate(data.items()):
         if_stm = "if" if i == 0 else "elseif"
-        code.append(indent(local_template.format(if_stm=if_stm, name=name, index=index+1), "    "))
-    code.append(indent("end",  "    "))
+        code.append(
+            indent(local_template.format(if_stm=if_stm, name=name, index=index + 1), "    ")
+        )
+    code.append(indent("end", "    "))
     code.append(indent("return -1", "    "))
     code.append("end")
 

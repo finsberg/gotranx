@@ -3,7 +3,7 @@ from pathlib import Path
 import logging
 import structlog
 
-from ..codegen.julia import JuliaCodeGenerator #, Format, get_formatter
+from ..codegen.julia import JuliaCodeGenerator  # , Format, get_formatter
 from ..load import load_ode
 from ..schemes import Scheme
 from ..ode import ODE
@@ -47,7 +47,7 @@ def get_code(
     str
         The Julia code
     """
-    codegen = JuliaCodeGenerator(ode, remove_unused=remove_unused)#, format=Format.none)
+    codegen = JuliaCodeGenerator(ode, remove_unused=remove_unused)  # , format=Format.none)
     # formatter = get_formatter(format=format)
 
     if missing_values is not None:

@@ -1,6 +1,4 @@
 from __future__ import annotations
-import enum
-import typing
 import structlog
 from sympy.printing.julia import JuliaCodePrinter
 from sympy.codegen.ast import Assignment
@@ -74,9 +72,7 @@ class GotranJuliaCodePrinter(JuliaCodePrinter):
 
 
 class JuliaCodeGenerator(CodeGenerator):
-    def __init__(
-        self, ode: ODE, remove_unused: bool = False
-    ) -> None:
+    def __init__(self, ode: ODE, remove_unused: bool = False) -> None:
         super().__init__(ode, remove_unused=remove_unused)
         self._printer = GotranJuliaCodePrinter()
         # setattr(self, "_formatter", get_formatter(format=format))
