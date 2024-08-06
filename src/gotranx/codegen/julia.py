@@ -2,7 +2,7 @@ from __future__ import annotations
 import enum
 import typing
 import structlog
-from sympy.printing.c import JuliaCodePrinter
+from sympy.printing.julia import JuliaCodePrinter
 from sympy.codegen.ast import Assignment
 import sympy
 
@@ -75,10 +75,10 @@ class GotranJuliaCodePrinter(JuliaCodePrinter):
 
 class JuliaCodeGenerator(CodeGenerator):
     def __init__(
-        self, ode: ODE, format: Format = Format.clang_format, remove_unused: bool = False
+        self, ode: ODE, remove_unused: bool = False
     ) -> None:
         super().__init__(ode, remove_unused=remove_unused)
-        self._printer = GotranCCodePrinter()
+        self._printer = GotranJuliaCodePrinter()
         # setattr(self, "_formatter", get_formatter(format=format))
 
     @property

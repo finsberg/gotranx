@@ -45,9 +45,9 @@ def get_code(
     Returns
     -------
     str
-        The C code
+        The Julia code
     """
-    codegen = CCodeGenerator(ode, remove_unused=remove_unused, format=Format.none)
+    codegen = JuliaCodeGenerator(ode, remove_unused=remove_unused)#, format=Format.none)
     # formatter = get_formatter(format=format)
 
     if missing_values is not None:

@@ -4,6 +4,7 @@ import typing
 from . import c
 from . import python
 from . import jax
+from . import julia
 
 
 class Template(typing.Protocol):

@@ -426,7 +426,7 @@ def ode2julia(
         resolve_path=True,
     ),
     to: str = typer.Option(
-        ".h",
+        ".jl",
         "--to",
         help="Generate code to another programming language",
     ),
@@ -497,9 +497,9 @@ def ode2julia(
     scheme = utils.validate_scheme(scheme)
     c_config = config_data.get("c", {})
     to = c_config.get("to", to)
-    format = CFormat(c_config.get("format", format))
+    # format = CFormat(c_config.get("format", format))
 
-    gotran2c.main(
+    gotran2julia.main(
         fname=fname,
         suffix=to,
         outname=outname,
