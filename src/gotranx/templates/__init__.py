@@ -190,4 +190,4 @@ class Template(typing.Protocol):
         """
 
 
-__all__ = ["c", "python", "jax", "Template"]
+__all__ = ["c", "python", "jax", "julia", "Template"]

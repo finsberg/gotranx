@@ -25,4 +25,6 @@ __all__ = [
     "GotranCCodePrinter",
     "CFormat",
     "PythonFormat",
+    "JuliaCodeGenerator",
+    "GotranJuliaCodePrinter",
 ]
