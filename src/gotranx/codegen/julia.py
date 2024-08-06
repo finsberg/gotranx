@@ -71,7 +71,7 @@ class GotranJuliaCodePrinter(JuliaCodePrinter):
         return value
 
     def _print_Indexed(self, expr):
-        inds = [ self._print(i+1) for i in expr.indices ] # Reindex arrays to start at 1
+        inds = [self._print(i + 1) for i in expr.indices]  # Reindex arrays to start at 1
         return "%s[%s]" % (self._print(expr.base.label), ",".join(inds))
 
 
