@@ -160,6 +160,30 @@ def test_python_codegen_initial_parameter_values(codegen: PythonCodeGenerator):
     )
 
 
+def test_python_codegen_initial_parameter_values_no_parameters(trans, parser):
+    expr = """
+    states(x=1, y=0)
+
+    dx_dt = y
+    dy_dt = -x
+    """
+    tree = parser.parse(expr)
+    ode = make_ode(*trans.transform(tree), name="lorentz")
+    codegen = PythonCodeGenerator(ode)
+    assert codegen.initial_parameter_values() == (
+        "def init_parameter_values(**values):"
+        '\n    """Initialize parameter values"""'
+        "\n"
+        "\n    parameters = numpy.array([], dtype=numpy.float64)"
+        "\n"
+        "\n    for key, value in values.items():"
+        "\n        parameters[parameter_index(key)] = value"
+        "\n"
+        "\n    return parameters"
+        "\n"
+    )
+
+
 def test_python_codegen_missing_index_is_empty(codegen: PythonCodeGenerator):
     assert codegen.missing_index() == ""
 

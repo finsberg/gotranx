@@ -184,10 +184,13 @@ def init_state_values(name, state_names, state_values, code):
         The code for the init_state_values function
     """
     logger.debug(f"Generating init_state_values with {len(state_values)} values")
-    values_comment = indent(
-        "#" + functools.reduce(acc, [f"{n}={v}" for n, v in zip(state_names, state_values)], ""),
-        "    ",
-    )
+    if len(state_values) == 0:
+        values_comment = ""
+    else:
+        values_comment = indent(
+            "#" + functools.reduce(acc, [f"{n}={v}" for n, v in zip(state_names, state_values)]),
+            "    ",
+        )
 
     values = ", ".join(map(str, state_values))
     return dedent(
@@ -232,13 +235,17 @@ def init_parameter_values(name, parameter_names, parameter_values, code):
         The code for the init_parameter_values function
     """
     logger.debug(f"Generating init_parameter_values with {len(parameter_values)} values")
-    values_comment = indent(
-        "#"
-        + functools.reduce(
-            acc, [f"{n}={v}" for n, v in zip(parameter_names, parameter_values)], ""
-        ),
-        "    ",
-    )
+    if len(parameter_values) == 0:
+        values_comment = ""
+    else:
+        values_comment = indent(
+            "#"
+            + functools.reduce(
+                acc,
+                [f"{n}={v}" for n, v in zip(parameter_names, parameter_values)],
+            ),
+            "    ",
+        )
 
     values = ", ".join(map(str, parameter_values))
     return dedent(
