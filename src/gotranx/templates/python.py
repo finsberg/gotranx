@@ -185,7 +185,7 @@ def init_state_values(name, state_names, state_values, code):
     """
     logger.debug(f"Generating init_state_values with {len(state_values)} values")
     values_comment = indent(
-        "#" + functools.reduce(acc, [f"{n}={v}" for n, v in zip(state_names, state_values)]),
+        "#" + functools.reduce(acc, [f"{n}={v}" for n, v in zip(state_names, state_values)], ""),
         "    ",
     )
 
@@ -234,7 +234,9 @@ def init_parameter_values(name, parameter_names, parameter_values, code):
     logger.debug(f"Generating init_parameter_values with {len(parameter_values)} values")
     values_comment = indent(
         "#"
-        + functools.reduce(acc, [f"{n}={v}" for n, v in zip(parameter_names, parameter_values)]),
+        + functools.reduce(
+            acc, [f"{n}={v}" for n, v in zip(parameter_names, parameter_values)], ""
+        ),
         "    ",
     )
 
