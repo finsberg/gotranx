@@ -22,6 +22,12 @@ def get_formatter(format: Format) -> typing.Callable[[str], str]:
     if format == Format.none:
         return lambda x: x
     elif format == Format.clang_format:
+        # Do not use clang_format on Windows
+        import platform
+
+        if platform.system() == "Windows":
+            logger.warning("Cannot apply clang-format on Windows")
+            return lambda x: x
         try:
             import clang_format_docs
         except ImportError:
