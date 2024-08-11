@@ -59,7 +59,6 @@ def build_c(model):
 
 def gotran2c(odefile):
     ode = gotranx.load_ode(odefile)
-    # breakpoint()
     # Generate code and generalized rush larsen scheme
     code = gotranx.cli.gotran2c.get_code(
         ode,
