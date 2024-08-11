@@ -83,8 +83,35 @@ plt.show()
 ```
 ![_](docs/_static/quick_start.png)
 
+Alternatively, you can use a third-party ODE solver, e.g [`scipy.integrate.solve_ivp`](https://docs.scipy.org/doc/scipy/reference/generated/scipy.integrate.solve_ivp.html) to solve the ODE by passing in the right-hand side function
 
-Note that this is a rather artificial example, where it is probably simpler to just use [`scipy.integrate.solve_ivp`](https://docs.scipy.org/doc/scipy/reference/generated/scipy.integrate.solve_ivp.html) instead, so check out the demos in the [documentation](https://finsberg.github.io/gotranx/) for more elaborate examples.
+```python
+import file as model
+from scipy.integrate import solve_ivp
+import numpy as np
+import matplotlib.pyplot as plt
+
+s = model.init_state_values()
+p = model.init_parameter_values()
+dt = 1e-4  # 0.1 ms
+T = 2 * np.pi
+t = np.arange(0, T, dt)
+
+res = solve_ivp(
+    model.rhs,
+    (0, T),
+    s,
+    method="RK45",
+    t_eval=t,
+    args=(p,),
+)
+
+plt.plot(res.t, res.y.T)
+plt.legend()
+plt.show()
+```
+
+Note that this is a rather artificial example, so check out the demos in the [documentation](https://finsberg.github.io/gotranx/) for more elaborate examples.
 
 
 ## License
