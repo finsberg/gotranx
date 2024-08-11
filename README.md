@@ -90,7 +90,7 @@ Note that this is a rather artificial example, where it is probably simpler to j
 ## Automated tests
 
 ### Unit tests
-Automated tests can be found in the [`test`](tests) folder. To the run the tests please install the test dependencies
+Automated tests can be found in the [`test`](https://github.com/finsberg/gotranx/tree/main/tests) folder. To the run the tests please install the test dependencies
 ```
 python3 -m pip install "gotranx[test]"
 ```
@@ -105,7 +105,7 @@ python3 -m pytest
 Also note that the tests are run on every push and pull request to `main` using [GitHub actions](https://github.com/finsberg/gotranx/actions).
 
 ### Linting and formatting
-We use [`pre-commit`](https://pre-commit.com) to run the a set of linters and formatters in order to ensure consistent code style. Developers should install the [pre-commit hooks](.pre-commit-config.yaml) by first installing `pre-commit`
+We use [`pre-commit`](https://pre-commit.com) to run the a set of linters and formatters in order to ensure consistent code style. Developers should install the [pre-commit hooks](https://github.com/finsberg/gotranx/blob/main/.pre-commit-config.yaml) by first installing `pre-commit`
 ```
 python3 -m pip install pre-commit
 ```
