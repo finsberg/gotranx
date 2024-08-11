@@ -33,7 +33,7 @@ python3 -m pip install git+https://github.com/finsberg/gotranx
 ```
 
 ## Quick start
-Define your ODE in a `.ode` file, e.g `file.ode` with the current content
+Define your ODE in a `.ode` file, e.g `file.ode` with the content
 ```
 states(x=1, y=0)
 
