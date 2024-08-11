@@ -9,6 +9,8 @@ from typing import Any
 import numpy as np
 import matplotlib.pyplot as plt
 
+# For this tutorial we will use a rather large system of ODE which simulated the electromechanics in cardiac cells that are based on the [O'Hara-Rudy model for electrophysiology](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1002061) and the [Land model](https://www.sciencedirect.com/science/article/abs/pii/S0022282817300639). You can download the model in `.ode` format {download}`here <./ORdmm_Land.ode>`
+#
 # We load the model using the {py:func}`load_ode` function
 
 ode = gotranx.load_ode("ORdmm_Land.ode")

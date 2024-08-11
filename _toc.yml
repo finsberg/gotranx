@@ -6,9 +6,9 @@ root: README
 parts:
   - caption: Tutorials
     chapters:
+    - file: "examples/lorentz.py"
     - file: docs/cli
     - file: "examples/run-python/main.py"
-    - file: "examples/lorentz.py"
   - caption: How to guides
     chapters:
     - file: "examples/new-language/main.py"
