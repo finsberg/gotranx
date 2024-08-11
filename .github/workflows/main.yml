@@ -8,10 +8,14 @@ on:
 jobs:
   build:
 
-    runs-on: ubuntu-latest
+    name: Test on ${{ matrix.os }} with Python ${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         python-version: ["3.8", "3.9", "3.10", "3.11"]
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
 
     steps:
     - uses: actions/checkout@v4
@@ -27,7 +31,7 @@ jobs:
         python -m pytest --cov=gotranx --cov-report html --cov-report xml --cov-report term-missing -v
 
     - name: Coverage report
-      if: matrix.python-version == '3.10'
+      if: matrix.python-version == '3.10' && matrix.os == 'ubuntu-latest'
       run: |
         python3 -m coverage report | sed 's/^/    /' >> $GITHUB_STEP_SUMMARY
         python3 -m coverage json
@@ -35,7 +39,7 @@ jobs:
         echo "total=$TOTAL" >> $GITHUB_ENV
 
     - name: Upload HTML report.
-      if: matrix.python-version == '3.10'
+      if: matrix.python-version == '3.10' && matrix.os == 'ubuntu-latest'
       uses: actions/upload-artifact@v4
       with:
         name: html-report
