@@ -43,6 +43,7 @@ linalg
 linearization
 linestyle
 linspace
+literalinclude
 logicalfunc
 matplotlib
 MPLBACKEND

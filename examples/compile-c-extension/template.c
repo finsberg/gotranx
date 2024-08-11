@@ -3,7 +3,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-// Gotran generated C/C++ code for the "base_model" model
 
 void ode_solve_forward_euler(double* u, const double* parameters,
                              double* u_values, double* t_values,
@@ -14,7 +13,6 @@ void ode_solve_forward_euler(double* u, const double* parameters,
     double u_temp[NUM_STATES];
     for (it = 1; it <= num_timesteps; it++) {
         t = t_values[it - 1];
-        //forward_explicit_euler(u, t, dt, parameters, celltype);
         forward_explicit_euler(u, t, dt, parameters, u_temp);
         for (j = 0; j < NUM_STATES; j++) {
             u_values[save_it * NUM_STATES + j] = u_temp[j];
@@ -59,21 +57,6 @@ void monitored_values(double* monitored, double* states,
         }
     }
 }
-
-// void monitored_values_single(double* monitored, double* states,
-//                              double* parameters, double* u, double* m,
-//                              double* t_values, int length, int index) {
-//     double t;
-//     int i, j;
-//     for (i = 0; i < length; i++) {
-//         t = t_values[i];
-//         for (j = 0; j < NUM_STATES; j++) {
-//             u[j] = states[i * NUM_STATES + j];
-//         }
-//         monitor(u, t, parameters, m);
-//         monitored[i] = m[index];
-//     }
-// }
 
 int state_count() {
     return NUM_STATES;
