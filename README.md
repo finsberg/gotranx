@@ -87,6 +87,44 @@ plt.show()
 Note that this is a rather artificial example, where it is probably simpler to just use [`scipy.integrate.solve_ivp`](https://docs.scipy.org/doc/scipy/reference/generated/scipy.integrate.solve_ivp.html) instead, so check out the demos in the [documentation](https://finsberg.github.io/gotranx/) for more elaborate examples.
 
 
+## Automated tests
+
+### Unit tests
+Automated tests can be found in the [`test`](https://github.com/finsberg/gotranx/tree/main/tests) folder. To the run the tests please install the test dependencies
+```
+python3 -m pip install "gotranx[test]"
+```
+or if you have cloned the repo locally you can do
+```
+python3 -m pip install ".[test]"
+```
+To run the tests you should execute the following command
+```
+python3 -m pytest
+```
+Also note that the tests are run on every push and pull request to `main` using [GitHub actions](https://github.com/finsberg/gotranx/actions).
+
+### Linting and formatting
+We use [`pre-commit`](https://pre-commit.com) to run the a set of linters and formatters in order to ensure consistent code style. Developers should install the [pre-commit hooks](https://github.com/finsberg/gotranx/blob/main/.pre-commit-config.yaml) by first installing `pre-commit`
+```
+python3 -m pip install pre-commit
+```
+and then install the pre-commit hooks
+```
+pre-commit install
+```
+To run the hooks on all the files you can do
+```
+pre-commit run --all
+```
+For further instructions see the [contributing guide](https://finsberg.github.io/gotranx/CONTRIBUTING.html).
+
+Note also the we run all hooks as a part of our [continuous integration](https://github.com/finsberg/gotranx/actions/workflows/pre-commit.yml), and we are also using [pre-commit.ci](https://pre-commit.ci) to update branches automatically that can fix issues automatically.
+
+### Performance monitoring
+We have defined a set of benchmarks that run on every push to the `main` branch using [codspeed](https://codspeed.io). To monitor the performance over time you can check out the [performance report](https://codspeed.io/finsberg/gotranx).
+
+
 ## License
 MIT
 
