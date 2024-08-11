@@ -41,10 +41,14 @@ dx_dt = y
 dy_dt = -x
 ```
 which defines the ode system
+
 $$
-\dot{x} = y
-\dot{y} = -x
+\begin{align}
+\frac{dx}{dt} &= y \\
+\frac{dy}{dt} &= -x
+\end{align}
 $$
+
 with the initial conditions $x(0) = 1$ and $y(0) = 0$. Now generate code in python for solving this ODE with the explicit euler scheme using the command
 ```
 gotranx ode2py file.ode --scheme explicit_euler -o file.py
