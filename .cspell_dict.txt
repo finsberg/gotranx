@@ -29,15 +29,19 @@ evalf
 fenics
 fgrl
 figsize
+Finsberg
 funcname
 gammasu
 gotran
 gotranx
 hprint
+Hustad
 inds
 Istim
+Johan
 jupytext
 kernelspec
+Kristian
 lalr
 LIBFILE
 linalg
@@ -47,6 +51,7 @@ linspace
 literalinclude
 logicalfunc
 matplotlib
+modelparameters
 MPLBACKEND
 myokit
 ndarray
@@ -77,6 +82,7 @@ scipy
 sdpt
 sdtp
 sharex
+Simula
 spdt
 sptd
 stdp

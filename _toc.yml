@@ -20,6 +20,7 @@ parts:
     chapters:
     - file: "docs/about"
     - file: "docs/grammar"
+    - file: "docs/history"
   - caption: Reference
     chapters:
     - file: "docs/api.rst"
