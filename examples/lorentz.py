@@ -50,21 +50,12 @@ dy_dt = x * (rho - z) - y  # m/s
 dz_dt = x * y - beta * z
 """
 
-# Note that we have also add a description and a unit to the state `x`, and some description and units to `dx_dt` and `dy_dt` respectively. We can now save the file to disk in a file called `lorentz.ode`
-
-# +
-from pathlib import Path
-
-Path("lorentz.ode").write_text(ode_str)
-# -
-
-# We can now load the ODE with `gotranx`
-#
+# Note that we have also add a description and a unit to the state `x`, and some description and units to `dx_dt` and `dy_dt` respectively. We can now save the file to disk in a file called `lorentz.ode` and load it with `gotranx.load_ode("lorentz.ode")`, or we can just create the ODE from a string directly
 
 # +
 import gotranx
 
-ode = gotranx.load_ode("lorentz.ode")
+ode = gotranx.load.ode_from_string(ode_str)
 # -
 
 # Let us first print the ODE
