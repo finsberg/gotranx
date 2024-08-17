@@ -66,10 +66,8 @@ dy_dt = -x
 defines the ODE system
 
 $$
-\begin{align}
-\frac{dx}{dt} &= ay \\
-\frac{dy}{dt} &= -x
-\end{align}
+\frac{dx}{dt} = ay \\
+\frac{dy}{dt} = -x
 $$
 
 with the initial conditions $x(0) = 1$ and $y(0) = 0$ and the parameter $a$ with a value of 1.0. We can now generate code for solving the ODE using the Generalized Rush-Larsen scheme [@sundnes2009second] with the following command (assuming you wrote the ODE in the file `file.ode`)
