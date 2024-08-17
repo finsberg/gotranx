@@ -6,16 +6,15 @@ The plan is to have all the features from the old [gotran](https://github.com/Co
 
 - [ ] More numerical schemes
     - [x] Forward Euler
-    - [ ] Rush Larsen
     - [x] Generalized Rush Larsen
-    - [ ] Hybrid Generalized Rush Larsen
+    - [x] Hybrid Generalized Rush Larsen
     - [ ] Simplified Implicit Euler
-    - [ ] Newton's method for implicit schemes
 - [ ] Code generation for more languages
     - [x] Python
     - [x] C
+    - [x] jax (working but missing tests)
     - [ ] C++
-    - [ ] Julia
+    - [ ] Julia (in progress)
     - [ ] CUDA
     - [ ] OpenCL
     - [ ] Rust
