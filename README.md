@@ -10,13 +10,7 @@
 
 # gotranx
 
-`gotranx` is the next generation General ODE translator and is an attempt to a full rewrite of [gotran](https://github.com/ComputationalPhysiology/gotran).
-
-The general idea is that you write your ODE in a high level markup language and use `gotranx` to generate code for solving the ODE in different programming languages.
-
-At the moment we only support Python and C, but we plan to support a wide range of programming languages in the future.
-
-`gotranx` uses [`sympy`](https://www.sympy.org/en/index.html) to generate the numerical schemes.
+`gotranx` is the next generation General ODE translator. The general idea is that you write your ODE in a high level markup language and use `gotranx` to generate code for solving the ODE in different programming languages.  `gotranx` uses [`sympy`](https://www.sympy.org/en/index.html) to create a symbolic representation of the ODE which is used to generate the jacobian and numerical schemes.
 
 - Source code: https://github.com/finsberg/gotranx
 - Documentation: https://finsberg.github.io/gotranx/
@@ -36,24 +30,25 @@ python3 -m pip install git+https://github.com/finsberg/gotranx
 Define your ODE in a `.ode` file, e.g `file.ode` with the content
 ```
 states(x=1, y=0)
+parameters(a=1.0)
 
-dx_dt = y
+dx_dt = a * y
 dy_dt = -x
 ```
-which defines the ode system
+which defines the ODE system
 
 $$
 \begin{align}
-\frac{dx}{dt} &= y \\
+\frac{dx}{dt} &= ay \\
 \frac{dy}{dt} &= -x
 \end{align}
 $$
 
-with the initial conditions $x(0) = 1$ and $y(0) = 0$. Now generate code in python for solving this ODE with the explicit euler scheme using the command
+with the initial conditions $x(0) = 1$ and $y(0) = 0$ and the parameter $a$ with a value of 1.0. Now generate code in python for solving this ODE with the explicit euler scheme using the command
 ```
 gotranx ode2py file.ode --scheme explicit_euler -o file.py
 ```
-which will create a file `file.py` containing functions for solving the ODE. Now you can solve the ode using the the following code snippet
+which will create a file `file.py` containing functions for solving the ODE. Now you can solve the ode using the following code snippet
 
 ```python
 import file as model
@@ -112,6 +107,19 @@ plt.show()
 ```
 
 Note that this is a rather artificial example, so check out the demos in the [documentation](https://finsberg.github.io/gotranx/) for more elaborate examples.
+
+## FAQ
+
+**Why should I use `gotranx`?**
+The main reasons to use `gotranx` are
+
+1. You want to solve your model using different programming languages (e.g python and C)
+2. You want to create a custom numerical scheme that can utilize the symbolic representation of the ODE
+3. You would like to share your model in a high level representation (i.e a markup language)
+
+
+**How does it differ from `scipy.integrate.solve_ivp`?**
+`scipy.integrate.solve_ivp` is an ODE solver which takes as input a function defining the right-hand. `gotranx` takes a high level representation of the ODE and can generate code for the right hand side. In other words, you can use `scipy.integrate.solve_ivp` to solve the ODE and use `gotranx` to generate the right hand side.
 
 
 ## Automated tests
