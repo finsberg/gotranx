@@ -66,8 +66,10 @@ dy_dt = -x
 defines the ODE system
 
 $$
+\begin{aligned}
 \frac{dx}{dt} = ay \\
 \frac{dy}{dt} = -x
+\end{aligned}
 $$
 
 with the initial conditions $x(0) = 1$ and $y(0) = 0$ and the parameter $a$ with a value of 1.0. We can now generate code for solving the ODE using the Generalized Rush-Larsen scheme [@sundnes2009second] with the following command (assuming you wrote the ODE in the file `file.ode`)
@@ -101,7 +103,7 @@ plt.plot(t, y, label="y")
 plt.legend()
 plt.show()
 ```
-![_](../docs/_static/quick_start.png)
+![Plot of solution of ODE](../docs/_static/quick_start.png)
 
 
 At the time of writing `gotranx` support code generation to C and Python, with backends for [`numpy`](https://numpy.org) and [`jax`](https://jax.readthedocs.io/). It also supports conversion to and from [CellML](https://www.cellml.org) via [MyoKit](https://myokit.org). For a list of all features and the roadmap, please checkout the [roadmap](https://finsberg.github.io/gotranx/docs/roadmap.html).
