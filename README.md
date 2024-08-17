@@ -1,4 +1,4 @@
-![_](docs/_static/logo.png)
+![_](https://raw.githubusercontent.com/finsberg/gotranx/main/docs/_static/logo.png)
 
 [![pre-commit](https://github.com/finsberg/gotranx/actions/workflows/pre-commit.yml/badge.svg)](https://github.com/finsberg/gotranx/actions/workflows/pre-commit.yml)
 [![CI](https://github.com/finsberg/gotranx/actions/workflows/main.yml/badge.svg)](https://github.com/finsberg/gotranx/actions/workflows/main.yml)
