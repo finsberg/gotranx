@@ -29,6 +29,9 @@ We introduce `gotranx`, a General ODE Translator for automatic code generation o
 
 `gotranx` implements a domain specific language (DSL) using [Lark](https://github.com/lark-parser/lark) for representing ODEs. It can parse the variables and equations into a symbolic representation [@meurer2017sympy], and generate numerical schemes based on codeprinters from Sympy, in particular the Rush-Larsen scheme [@rush1978practical] which is very popular in the field of computational biology.
 
+![Logo of the software that illustrates that you taka a dynamical system (i.e an ODE) and uses `gotranx` (i.e a black box) to turn the ODE into computer code](../docs/_static/logo.png)
+
+
 `gotranx` is a full re-implementation of [`gotran`](https://github.com/ComputationalPhysiology/gotran), and the long term goal is to implement the same features in `gotranx` as found in `gotran` along with additional features.
 
 # Statement of need
@@ -39,11 +42,11 @@ y'(t) = f(t, y),
 $$
 where $t$ represents time and $y$ is a vector of state variables. These equations are a fundamental concept in mathematics and science, and plays a critical role in various fields such as physics, engineering, and economics.
 
-Solving ODEs can be done analytically in simple cases but for most real world applications one needs to apply numerical methods [@ascher1998computer]. For this there exist a suite of well established softwares such as `scipy`[@virtanen2020scipy] for Python, `Differentialequations.jl`[@rackauckas2017differentialequations] for Julia and Sundials[@hindmarsh2005sundials] for `C` and `C++` .
+Solving ODEs can be done analytically in simple cases but for most real world applications one needs to apply numerical methods [@ascher1998computer]. For this there exist a suite of well established softwares such as `scipy` [@virtanen2020scipy] for Python, `Differentialequations.jl` [@rackauckas2017differentialequations] for Julia and Sundials [@hindmarsh2005sundials] for `C` and `C++` .
 
 Computational biology is one field where ODEs play an essential role, for example in models of heart cells. The resulting ODEs can, in these cases, be quite involved with many parameters and state variables. For example, one of the more recent models of human heart cells [@tomek2019development] have 112 parameters, 45 state variables and 276 intermediate variables. Solutions of the state equations of these membrane models typically allows for specialized exponential integrators [@rush1978practical] that are implemented as a numerical scheme in `gotranx`.
 
-Furthermore, such models of a single heart cell are typically embedded into a spatial model, such as the Monodomain or Bidomain model [@sundnes2007computing], where each point in a 3D geometry represents a cell. This means that thousands or even millions of such ODEs needs to be coupled and solved in a larger systems. In these cases, traditional solvers are usually unsuitable and custom code are often developed to solve the ODEs. An alternative to this approach is to use an existing framework specialized for these types of problems [@cooper2020chaste; @plank2021opencarp]. However, introducing a big framework might not be ideal if the user wants to do a lot of customizations. With `gotranx` you can easily generate framework independent code that can easily be integrated into most simulation pipelines. One example is [`fenics-beat`](https://github.com/finsberg/fenics-beat)[@Finsberg_fenics-beat_2024] which uses `gotranx` to generate code solving ODEs in a Monodomain model.
+Furthermore, such models of a single heart cell are typically embedded into a spatial model, such as the Monodomain or Bidomain model [@sundnes2007computing], where each point in a 3D geometry represents a cell. This means that thousands or even millions of such ODEs needs to be coupled and solved in a larger systems. In these cases, traditional solvers are usually unsuitable and custom code are often developed to solve the ODEs. An alternative to this approach is to use an existing framework specialized for these types of problems [@cooper2020chaste; @plank2021opencarp]. However, introducing a big framework might not be ideal if the user wants to do a lot of customizations. With `gotranx` you can easily generate framework independent code that can easily be integrated into most simulation pipelines. One example is [`fenics-beat`](https://github.com/finsberg/fenics-beat) [@Finsberg_fenics-beat_2024] which uses `gotranx` to generate code solving ODEs in a Monodomain model.
 
 While such a models are typically developed in one programming language, different research groups use different programming languages to integrate and solve their models. To make these models programming language independent, it is common practice to write them in a markup language [@lloyd2004cellml; @keating2020sbml]. However, when translating the models to a new programming language, user typically need to do this manually which are likely to introduce errors in the code. Since `gotranx` also implements converters for e.g CellML through MyoKit [@clerx2016myokit], it already supports most models that are used today.
 
@@ -67,8 +70,8 @@ defines the ODE system
 
 $$
 \begin{aligned}
-\frac{dx}{dt} = ay \\
-\frac{dy}{dt} = -x
+\frac{dx}{dt} &= ay \\
+\frac{dy}{dt} &= -x
 \end{aligned}
 $$
 
@@ -106,7 +109,7 @@ plt.show()
 ![Plot of solution of ODE](../docs/_static/quick_start.png)
 
 
-At the time of writing `gotranx` support code generation to C and Python, with backends for [`numpy`](https://numpy.org) and [`jax`](https://jax.readthedocs.io/). It also supports conversion to and from [CellML](https://www.cellml.org) via [MyoKit](https://myokit.org). For a list of all features and the roadmap, please checkout the [roadmap](https://finsberg.github.io/gotranx/docs/roadmap.html).
+At the time of writing, `gotranx` support code generation to C and Python, with backends for [`numpy`](https://numpy.org) and [`jax`](https://jax.readthedocs.io/). It also supports conversion to and from [CellML](https://www.cellml.org) via [MyoKit](https://myokit.org). For a list of all features and the roadmap, please checkout the [roadmap](https://finsberg.github.io/gotranx/docs/roadmap.html).
 
 
 
