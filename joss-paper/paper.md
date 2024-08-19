@@ -80,33 +80,8 @@ with the initial conditions $x(0) = 1$ and $y(0) = 0$ and the parameter $a$ with
 gotranx ode2py file.ode --scheme generalized_rush_larsen -o file.py
 ```
 which will output the code a new python file named `file.py`. We can now use this code as follows to solve the ODE
-```python
-import file as model
-import numpy as np
-import matplotlib.pyplot as plt
 
-s = model.init_state_values()
-p = model.init_parameter_values()
-dt = 1e-4  # 0.1 ms
-T = 2 * np.pi
-t = np.arange(0, T, dt)
-
-x_index = model.state_index("x")
-x = [s[x_index]]
-y_index = model.state_index("y")
-y = [s[y_index]]
-
-for ti in t[1:]:
-    s = model.generalized_rush_larsen(s, ti, dt, p)
-    x.append(s[x_index])
-    y.append(s[y_index])
-
-plt.plot(t, x, label="x")
-plt.plot(t, y, label="y")
-plt.legend()
-plt.show()
-```
-![Plot of solution of ODE](../docs/_static/quick_start.png)
+![Example of code from loading and solving an ODE with the code generated from `gotranx`. On the right we see the solution.](ode_example.png)
 
 
 At the time of writing, `gotranx` support code generation to C and Python, with backends for [`numpy`](https://numpy.org) and [`jax`](https://jax.readthedocs.io/). It also supports conversion to and from [CellML](https://www.cellml.org) via [MyoKit](https://myokit.org). For a list of all features and the roadmap, please checkout the [roadmap](https://finsberg.github.io/gotranx/docs/roadmap.html).
