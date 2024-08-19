@@ -80,6 +80,10 @@ with the initial conditions $x(0) = 1$ and $y(0) = 0$ and the parameter $a$ with
 gotranx ode2py file.ode --scheme generalized_rush_larsen -o file.py
 ```
 which will output the code a new python file named `file.py`. We can now use this code as follows to solve the ODE
+
+\begin{center}
+\begin{tabular}{ c c }
+
 ```python
 import file as model
 import numpy as np
@@ -106,7 +110,10 @@ plt.plot(t, y, label="y")
 plt.legend()
 plt.show()
 ```
-![Plot of solution of ODE](../docs/_static/quick_start.png){ width = 50% }
+&
+![Plot of solution of ODE](../docs/_static/quick_start.png)
+\end{tabular}
+\end{center}
 
 
 At the time of writing, `gotranx` support code generation to C and Python, with backends for [`numpy`](https://numpy.org) and [`jax`](https://jax.readthedocs.io/). It also supports conversion to and from [CellML](https://www.cellml.org) via [MyoKit](https://myokit.org). For a list of all features and the roadmap, please checkout the [roadmap](https://finsberg.github.io/gotranx/docs/roadmap.html).
