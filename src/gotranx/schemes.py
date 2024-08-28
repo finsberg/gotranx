@@ -8,7 +8,8 @@ from structlog import get_logger
 from . import atoms
 from .ode import ODE
 from . import sympytools
-from ._enum import DeprecatedEnum
+from enum import Enum
+
 
 logger = get_logger()
 
@@ -46,14 +47,11 @@ class scheme_func(typing.Protocol):
     ) -> list[str]: ...
 
 
-class Scheme(DeprecatedEnum):
+class Scheme(str, Enum):
     explicit_euler = "explicit_euler"
     generalized_rush_larsen = "generalized_rush_larsen"
-    forward_explicit_euler = "forward_explicit_euler", "Use 'explicit_euler' instead"
-    forward_generalized_rush_larsen = (
-        "forward_generalized_rush_larsen",
-        "Use 'generalized_rush_larsen' instead",
-    )
+    forward_explicit_euler = "forward_explicit_euler"
+    forward_generalized_rush_larsen = "forward_generalized_rush_larsen"
     hybrid_rush_larsen = "hybrid_rush_larsen"
 
 
@@ -67,6 +65,15 @@ def get_scheme(scheme: str) -> scheme_func:
         func = hybrid_rush_larsen
     else:
         raise ValueError(f"Unknown scheme {scheme}")
+
+    if scheme.startswith("forward_"):
+        import warnings
+
+        warnings.warn(
+            "member %r is deprecated; %s" % (scheme, "Use the scheme without the forward prefix"),
+            DeprecationWarning,
+            stacklevel=3,
+        )
 
     # Replace the name of the function
     func.__code__ = func.__code__.replace(co_name=scheme)
