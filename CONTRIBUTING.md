@@ -49,7 +49,7 @@ pre-commit run --all
 To learn more about pre-commit you can check out https://pre-commit.com
 
 ## Test suite
-For every new features of bugfix you should also make sure to not lower the code coverage for the test suite. This means that if you for example add a new function then you should also make sure that the function is properly tested (at a minimum it should be covered by the test suite).
+For every new feature of bugfix you should also make sure to not lower the code coverage for the test suite. This means that if you for example add a new function then you should also make sure that the function is properly tested (at a minimum it should be covered by the test suite).
 
 To run the test suite, please install the package with the optional dependencies `test`, i.e
 ```
@@ -62,7 +62,7 @@ python3 -m pytest
 You can read more about using pytest in the [official documentation of pytest](https://docs.pytest.org/).
 
 ## Documentation
-The documentation is hosted at GitHub pages and created with [`JupyterBook`](https://jupyterbook.org/en/stable/intro.html). Contributions to the documentation both is very welcomed.
+The documentation is hosted at GitHub pages and created with [`JupyterBook`](https://jupyterbook.org/en/stable/intro.html). Contributions to the documentation is very welcomed.
 
 To build the documentation locally you can installed the `docs` optional dependencies, i.e
 ```
@@ -79,3 +79,7 @@ jupyter-book build -W --keep-going .
 which will turn warnings into errors.
 
 For reference, please see the [github workflow](https://github.com/finsberg/gotranx/blob/main/.github/workflows/pages.yml) that is used for building the pages.
+
+
+## Need help?
+If something is not working as expected, or you need help please file an [issue](https://github.com/finsberg/gotranx/issues/new/choose).
