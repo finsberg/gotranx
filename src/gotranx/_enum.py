@@ -30,24 +30,3 @@ class OnAccess(EnumMeta):
         if isinstance(obj, Enum) and obj._on_access:
             obj._on_access()
         return obj
-
-
-class DeprecatedEnum(Enum, metaclass=OnAccess):
-    #
-    def __new__(cls, value, *args):
-        member = object.__new__(cls)
-        member._value_ = value
-        member._args = args
-        member._on_access = member.deprecate if args else None
-        return member
-
-    #
-    def deprecate(self):
-        args = (self.name,) + self._args
-        import warnings
-
-        warnings.warn(
-            "member %r is deprecated; %s" % args,
-            DeprecationWarning,
-            stacklevel=3,
-        )
