@@ -160,6 +160,16 @@ Note also the we run all hooks as a part of our [continuous integration](https:/
 ### Performance monitoring
 We have defined a set of benchmarks that run on every push to the `main` branch using [codspeed](https://codspeed.io). To monitor the performance over time you can check out the [performance report](https://codspeed.io/finsberg/gotranx).
 
+To run the benchmarks locally you can install the `pytest-codspeed` plugin
+```
+python3 -m pip install pytest-codspeed
+```
+and run
+```
+python3 -m pytest tests/ --codspeed
+```
+You can find more info at https://docs.codspeed.io/benchmarks/python
+
 
 ## License
 MIT
