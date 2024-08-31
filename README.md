@@ -7,7 +7,7 @@
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![CodSpeed Badge](https://img.shields.io/endpoint?url=https://codspeed.io/badge.json)](https://codspeed.io/finsberg/gotranx)
 [![status](https://joss.theoj.org/papers/40dc8d8287c6188eaab8149ed3bfe60b/status.svg)](https://joss.theoj.org/papers/40dc8d8287c6188eaab8149ed3bfe60b)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.13336836.svg)](https://doi.org/10.5281/zenodo.13336836)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.13621272.svg)](https://doi.org/10.5281/zenodo.13621272)
 
 # gotranx
 
