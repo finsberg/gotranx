@@ -2,6 +2,7 @@ import lark
 import pytest
 import sympy as sp
 from gotranx import atoms
+from gotranx.ode import gather_atoms
 
 
 @pytest.mark.parametrize(
@@ -161,17 +162,89 @@ def test_TimeDependentState(parser, trans):
     assert str(x_t.symbol) == "x(t)"
 
 
-# def test_StateDerivative(parser, trans):
-#     expr = """
-#     parameters(a = 1)
-#     states(x=2)
-#     dx_dt = a + 1
-#     """
-#     tree = parser.parse(expr)
-#     result = trans.transform(tree)
-#     assert len(result) == 1
-#     comp = result[0]
-#     assert len(comp.state_derivatives) == 1
-#     dx_dt = comp.state_derivatives.pop()
-#     t = sp.Symbol("t")
-#     breakpoint()
+def test_stateful_assignments(parser, trans):
+    expr = """
+    parameters(
+    a = 1.0,
+    b = 2.0
+    )
+    states(
+    x = 1.0
+    )
+
+    z = x /(exp(x) - 1.0)
+    w = a + b
+    v = x + z
+    g = v * a
+    """
+
+    tree = parser.parse(expr)
+    result = trans.transform(tree)
+    comp = result.components[0]
+
+    all_atoms = gather_atoms(components=[comp])
+
+    for state in comp.states:
+        assert state.is_stateful(all_atoms.lookup)
+
+    for parameter in comp.parameters:
+        assert not parameter.is_stateful(all_atoms.lookup)
+
+    z = comp.find_assignment("z")
+    assert z.is_stateful(all_atoms.lookup)
+
+    w = comp.find_assignment("w")
+    assert not w.is_stateful(all_atoms.lookup)
+
+    v = comp.find_assignment("v")
+    assert v.is_stateful(all_atoms.lookup)
+
+    g = comp.find_assignment("g")
+    assert g.is_stateful(all_atoms.lookup)
+
+
+def test_singularities(parser, trans):
+    expr = """
+    parameters(
+    a = 1.0,
+    b = 2.0
+    )
+    states(
+    x = 1.0
+    )
+
+    z = x /(exp(x) - 1.0)
+    w = a / b
+    v = x / b
+    g = b / x
+    """
+
+    tree = parser.parse(expr)
+    result = trans.transform(tree)
+    comp = result.components[0]
+
+    all_atoms = gather_atoms(components=[comp])
+
+    z = comp.find_assignment("z")
+    z_sing = z.resolve_expression(all_atoms.symbols).singularities(all_atoms.lookup)
+    assert len(z_sing) == 1
+    assert tuple(z_sing)[0] == atoms.Singularity(
+        symbol=all_atoms.symbols["x"], value=0, replacement=1
+    )
+    assert not tuple(z_sing)[0].is_infinite
+
+    w = comp.find_assignment("w")
+    w_sing = w.resolve_expression(all_atoms.symbols).singularities(all_atoms.lookup)
+    assert len(w_sing) == 0  # No singularities since b is not stateful
+
+    v = comp.find_assignment("v")
+    v_sing = v.resolve_expression(all_atoms.symbols).singularities(all_atoms.lookup)
+    assert len(v_sing) == 0  # No singularities since b is not stateful
+
+    g = comp.find_assignment("g")
+    g_sing = g.resolve_expression(all_atoms.symbols).singularities(all_atoms.lookup)
+    assert len(g_sing) == 1
+    assert tuple(g_sing)[0] == atoms.Singularity(
+        symbol=all_atoms.symbols["x"], value=0, replacement=sp.oo * sp.sign(all_atoms.symbols["b"])
+    )
+    assert tuple(g_sing)[0].is_infinite
