@@ -107,6 +107,9 @@ class Atom:
         if self.symbol is None:
             _set_symbol(self, name=self.name)
 
+    def is_stateful(self, lookup: dict[str, Atom]) -> bool:
+        return isinstance(self, State) or isinstance(self, TimeDependentState)
+
 
 @attr.s(frozen=True, kw_only=True, slots=True)
 class Parameter(Atom):
@@ -176,6 +179,11 @@ class Singularity:
     value: float | sp.core.Number = attr.ib()
     replacement: sp.Expr = attr.ib()
 
+    @property
+    def is_infinite(self):
+        """Return True if the replacement is potentially infinite"""
+        return self.replacement.has(sp.oo)
+
 
 @attr.s(frozen=True, kw_only=True, slots=True)
 class Assignment(Atom):
@@ -185,7 +193,26 @@ class Assignment(Atom):
     expr: sp.Expr = attr.ib(sp.S.Zero)
     comment: Comment | None = attr.ib(None)
 
-    def singularities(self, lookup: dict[str, sp.Symbol]) -> frozenset[Singularity]:
+    def is_stateful(self, lookup: dict[str, Atom]) -> bool:
+        # If the assignment depends on a state it is stateful
+        # This is also recursive
+
+        if self.value is None:
+            logger.warning(
+                f"Assignment {self.name} has no value. Unable to determine if it is stateful."
+            )
+            return False
+
+        for dep in self.value.dependencies:
+            try:
+                state = lookup[dep]
+            except KeyError:
+                continue
+            if state.is_stateful(lookup):
+                return True
+        return False
+
+    def singularities(self, lookup: dict[str, Atom]) -> frozenset[Singularity]:
         """Check if the expression has any singularities
         and return a list of singularities"""
         from sympy import singularities, limit
@@ -193,16 +220,23 @@ class Assignment(Atom):
         singularity_list: set[Singularity] = set()
         if self.value is None:
             return frozenset(singularity_list)
+        if self.expr == 0:
+            logger.warning(
+                f"Expression {self.name} is zero. Maybe you forgot to resolve the expression?"
+            )
+            return frozenset(singularity_list)
 
         for dep in self.value.dependencies:
             try:
-                state = lookup[dep]
+                var = lookup[dep]
             except KeyError:
                 continue
-            if not isinstance(state, State):
+
+            if not var.is_stateful(lookup):
                 continue
 
-            values = singularities(self.expr, state.symbol)
+            values = singularities(self.expr, var.symbol)
+
             if not values:
                 continue
 
@@ -212,9 +246,9 @@ class Assignment(Atom):
             for value in values:
                 singularity_list.add(
                     Singularity(
-                        symbol=state.symbol,
+                        symbol=var.symbol,
                         value=value,
-                        replacement=limit(self.expr, state.symbol, value),
+                        replacement=limit(self.expr, var.symbol, value),
                     )
                 )
         return frozenset(singularity_list)
