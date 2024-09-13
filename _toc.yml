@@ -1,0 +1,29 @@
+# Table of contents
+# Learn more at https://jupyterbook.org/customize/toc.html
+
+format: jb-book
+root: README
+parts:
+  - caption: Tutorials
+    chapters:
+    - file: "examples/lorentz.py"
+    - file: docs/cli
+    - file: "examples/run-python/main.py"
+  - caption: How to guides
+    chapters:
+    - file: "examples/new-language/main.py"
+    - file: "docs/config"
+    - file: "examples/split-ode/main.py"
+    - file: "examples/compile-c-extension/main.py"
+    - file: "docs/vectorized_computations"
+  - caption: Explanation
+    chapters:
+    - file: "docs/about"
+    - file: "docs/grammar"
+    - file: "docs/history"
+  - caption: Reference
+    chapters:
+    - file: "docs/api.rst"
+    - file: "docs/roadmap"
+    - file: CONTRIBUTING
+    - file: CODE_OF_CONDUCT

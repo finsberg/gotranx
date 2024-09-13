@@ -7,11 +7,14 @@ from enum import Enum
 import sympy
 from sympy.codegen.ast import Assignment
 from sympy.printing.codeprinter import CodePrinter
+import structlog
 
 from .. import templates
 from ..ode import ODE
 from .. import atoms
 from .. import schemes
+
+logger = structlog.get_logger()
 
 
 class Func(typing.NamedTuple):
@@ -132,7 +135,7 @@ class CodeGenerator(abc.ABC):
             formatted_code = self._formatter(code)
         except Exception:
             # FIXME: handle this
-            print("An exception was raised")
+            logger.error("An exception was raised")
             formatted_code = code
 
         return formatted_code
@@ -144,6 +147,9 @@ class CodeGenerator(abc.ABC):
 
     def _comment(self, text: str) -> str:
         return self.printer._get_comment(text).strip()
+
+    def imports(self) -> str:
+        return ""
 
     def missing_index(self) -> str:
         if self._missing_variables:
@@ -428,15 +434,17 @@ class CodeGenerator(abc.ABC):
 
         return self._format(code)
 
-    def scheme(self, name: str, order=SchemeArgument.stdp) -> str:
+    def scheme(self, f: schemes.scheme_func, order=SchemeArgument.stdp, **kwargs) -> str:
         """Generate code for the scheme
 
         Parameters
         ----------
-        name : str
-            The name of the scheme
+        f : schemes.scheme_func
+            Function for generating the scheme
         order : SchemeArgument | str, optional
             The order of the arguments, by default SchemeArgument.stdp
+        kwargs : dict
+            Additional keyword arguments to be passed to the scheme function
 
         Returns
         -------
@@ -454,18 +462,18 @@ class CodeGenerator(abc.ABC):
             arguments += ["missing_variables"]
 
         dt = sympy.Symbol("dt")
-        f = schemes.get_scheme(name)
         eqs = f(
             self.ode,
             dt,
             name=rhs.return_name,
             printer=self._doprint,
             remove_unused=self.remove_unused,
+            **kwargs,
         )
         values = "\n".join(eqs)
 
         code = self.template.method(
-            name=name,
+            name=f.__code__.co_name,
             args=", ".join(arguments),
             states=states,
             parameters=parameters,

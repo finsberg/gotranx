@@ -26,7 +26,7 @@ def check_components(components: Sequence[BaseComponent]):
 
     Parameters
     ----------
-    components : Sequence[BaseComponent]
+    components : Sequence[gotranx.ode_component.BaseComponent]
         The components to check
 
     Raises
@@ -56,7 +56,7 @@ def gather_atoms(
 
     Parameters
     ----------
-    components : Sequence[BaseComponent]
+    components : Sequence[gotranx.ode_component.BaseComponent]
         The components to gather atoms from
 
     Returns
@@ -125,14 +125,14 @@ def add_temporal_state(
 
     Parameters
     ----------
-    components : Sequence[BaseComponent]
+    components : Sequence[gotranx.ode_component.BaseComponent]
         The components to add the temporal state to
     t : sp.Symbol
         The temporal symbol
 
     Returns
     -------
-    tuple[Component, ...]
+    tuple[gotranx.ode_component.Component, ...]
         The new components with the temporal state
     """
     new_components = []
@@ -174,14 +174,14 @@ def resolve_expressions(
 
     Parameters
     ----------
-    components : Sequence[Component]
+    components : Sequence[gotranx.ode_component.Component]
         The components to resolve expressions in
     symbols : dict[str, sp.Symbol]
         The symbols to resolve the expressions with
 
     Returns
     -------
-    tuple[Component, ...]
+    tuple[gotranx.ode_component.Component, ...]
         The new components with resolved expressions
     """
     new_components = []
@@ -209,7 +209,7 @@ def make_ode(
 
     Parameters
     ----------
-    components : Sequence[Component]
+    components : Sequence[gotranx.ode_component.Component]
         The components to create the ODE from
     comments : Sequence[atoms.Comment] | None, optional
         The a list of comments, by default None
@@ -291,7 +291,7 @@ class ODE:
 
     Parameters
     ----------
-    components : Sequence[BaseComponent]
+    components : Sequence[gotranx.ode_component.BaseComponent]
         The components of the ODE
     t : sp.Symbol | None, optional
         Symbol representing time, by default None
@@ -432,9 +432,9 @@ class ODE:
         return self._symbols
 
     def __sub__(self, other: BaseComponent) -> ODE:
-        new_compooents = [comp for comp in self.components if comp != other]
+        new_components = [comp for comp in self.components if comp != other]
         return ODE(
-            components=new_compooents,
+            components=new_components,
             t=self.t,
             name=f"{self.name} - {other.name}",
             comments=self.comments,

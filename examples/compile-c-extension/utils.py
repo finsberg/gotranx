@@ -53,13 +53,12 @@ def build_c(model):
 
     build_dir.mkdir()
 
-    sp.check_call(["cmake", f"-DCELL_LIBFILE={model_name}", ".."], cwd=build_dir)
-    sp.check_call(["make"], cwd=build_dir)
+    sp.check_call(["cmake", "-S", ".", "-B", str(build_dir), f"-DCELL_LIBFILE={model_name}"])
+    sp.check_call(["cmake", "--build", str(build_dir)])
 
 
 def gotran2c(odefile):
     ode = gotranx.load_ode(odefile)
-    # breakpoint()
     # Generate code and generalized rush larsen scheme
     code = gotranx.cli.gotran2c.get_code(
         ode,

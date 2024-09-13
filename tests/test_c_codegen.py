@@ -3,6 +3,7 @@ import sys
 from unittest import mock
 
 import pytest
+from gotranx.schemes import get_scheme
 from gotranx.codegen import CCodeGenerator
 from gotranx.codegen import RHSArgument
 from gotranx.ode import make_ode
@@ -33,6 +34,7 @@ def codegen(ode) -> CCodeGenerator:
     return CCodeGenerator(ode)
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="clang-format-docs is not available on Windows")
 def test_c_codegen_initial_state_values(codegen: CCodeGenerator):
     assert codegen.initial_state_values() == (
         "\nvoid init_state_values(double *states)\n"
@@ -47,6 +49,7 @@ def test_c_codegen_initial_state_values(codegen: CCodeGenerator):
     )
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="clang-format-docs is not available on Windows")
 def test_c_codegen_initial_parameter_values(codegen: CCodeGenerator):
     assert codegen.initial_parameter_values() == (
         "\nvoid init_parameter_values(double *parameters)\n"
@@ -78,6 +81,7 @@ def test_c_codegen_initial_parameter_values_no_clang_format(ode):
         )
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="clang-format-docs is not available on Windows")
 @pytest.mark.parametrize(
     "order, arguments",
     [
@@ -131,8 +135,9 @@ def test_c_codegen_rhs(order: str, arguments: str, codegen: CCodeGenerator):
     )
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="clang-format-docs is not available on Windows")
 def test_c_codegen_forward_euler(codegen: CCodeGenerator):
-    assert codegen.scheme("forward_euler") == (
+    assert codegen.scheme(get_scheme("forward_euler")) == (
         "\nvoid forward_euler(const double *__restrict states, const double t, const double dt,"
         "\n                   const double *__restrict parameters, double *values)"
         "\n{"
@@ -160,8 +165,9 @@ def test_c_codegen_forward_euler(codegen: CCodeGenerator):
     )
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="clang-format-docs is not available on Windows")
 def test_c_codegen_forward_generalized_rush_larsen(codegen: CCodeGenerator):
-    assert codegen.scheme("forward_generalized_rush_larsen") == (
+    assert codegen.scheme(get_scheme("forward_generalized_rush_larsen")) == (
         "\nvoid forward_generalized_rush_larsen(const double *__restrict states, const double t, const double dt,"
         "\n                                     const double *__restrict parameters, double *values)"
         "\n{"
@@ -195,6 +201,7 @@ def test_c_codegen_forward_generalized_rush_larsen(codegen: CCodeGenerator):
     )
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="clang-format-docs is not available on Windows")
 def test_c_remove_unused_rhs(ode_unused):
     codegen_orig = CCodeGenerator(ode_unused)
     assert codegen_orig.rhs() == (
@@ -256,9 +263,10 @@ def test_c_remove_unused_rhs(ode_unused):
     )
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="clang-format-docs is not available on Windows")
 def test_c_remove_unused_forward_explicit_euler(ode_unused):
     codegen_orig = CCodeGenerator(ode_unused)
-    assert codegen_orig.scheme("forward_euler") == (
+    assert codegen_orig.scheme(get_scheme("forward_euler")) == (
         "\nvoid forward_euler(const double *__restrict states, const double t, const double dt,"
         "\n                   const double *__restrict parameters, double *values)"
         "\n{"
@@ -290,7 +298,7 @@ def test_c_remove_unused_forward_explicit_euler(ode_unused):
         "\n"
     )
     codegen_remove = CCodeGenerator(ode_unused, remove_unused=True)
-    assert codegen_remove.scheme("forward_euler") == (
+    assert codegen_remove.scheme(get_scheme("forward_euler")) == (
         "\nvoid forward_euler(const double *__restrict states, const double t, const double dt,"
         "\n                   const double *__restrict parameters, double *values)"
         "\n{"
@@ -320,9 +328,10 @@ def test_c_remove_unused_forward_explicit_euler(ode_unused):
     )
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="clang-format-docs is not available on Windows")
 def test_c_remove_unused_forward_generalized_rush_larsen(ode_unused):
     codegen_orig = CCodeGenerator(ode_unused)
-    assert codegen_orig.scheme("forward_generalized_rush_larsen") == (
+    assert codegen_orig.scheme(get_scheme("forward_generalized_rush_larsen")) == (
         "\nvoid forward_generalized_rush_larsen(const double *__restrict states, const double t, const double dt,"
         "\n                                     const double *__restrict parameters, double *values)"
         "\n{"
@@ -360,7 +369,7 @@ def test_c_remove_unused_forward_generalized_rush_larsen(ode_unused):
         "\n"
     )
     codegen_remove = CCodeGenerator(ode_unused, remove_unused=True)
-    assert codegen_remove.scheme("forward_generalized_rush_larsen") == (
+    assert codegen_remove.scheme(get_scheme("forward_generalized_rush_larsen")) == (
         "\nvoid forward_generalized_rush_larsen(const double *__restrict states, const double t, const double dt,"
         "\n                                     const double *__restrict parameters, double *values)"
         "\n{"
@@ -396,6 +405,7 @@ def test_c_remove_unused_forward_generalized_rush_larsen(ode_unused):
     )
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="clang-format-docs is not available on Windows")
 def test_c_conditional_expression_assignment(parser, trans):
     expr = """
     states(v=0)
@@ -424,6 +434,7 @@ def test_c_conditional_expression_assignment(parser, trans):
     )
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="clang-format-docs is not available on Windows")
 def test_c_conditional_expression_advanced(parser, trans):
     expr = """
     states(v=0.5)
@@ -457,6 +468,7 @@ def test_c_conditional_expression_advanced(parser, trans):
     )
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="clang-format-docs is not available on Windows")
 def test_c_codegen_parameter_index(codegen: CCodeGenerator):
     assert codegen.parameter_index() == (
         "// Parameter index"
@@ -488,6 +500,7 @@ def test_c_codegen_parameter_index(codegen: CCodeGenerator):
     )
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="clang-format-docs is not available on Windows")
 def test_c_codegen_state_index(codegen: CCodeGenerator):
     assert codegen.state_index() == (
         "// State index"
@@ -514,6 +527,7 @@ def test_c_codegen_state_index(codegen: CCodeGenerator):
     )
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="clang-format-docs is not available on Windows")
 def test_c_codegen_monitor_index(codegen: CCodeGenerator):
     assert codegen.monitor_index() == (
         "// Monitor index"
@@ -540,6 +554,7 @@ def test_c_codegen_monitor_index(codegen: CCodeGenerator):
     )
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="clang-format-docs is not available on Windows")
 def test_c_codegen_monitor(codegen: CCodeGenerator):
     assert codegen.monitor_values() == (
         "\nvoid monitor_values(const double t, const double *__restrict states, const double *__restrict parameters,"

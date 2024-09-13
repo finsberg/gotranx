@@ -1,4 +1,4 @@
-# Code of Conduct - gotranx
+# Code of Conduct
 
 ## Our Pledge
 

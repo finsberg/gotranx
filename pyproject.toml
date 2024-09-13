@@ -4,17 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gotranx"
-version = "0.3.8"
+version = "1.1.2"
 description = "A declarative language describing ordinary differential equations"
 authors = [{name = "Henrik Finsberg", email = "henriknf@simula.no"}]
 license = {text = "MIT"}
 classifiers = [
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
 ]
 keywords = ["parser", "lark", "gotran", "ode"]
 urls = {Homepage = "https://github.com/finsberg/gotranx"}
@@ -30,6 +26,7 @@ dependencies = [
     "sympy",
     "typer",
     "myokit",
+    "toml; python_version < '3.11'",
     'graphlib-backport;python_version < "3.9"',
     'typing_extensions;python_version < "3.9"',
 ]
@@ -48,22 +45,28 @@ dev = [
     "wheel",
 ]
 docs = [
-    "mkdocs",
-    "mkdocs-material",
-    "mkdocs-embed-external-markdown",
-    "griffe-inherited-docstrings>=1.0",
-    "mkdocs-gen-files>=0.5",
-    "mkdocstrings-python",
-    "mkdocs-literate-nav>=0.6",
+    "jupyter-book",
+    "jupytext",
+    "scipy",
+    "sphinxcontrib-mermaid",
+    "jax",
 ]
 test = [
-    "pre-commit",
     "pytest",
     "pytest-cov",
+    "jax",
+    "cmake",
+]
+benchmark = [
+    "pytest-benchmark>=4.0.0",
+    # TODO: remove bound once pytest-codspeed supports 3.13, blocked by `python-cffi`
+    "pytest-codspeed~=2.2.0; python_version < '3.13'",
+    "gotranx[test]",
 ]
 
 [project.scripts]
 gotranx = "gotranx.cli:app"
+
 
 [tool.setuptools]
 include-package-data = true
@@ -81,11 +84,8 @@ namespaces = false
 test = "pytest"
 
 [tool.pytest.ini_options]
-addopts = "--cov=gotranx --cov-report html --cov-report xml --cov-report term-missing -v"
 testpaths = ["tests"]
 
-[tool.isort]
-profile = "black"
 
 [tool.mypy]
 files = ["src/gotranx", "tests"]
@@ -103,6 +103,7 @@ omit = ["src/gotranx/__main__.py", "src/gotranx/templates/__init__.py"]
 
 # Exclude a variety of commonly ignored directories.
 exclude = [
+    "examples",
     ".bzr",
     ".direnv",
     ".eggs",
@@ -157,7 +158,7 @@ tag = true
 sign_tags = false
 tag_name = "v{new_version}"
 tag_message = "Bump version: {current_version} → {new_version}"
-current_version = "0.3.8"
+current_version = "1.1.2"
 
 
 [[tool.bumpversion.files]]

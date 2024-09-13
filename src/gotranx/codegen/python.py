@@ -1,14 +1,25 @@
 from __future__ import annotations
+import typing
+from enum import Enum
 from sympy.printing.pycode import PythonCodePrinter
 
 # from sympy.printing.numpy import NumPyPrinter
 from sympy.codegen.ast import Assignment
 import sympy
+import structlog
 from functools import partial
 
 from ..ode import ODE
 from .. import templates
 from .base import CodeGenerator, Func, RHSArgument, SchemeArgument, _print_Piecewise
+
+logger = structlog.get_logger()
+
+
+class Format(str, Enum):
+    black = "black"
+    ruff = "ruff"
+    none = "none"
 
 
 # class GotranPythonCodePrinter(NumPyPrinter):
@@ -21,7 +32,7 @@ class GotranPythonCodePrinter(PythonCodePrinter):
 
     def _print_MatrixElement(self, expr):
         if expr.parent.shape[1] == 1:
-            # Then this is a colum vector
+            # Then this is a column vector
             return f"{self._print(expr.parent)}[{expr.i}]"
         elif expr.parent.shape[0] == 1:
             # Then this is a row vector
@@ -97,20 +108,48 @@ class GotranPythonCodePrinter(PythonCodePrinter):
         return value
 
 
+def get_formatter(format: Format) -> typing.Callable[[str], str]:
+    if format == Format.none:
+        return lambda x: x
+
+    elif format == Format.black:
+        try:
+            import black
+        except ImportError:
+            logger.warning("Cannot apply black, please install 'black'")
+            return lambda x: x
+        else:
+            return partial(black.format_str, mode=black.Mode())
+
+    elif format == Format.ruff:
+        try:
+            import ruff.__main__
+
+            ruff_bin = ruff.__main__.find_ruff_bin()
+        except ImportError:
+            logger.warning("Cannot apply ruff, please install 'ruff'")
+            return lambda x: x
+        else:
+            import subprocess
+
+            def func(code: str) -> str:
+                return subprocess.check_output(
+                    [ruff_bin, "format", "-"], input=code, encoding="utf-8"
+                )
+
+            return func
+
+    else:
+        raise ValueError(f"Unknown format {format}")
+
+
 class PythonCodeGenerator(CodeGenerator):
-    def __init__(self, ode: ODE, apply_black: bool = True, *args, **kwargs) -> None:
+    def __init__(self, ode: ODE, format: Format = Format.black, *args, **kwargs) -> None:
         super().__init__(ode, *args, **kwargs)
 
         self._printer = GotranPythonCodePrinter()
 
-        if apply_black:
-            try:
-                import black
-            except ImportError:
-                print("Cannot apply black, please install 'black'")
-            else:
-                # TODO: add options for black in Mode
-                setattr(self, "_formatter", partial(black.format_str, mode=black.Mode()))
+        setattr(self, "_formatter", get_formatter(format=format))
 
     @property
     def printer(self):
@@ -119,6 +158,9 @@ class PythonCodeGenerator(CodeGenerator):
     @property
     def template(self):
         return templates.python
+
+    def imports(self) -> str:
+        return self._format("import numpy")
 
     def _rhs_arguments(
         self,

@@ -316,7 +316,7 @@ class TreeToODE(lark.Transformer):
                 comments.append(line)
                 continue
             if isinstance(line, str):
-                assert line.strip() == "", f"Ivalid line {line!r}"
+                assert line.strip() == "", f"Invalid line {line!r}"
                 # Skip empty lines
                 continue
 
