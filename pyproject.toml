@@ -50,6 +50,7 @@ docs = [
     "scipy",
     "sphinxcontrib-mermaid",
     "jax",
+    "numba",
 ]
 test = [
     "pytest",
