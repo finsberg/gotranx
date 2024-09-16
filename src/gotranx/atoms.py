@@ -209,8 +209,15 @@ def remove_singularities(expr: sp.Expr, singularities: frozenset[Singularity]) -
             false_value=expr,
         )
         for singularity in singularities
+        if not singularity.is_infinite
     ]
-    return sp.piecewise_fold(sum(exprs))
+    if len(exprs) == 0:
+        logger.debug("No singularities to remove")
+        return expr
+
+    new_expr = sp.piecewise_fold(sum(exprs))
+    logger.debug("Removing singularities", new_expr=new_expr)
+    return new_expr
 
 
 @attr.s(frozen=True, kw_only=True, slots=True)
@@ -294,8 +301,9 @@ class Assignment(Atom):
         Assignment
             A new assignment with singularities removed
         """
-
+        logger.debug("Removing singularities")
         if singularities := self.singularities(lookup):
+            logger.debug("Singularities found", singularities=singularities)
             new_expr = remove_singularities(self.expr, singularities)
             return type(self)(
                 name=self.name,
