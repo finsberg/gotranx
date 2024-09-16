@@ -325,7 +325,6 @@ class ODE:
         t = sp.Symbol("t")
         self.t = t
         symbols["time"] = t
-        self._singularities: dict[str, frozenset[atoms.Singularity]] = {}
 
         self._symbols = symbols
         self._lookup = lookup
@@ -338,18 +337,17 @@ class ODE:
         self.comments = comments
         self.text = " ".join(comment.text for comment in comments)
 
-    def singularities(self, name: str) -> frozenset[atoms.Singularity]:
-        if name not in self._singularities:
-            variable = self._lookup[name]
-            if not isinstance(variable, atoms.Assignment):
-                msg = (
-                    "Singularity can only be calculated for assignments, "
-                    f"got {type(variable)} for {name}"
-                )
-                raise exceptions.GotranxError(msg)
+    def remove_singularities(self):
+        new_components: list[BaseComponent] = []
+        for component in self._components.values():
+            new_components.append(component.remove_singularities(self._lookup))
 
-            self._singularities[name] = variable.singularities(self._lookup)
-        return self._singularities[name]
+        return ODE(
+            components=new_components,
+            t=self.t,
+            name=self.name,
+            comments=self.comments,
+        )
 
     def __repr__(self) -> str:
         return (

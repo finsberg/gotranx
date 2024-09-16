@@ -192,6 +192,31 @@ class Component(BaseComponent):
     def __attrs_post_init__(self):
         self._handle_assignments()
 
+    def remove_singularities(self, lookup: dict[str, atoms.Atom]) -> Component:
+        """Remove singularities from the component
+
+        Parameters
+        ----------
+        lookup : dict[str, atoms.Atom]
+            A lookup table for atoms
+
+        Returns
+        -------
+        Component
+            A new component with singularities removed
+        """
+        new_assignments = set()
+
+        for assignment in self.assignments:
+            new_assignments.add(assignment.remove_singularities(lookup))
+
+        return Component(
+            name=self.name,
+            states=self.states,
+            parameters=self.parameters,
+            assignments=frozenset(new_assignments),
+        )
+
     def _handle_assignments(self):
         """Handle assignments and create intermediates and state derivatives"""
         state_derivatives = set()

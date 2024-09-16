@@ -185,6 +185,34 @@ class Singularity:
         return self.replacement.has(sp.oo)
 
 
+def remove_singularities(expr: sp.Expr, singularities: frozenset[Singularity]) -> sp.Expr:
+    """Remove singularities from an expression recursively using Conditionals
+
+    Parameters
+    ----------
+    expr : sp.Expr
+        The expression
+    singularities : frozenset[Singularity]
+        The singularities
+
+    Returns
+    -------
+    sp.Expr
+        The expression with singularities removed
+    """
+    from .sympytools import Conditional
+
+    exprs = [
+        Conditional(
+            cond=sp.Eq(singularity.symbol, singularity.value),
+            true_value=singularity.replacement,
+            false_value=expr,
+        )
+        for singularity in singularities
+    ]
+    return sp.piecewise_fold(sum(exprs))
+
+
 @attr.s(frozen=True, kw_only=True, slots=True)
 class Assignment(Atom):
     """Assignments are object of the form `name = value`."""
@@ -252,6 +280,37 @@ class Assignment(Atom):
                     )
                 )
         return frozenset(singularity_list)
+
+    def remove_singularities(self, lookup: dict[str, Atom]) -> "Assignment":
+        """Remove singularities from the assignment
+
+        Parameters
+        ----------
+        lookup : dict[str, Atom]
+            A lookup table for atoms
+
+        Returns
+        -------
+        Assignment
+            A new assignment with singularities removed
+        """
+
+        if singularities := self.singularities(lookup):
+            new_expr = remove_singularities(self.expr, singularities)
+            return type(self)(
+                name=self.name,
+                value=self.value,
+                components=self.components,
+                unit_str=self.unit_str,
+                unit=self.unit,
+                expr=new_expr,
+                symbol=self.symbol,
+                description=self.description,
+                comment=self.comment,
+            )
+
+        # Do not make a copy if no singularities
+        return self
 
     def resolve_expression(self, symbols: dict[str, sp.Symbol]) -> Assignment:
         """Resolve the expression of the assignment by

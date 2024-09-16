@@ -107,6 +107,15 @@ class GotranPythonCodePrinter(PythonCodePrinter):
 
         return value
 
+    def _print_Equality(self, expr):
+        lhs, rhs = expr.args
+        return f"numpy.isclose({self._print(lhs)}, {self._print(rhs)})"
+
+    def _print_sign(self, e):
+        return "(0.0 if numpy.isclose({e}, 0) else {f}(1, {e}))".format(
+            f=self._module_format("numpy.copysign"), e=self._print(e.args[0])
+        )
+
 
 def get_formatter(format: Format) -> typing.Callable[[str], str]:
     if format == Format.none:
