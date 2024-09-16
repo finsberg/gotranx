@@ -660,3 +660,91 @@ def test_python_monitored_index(codegen: PythonCodeGenerator):
         "\n    return monitor[name]"
         "\n"
     )
+
+
+@pytest.fixture(scope="module")
+def singular_ode(parser, trans):
+    expr = """
+    parameters(
+    a = 1.0,
+    b = 2.0
+    )
+    states(
+    x = 1.0
+    )
+
+    y = x /(exp(x) - 1.0)
+    z = x /(exp(x) - 1.0) + (x - 2) /(exp(x) - exp(2))
+    dx_dt = b / x
+    """
+    tree = parser.parse(expr)
+    return make_ode(*trans.transform(tree), name="lorentz")
+
+
+def test_codegen_rhs_singular_ode(singular_ode):
+    codegen_sing = PythonCodeGenerator(singular_ode)
+
+    assert codegen_sing.rhs() == (
+        "def rhs(t, states, parameters):"
+        "\n"
+        "\n    # Assign states"
+        "\n    x = states[0]"
+        "\n"
+        "\n    # Assign parameters"
+        "\n    a = parameters[0]"
+        "\n    b = parameters[1]"
+        "\n"
+        "\n    # Assign expressions"
+        "\n"
+        "\n    values = numpy.zeros_like(states, dtype=numpy.float64)"
+        "\n    y = x / (numpy.exp(x) - 1.0)"
+        "\n    z = x / (numpy.exp(x) - 1.0) + (x - 2) / (numpy.exp(x) - numpy.exp(2))"
+        "\n    dx_dt = b / x"
+        "\n    values[0] = dx_dt"
+        "\n"
+        "\n    return values"
+        "\n"
+    )
+
+    new_ode = singular_ode.remove_singularities()
+    codegen_fixed = PythonCodeGenerator(new_ode)
+    assert codegen_fixed.rhs() == (
+        "def rhs(t, states, parameters):"
+        "\n"
+        "\n    # Assign states"
+        "\n    x = states[0]"
+        "\n"
+        "\n    # Assign parameters"
+        "\n    a = parameters[0]"
+        "\n    b = parameters[1]"
+        "\n"
+        "\n    # Assign expressions"
+        "\n"
+        "\n    values = numpy.zeros_like(states, dtype=numpy.float64)"
+        "\n    y = numpy.where(numpy.isclose(x, 0), 1, x / (numpy.exp(x) - 1.0))"
+        "\n    z = numpy.where("
+        "\n        numpy.logical_and(numpy.isclose(x, 0), numpy.isclose(x, 2)),"
+        "\n        numpy.exp(-2) - 2 / (1 - numpy.exp(2)) + 2 / (-1 + numpy.exp(2)) + 1,"
+        "\n        numpy.where("
+        "\n            numpy.isclose(x, 0),"
+        "\n            x / (numpy.exp(x) - 1.0)"
+        "\n            + (x - 2) / (numpy.exp(x) - numpy.exp(2))"
+        "\n            - 2 / (1 - numpy.exp(2))"
+        "\n            + 1,"
+        "\n            numpy.where("
+        "\n                numpy.isclose(x, 2),"
+        "\n                x / (numpy.exp(x) - 1.0)"
+        "\n                + (x - 2) / (numpy.exp(x) - numpy.exp(2))"
+        "\n                + numpy.exp(-2)"
+        "\n                + 2 / (-1 + numpy.exp(2)),"
+        "\n                2 * x / (numpy.exp(x) - 1.0)"
+        "\n                + 2 * (x - 2) / (numpy.exp(x) - numpy.exp(2)),"
+        "\n            ),"
+        "\n        ),"
+        "\n    )"
+        "\n    dx_dt = b / x"
+        "\n    values[0] = dx_dt"
+        "\n"
+        "\n    return values"
+        "\n"
+    )

@@ -107,6 +107,9 @@ class Atom:
         if self.symbol is None:
             _set_symbol(self, name=self.name)
 
+    def is_stateful(self, lookup: dict[str, Atom]) -> bool:
+        return isinstance(self, State) or isinstance(self, TimeDependentState)
+
 
 @attr.s(frozen=True, kw_only=True, slots=True)
 class Parameter(Atom):
@@ -171,12 +174,151 @@ class Expression:
 
 
 @attr.s(frozen=True, kw_only=True, slots=True)
+class Singularity:
+    symbol: sp.Symbol = attr.ib()
+    value: float | sp.core.Number = attr.ib()
+    replacement: sp.Expr = attr.ib()
+
+    @property
+    def is_infinite(self):
+        """Return True if the replacement is potentially infinite"""
+        return self.replacement.has(sp.oo)
+
+
+def remove_singularities(expr: sp.Expr, singularities: frozenset[Singularity]) -> sp.Expr:
+    """Remove singularities from an expression recursively using Conditionals
+
+    Parameters
+    ----------
+    expr : sp.Expr
+        The expression
+    singularities : frozenset[Singularity]
+        The singularities
+
+    Returns
+    -------
+    sp.Expr
+        The expression with singularities removed
+    """
+    from .sympytools import Conditional
+
+    exprs = [
+        Conditional(
+            cond=sp.Eq(singularity.symbol, singularity.value),
+            true_value=singularity.replacement,
+            false_value=expr,
+        )
+        for singularity in singularities
+        if not singularity.is_infinite
+    ]
+    if len(exprs) == 0:
+        logger.debug("No singularities to remove")
+        return expr
+
+    new_expr = sp.piecewise_fold(sum(exprs))
+    logger.debug("Removing singularities", new_expr=new_expr)
+    return new_expr
+
+
+@attr.s(frozen=True, kw_only=True, slots=True)
 class Assignment(Atom):
     """Assignments are object of the form `name = value`."""
 
     value: Expression | None = attr.ib()
     expr: sp.Expr = attr.ib(sp.S.Zero)
     comment: Comment | None = attr.ib(None)
+
+    def is_stateful(self, lookup: dict[str, Atom]) -> bool:
+        # If the assignment depends on a state it is stateful
+        # This is also recursive
+
+        if self.value is None:
+            logger.warning(
+                f"Assignment {self.name} has no value. Unable to determine if it is stateful."
+            )
+            return False
+
+        for dep in self.value.dependencies:
+            try:
+                state = lookup[dep]
+            except KeyError:
+                continue
+            if state.is_stateful(lookup):
+                return True
+        return False
+
+    def singularities(self, lookup: dict[str, Atom]) -> frozenset[Singularity]:
+        """Check if the expression has any singularities
+        and return a list of singularities"""
+        from sympy import singularities, limit
+
+        singularity_list: set[Singularity] = set()
+        if self.value is None:
+            return frozenset(singularity_list)
+        if self.expr == 0:
+            logger.warning(
+                f"Expression {self.name} is zero. Maybe you forgot to resolve the expression?"
+            )
+            return frozenset(singularity_list)
+
+        for dep in self.value.dependencies:
+            try:
+                var = lookup[dep]
+            except KeyError:
+                continue
+
+            if not var.is_stateful(lookup):
+                continue
+
+            values = singularities(self.expr, var.symbol)
+
+            if not values:
+                continue
+
+            if not isinstance(values, sp.sets.sets.FiniteSet):
+                continue
+
+            for value in values:
+                singularity_list.add(
+                    Singularity(
+                        symbol=var.symbol,
+                        value=value,
+                        replacement=limit(self.expr, var.symbol, value),
+                    )
+                )
+        return frozenset(singularity_list)
+
+    def remove_singularities(self, lookup: dict[str, Atom]) -> "Assignment":
+        """Remove singularities from the assignment
+
+        Parameters
+        ----------
+        lookup : dict[str, Atom]
+            A lookup table for atoms
+
+        Returns
+        -------
+        Assignment
+            A new assignment with singularities removed
+        """
+        logger.debug("Removing singularities")
+        if singularities := self.singularities(lookup):
+            logger.debug("Singularities found", singularities=singularities)
+            new_expr = remove_singularities(self.expr, singularities)
+            return type(self)(
+                name=self.name,
+                value=self.value,
+                components=self.components,
+                unit_str=self.unit_str,
+                unit=self.unit,
+                expr=new_expr,
+                symbol=self.symbol,
+                description=self.description,
+                comment=self.comment,
+            )
+
+        # Do not make a copy if no singularities
+        return self
 
     def resolve_expression(self, symbols: dict[str, sp.Symbol]) -> Assignment:
         """Resolve the expression of the assignment by

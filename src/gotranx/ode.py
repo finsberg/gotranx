@@ -337,6 +337,18 @@ class ODE:
         self.comments = comments
         self.text = " ".join(comment.text for comment in comments)
 
+    def remove_singularities(self):
+        new_components: list[BaseComponent] = []
+        for component in self._components.values():
+            new_components.append(component.remove_singularities(self._lookup))
+
+        return ODE(
+            components=new_components,
+            t=self.t,
+            name=self.name,
+            comments=self.comments,
+        )
+
     def __repr__(self) -> str:
         return (
             f"{type(self).__name__}({self.name}, "

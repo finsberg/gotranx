@@ -24,7 +24,10 @@ class Format(str, Enum):
 
 # class GotranPythonCodePrinter(NumPyPrinter):
 class GotranPythonCodePrinter(PythonCodePrinter):
-    _kf = {k: f"numpy.{v.replace('math.', '')}" for k, v in PythonCodePrinter._kf.items()}
+    _kf = {
+        **{k: f"numpy.{v.replace('math.', '')}" for k, v in PythonCodePrinter._kf.items()},
+        **{"DiracDelta": "numpy.zeros_like"},
+    }
     _kc = {k: f"numpy.{v.replace('math.', '')}" for k, v in PythonCodePrinter._kc.items()}
 
     def _hprint_Pow(self, expr, rational=False, sqrt="numpy.sqrt"):
@@ -106,6 +109,15 @@ class GotranPythonCodePrinter(PythonCodePrinter):
             value = f"numpy.logical_or.reduce(({args}))"
 
         return value
+
+    def _print_Equality(self, expr):
+        lhs, rhs = expr.args
+        return f"numpy.isclose({self._print(lhs)}, {self._print(rhs)})"
+
+    def _print_sign(self, e):
+        return "(0.0 if numpy.isclose({e}, 0) else {f}(1, {e}))".format(
+            f=self._module_format("numpy.copysign"), e=self._print(e.args[0])
+        )
 
 
 def get_formatter(format: Format) -> typing.Callable[[str], str]:
