@@ -182,7 +182,7 @@ class Singularity:
     @property
     def is_infinite(self):
         """Return True if the replacement is potentially infinite"""
-        return self.replacement.has(sp.oo)
+        return self.replacement.has(sp.oo) or self.replacement.has(-sp.oo)
 
 
 def remove_singularities(expr: sp.Expr, singularities: frozenset[Singularity]) -> sp.Expr:

@@ -9,6 +9,7 @@ parts:
     - file: "examples/lorentz.py"
     - file: docs/cli
     - file: "examples/run-python/main.py"
+    - file: "examples/run-python/main_numba.py"
   - caption: How to guides
     chapters:
     - file: "examples/new-language/main.py"

@@ -2,6 +2,7 @@ arange
 autouse
 betaz
 boolalg
+Cais
 cbuild
 cellml
 cellmlfile
@@ -54,9 +55,12 @@ matplotlib
 modelparameters
 MPLBACKEND
 myokit
+nbeats
 ndarray
 ndpointer
+njit
 nocover
+numba
 numpy
 odeblock
 odefile
