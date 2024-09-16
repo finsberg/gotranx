@@ -4,6 +4,7 @@ import logging
 import enum
 import structlog
 
+from ..codegen.base import Shape
 from ..codegen.jax import JaxCodeGenerator
 from ..codegen.python import PythonCodeGenerator, get_formatter, Format
 from ..load import load_ode
@@ -29,6 +30,7 @@ def get_code(
     delta: float = 1e-8,
     stiff_states: list[str] | None = None,
     backend: Backend = Backend.numpy,
+    shape: Shape = Shape.dynamic,
 ) -> str:
     """Generate the Python code for the ODE
 
@@ -51,6 +53,8 @@ def get_code(
         the hybrid rush larsen scheme
     backend : Backend, optional
         The backend, by default Backend.numpy
+    shape : Shape, optional
+        The shape of the output arrays, by default Shape.dynamic
 
 
     Returns
@@ -69,6 +73,7 @@ def get_code(
         ode,
         format=Format.none,
         remove_unused=remove_unused,
+        shape=shape,
     )
     formatter = get_formatter(format=format)
     if missing_values is not None:

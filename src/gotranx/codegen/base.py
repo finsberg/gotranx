@@ -95,6 +95,12 @@ def _print_Piecewise(
     return tuple(conds), tuple(exprs)
 
 
+class Shape(str, Enum):
+    dynamic = "dynamic"
+    single = "single"
+    multiple = "multiple"
+
+
 class CodeGenerator(abc.ABC):
     variable_prefix = ""
 
@@ -102,10 +108,12 @@ class CodeGenerator(abc.ABC):
         self,
         ode: ODE,
         remove_unused: bool = False,
+        shape: Shape = Shape.dynamic,
     ) -> None:
         self.ode = ode
         self.remove_unused = remove_unused
         self._missing_variables = ode.missing_variables
+        self._shape = shape
 
         if remove_unused:
             self.deps = self.ode.dependents()
@@ -326,6 +334,16 @@ class CodeGenerator(abc.ABC):
 
         return self._format(code)
 
+    def _shape_info(self, shape) -> str:
+        if self._shape == Shape.dynamic:
+            return f"shape = {shape} if len(states.shape) == 1 else ({shape}, states.shape[1])"
+        elif self._shape == Shape.single:
+            return f"shape = {shape}"
+        elif self._shape == Shape.multiple:
+            return f"shape = ({shape}, states.shape[1])"
+        else:
+            raise ValueError(f"Invalid shape: {self._shape}")
+
     def monitor_values(self, order: RHSArgument | str = RHSArgument.tsp, use_cse=False) -> str:
         """Generate code for the right hand side of the ODE
 
@@ -367,7 +385,7 @@ class CodeGenerator(abc.ABC):
         values = "\n".join(values_lst)
 
         shape = values_idx.shape[0]
-        shape_info = f"shape = {shape} if len(states.shape) == 1 else ({shape}, states.shape[1])"
+        shape_info = self._shape_info(shape)
 
         code = self.template.method(
             name="monitor_values",
@@ -417,7 +435,7 @@ class CodeGenerator(abc.ABC):
                 break
 
         shape = values_idx.shape[0]
-        shape_info = f"shape = {shape} if len(states.shape) == 1 else ({shape}, states.shape[1])"
+        shape_info = self._shape_info(shape)
 
         code = self.template.method(
             name="missing_values",
