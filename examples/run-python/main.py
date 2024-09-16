@@ -14,6 +14,9 @@ import matplotlib.pyplot as plt
 # We load the model using the {py:func}`load_ode` function
 
 ode = gotranx.load_ode("ORdmm_Land.ode")
+
+# This set of ODE also contains some singularities that we can remove by replacing the expressions with piecewise functions. We can do this using the `remove_singularities` method
+
 ode = ode.remove_singularities()
 
 # Now we can generate code in python using the `cli` subpackage and the `gotran2py` module`. We will also generate code for the generalized rush larsen scheme
