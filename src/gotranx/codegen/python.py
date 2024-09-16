@@ -24,7 +24,10 @@ class Format(str, Enum):
 
 # class GotranPythonCodePrinter(NumPyPrinter):
 class GotranPythonCodePrinter(PythonCodePrinter):
-    _kf = {k: f"numpy.{v.replace('math.', '')}" for k, v in PythonCodePrinter._kf.items()}
+    _kf = {
+        **{k: f"numpy.{v.replace('math.', '')}" for k, v in PythonCodePrinter._kf.items()},
+        **{"DiracDelta": "numpy.zeros_like"},
+    }
     _kc = {k: f"numpy.{v.replace('math.', '')}" for k, v in PythonCodePrinter._kc.items()}
 
     def _hprint_Pow(self, expr, rational=False, sqrt="numpy.sqrt"):
