@@ -214,6 +214,8 @@ def test_singularities(parser, trans):
     )
 
     z = x /(exp(x) - 1.0)
+    z1 = x /(exp(x) - 1.0) + a
+    z2 = x /(exp(x) - 1.0) + a + (x - 2)/(exp(x) - exp(2))
     w = a / b
     v = x / b
     g = b / x
@@ -224,6 +226,7 @@ def test_singularities(parser, trans):
     comp = result.components[0]
 
     all_atoms = gather_atoms(components=[comp])
+    a = all_atoms.symbols["a"]
 
     z = comp.find_assignment("z")
     z_sing = z.resolve_expression(all_atoms.symbols).singularities(all_atoms.lookup)
@@ -232,6 +235,33 @@ def test_singularities(parser, trans):
         symbol=all_atoms.symbols["x"], value=0, replacement=1
     )
     assert not tuple(z_sing)[0].is_infinite
+
+    z1 = comp.find_assignment("z1")
+    z1_sing = z1.resolve_expression(all_atoms.symbols).singularities(all_atoms.lookup)
+    assert len(z1_sing) == 1
+    assert tuple(z1_sing)[0] == atoms.Singularity(
+        symbol=all_atoms.symbols["x"], value=0, replacement=a + 1
+    )
+    assert not tuple(z1_sing)[0].is_infinite
+
+    z2 = comp.find_assignment("z2")
+    z2_sing = z2.resolve_expression(all_atoms.symbols).singularities(all_atoms.lookup)
+    assert len(z2_sing) == 2
+    assert z2_sing == frozenset(
+        {
+            atoms.Singularity(
+                symbol=all_atoms.symbols["x"],
+                value=2,
+                replacement=(-a * sp.exp(2) + a * sp.exp(4) - 1 + 3 * sp.exp(2))
+                / (-sp.exp(2) + sp.exp(4)),
+            ),
+            atoms.Singularity(
+                symbol=all_atoms.symbols["x"],
+                value=0,
+                replacement=(-a + a * sp.exp(2) + 1 + sp.exp(2)) / (-1 + sp.exp(2)),
+            ),
+        }
+    )
 
     w = comp.find_assignment("w")
     w_sing = w.resolve_expression(all_atoms.symbols).singularities(all_atoms.lookup)
