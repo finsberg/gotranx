@@ -5,6 +5,7 @@ from . import ode
 
 from .c import CCodeGenerator, GotranCCodePrinter, Format as CFormat
 from .python import PythonCodeGenerator, GotranPythonCodePrinter, Format as PythonFormat
+from .jax import JaxCodeGenerator
 from .base import CodeGenerator, Func, RHSArgument, SchemeArgument
 from .ode import GotranODECodePrinter, BaseGotranODECodePrinter
 
@@ -25,4 +26,5 @@ __all__ = [
     "GotranCCodePrinter",
     "CFormat",
     "PythonFormat",
+    "JaxCodeGenerator",
 ]
