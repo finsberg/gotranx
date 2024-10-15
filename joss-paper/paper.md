@@ -31,8 +31,7 @@ We introduce `gotranx`, a General ODE Translator for automatic code generation o
 
 ![Logo of the software that illustrates that you taka a dynamical system (i.e an ODE) and uses `gotranx` (i.e a black box) to turn the ODE into computer code](../docs/_static/logo.png)
 
-
-`gotranx` is a full re-implementation of [`gotran`](https://github.com/ComputationalPhysiology/gotran), and the long term goal is to implement the same features in `gotranx` as found in `gotran` along with additional features.
+The vision for `gotranx` is to implement the same features in `gotranx` as found in [`gotran`](https://github.com/ComputationalPhysiology/gotran) along with additional features.
 
 # Statement of need
 
@@ -84,7 +83,7 @@ which will output the code a new python file named `file.py`. We can now use thi
 ![Example of code from loading and solving an ODE with the code generated from `gotranx`. On the right we see the solution.](ode_example.png)
 
 
-At the time of writing, `gotranx` support code generation to C and Python, with backends for [`numpy`](https://numpy.org) and [`jax`](https://jax.readthedocs.io/). It also supports conversion to and from [CellML](https://www.cellml.org) via [MyoKit](https://myokit.org). For a list of all features and the roadmap, please checkout the [roadmap](https://finsberg.github.io/gotranx/docs/roadmap.html).
+At the time of writing, `gotranx` support code generation to C and Python, with backends for [`numpy`](https://numpy.org) and [`jax`](https://jax.readthedocs.io/). It also supports conversion to and from [CellML](https://www.cellml.org) via [MyoKit](https://myokit.org) (at the time of writing we still do not support unit conversion from gotranx to MyoKit). For a list of all features and the roadmap, please checkout the [roadmap](https://finsberg.github.io/gotranx/docs/roadmap.html).
 
 
 
