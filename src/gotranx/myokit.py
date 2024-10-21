@@ -213,7 +213,7 @@ def myokit_to_gotran(model: myokit.Model, protocol=None) -> ODE:
     )
 
 
-def gotran_to_myokit(ode: ODE) -> myokit.Model:
+def gotran_to_myokit(ode: ODE, time_component="engine", time_unit="s") -> myokit.Model:
     """Convert a gotran ODE to myokit model
 
     Parameters
@@ -228,29 +228,41 @@ def gotran_to_myokit(ode: ODE) -> myokit.Model:
     """
     model = myokit.Model(ode.name)
     model.meta["author"] = "GotranX API"
-    comp = model.add_component("engine")
+    comp = model.add_component(time_component)
     # breakpoint()
     time = comp.add_variable("time", binding="time")
     time.set_rhs(0)
+    time.set_unit(time_unit)
     model._bindings["time"] = time
-    # model._register_binding("time")
+
+    def to_myokit_unit(unit: str | None) -> str | None:
+        if unit is None:
+            return None
+        return unit.replace("**", "^")
 
     # First we need to add all variables to the model
-    global_var_map = {sp.Symbol("time"): sp.Symbol("engine.time")}
+    global_var_map = {sp.Symbol("time"): sp.Symbol(f"{time_component}.time")}
     for component in ode.components:
-        comp = model.add_component(component.name)
+        if component.name == time_component:
+            comp = model[time_component]
+        else:
+            comp = model.add_component(component.name)
+
         for state_derivative in component.state_derivatives:
             state = state_derivative.state
             var = comp.add_variable(state.name)
+            var.set_unit(to_myokit_unit(state.unit_str))
             global_var_map[sp.Symbol(state.name)] = sp.Symbol(var.qname())
 
         for parameter in component.parameters:
             var = comp.add_variable(parameter.name)
+            var.set_unit(to_myokit_unit(parameter.unit_str))
             var.set_rhs(parameter.value)
             global_var_map[sp.Symbol(parameter.name)] = sp.Symbol(var.qname())
 
         for intermediate in component.intermediates:
             var = comp.add_variable(intermediate.name)
+            var.set_unit(to_myokit_unit(intermediate.unit_str))
             global_var_map[sp.Symbol(intermediate.name)] = sp.Symbol(var.qname())
 
     sympy_reader = myokit.formats.sympy.SymPyExpressionReader(model=model)
@@ -265,7 +277,6 @@ def gotran_to_myokit(ode: ODE) -> myokit.Model:
             expr = state_derivative.expr.xreplace(global_var_map)
             expr = sympy_reader.ex(expr)
             v.set_rhs(expr)
-
             v.promote(state.value)
 
         for intermediate in component.intermediates:
