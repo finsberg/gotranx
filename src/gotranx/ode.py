@@ -4,8 +4,8 @@ from collections import defaultdict
 from functools import cached_property
 from pathlib import Path
 from graphlib import TopologicalSorter
-from typing import Iterable
-from typing import Sequence
+from collections.abc import Iterable
+from collections.abc import Sequence
 from typing import TypeVar
 from typing import cast
 from typing import Any

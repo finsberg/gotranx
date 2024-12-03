@@ -2,10 +2,6 @@ import typing
 from pathlib import Path
 import warnings
 
-try:
-    from typing import Annotated
-except ImportError:
-    from typing_extensions import Annotated  # type: ignore
 
 import typer
 
@@ -106,11 +102,11 @@ def convert(
         "-v",
         help="Verbose output",
     ),
-    scheme: Annotated[
+    scheme: typing.Annotated[
         typing.Optional[typing.List[Scheme]],
         typer.Option(help="Numerical scheme for solving the ODE"),
     ] = None,
-    stiff_states: Annotated[
+    stiff_states: typing.Annotated[
         typing.Optional[typing.List[str]],
         typer.Option("-s", "--stiff-states", help="Stiff states for the hybrid rush larsen scheme"),
     ] = None,
@@ -266,11 +262,11 @@ def ode2py(
         "-v",
         help="Verbose output",
     ),
-    scheme: Annotated[
+    scheme: typing.Annotated[
         typing.List[Scheme],
         typer.Option(help="Numerical scheme for solving the ODE"),
     ] = [],
-    stiff_states: Annotated[
+    stiff_states: typing.Annotated[
         typing.List[str],
         typer.Option("-s", "--stiff-states", help="Stiff states for the hybrid rush larsen scheme"),
     ] = [],
@@ -370,11 +366,11 @@ def ode2c(
         "-v",
         help="Verbose output",
     ),
-    scheme: Annotated[
+    scheme: typing.Annotated[
         typing.List[Scheme],
         typer.Option(help="Numerical scheme for solving the ODE"),
     ] = [],
-    stiff_states: Annotated[
+    stiff_states: typing.Annotated[
         typing.List[str],
         typer.Option("-s", "--stiff-states", help="Stiff states for the hybrid rush larsen scheme"),
     ] = [],

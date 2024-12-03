@@ -14,9 +14,8 @@ def load_grammar() -> str:
     str
         The grammar
     """
-    with open(_here / "ode.lark", "r") as f:
-        text = f.read()
-    return text
+
+    return (_here / "ode.lark").read_text()
 
 
 class Parser(Lark):

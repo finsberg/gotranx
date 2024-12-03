@@ -17,7 +17,7 @@ def main(
     structlog.configure(
         wrapper_class=structlog.make_filtering_bound_logger(loglevel),
     )
-    assert fname.suffix == ".cellml", f"File {fname} must be a cellml file"
+    assert fname.suffix in (".cellml", ".xml"), f"File {fname} must be a cellml or xml file"
     assert fname.exists(), f"File {fname} does not exist"
     logger.info(f"Converting {fname} to gotran ode file")
     ode = cellml_to_gotran(fname)
