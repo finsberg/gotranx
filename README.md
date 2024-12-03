@@ -7,7 +7,7 @@
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![CodSpeed Badge](https://img.shields.io/endpoint?url=https://codspeed.io/badge.json)](https://codspeed.io/finsberg/gotranx)
 [![status](https://joss.theoj.org/papers/40dc8d8287c6188eaab8149ed3bfe60b/status.svg)](https://joss.theoj.org/papers/40dc8d8287c6188eaab8149ed3bfe60b)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.13336836.svg)](https://doi.org/10.5281/zenodo.13336836)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.13940990.svg)](https://doi.org/10.5281/zenodo.13940990)
 
 # gotranx
 
@@ -159,6 +159,16 @@ Note also the we run all hooks as a part of our [continuous integration](https:/
 
 ### Performance monitoring
 We have defined a set of benchmarks that run on every push to the `main` branch using [codspeed](https://codspeed.io). To monitor the performance over time you can check out the [performance report](https://codspeed.io/finsberg/gotranx).
+
+To run the benchmarks locally you can install the `pytest-codspeed` plugin
+```
+python3 -m pip install pytest-codspeed
+```
+and run
+```
+python3 -m pytest tests/ --codspeed
+```
+You can find more info at https://docs.codspeed.io/benchmarks/python
 
 
 ## License

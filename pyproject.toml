@@ -4,17 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gotranx"
-version = "1.1.1"
+version = "1.1.5"
 description = "A declarative language describing ordinary differential equations"
 authors = [{name = "Henrik Finsberg", email = "henriknf@simula.no"}]
 license = {text = "MIT"}
 classifiers = [
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
 ]
 keywords = ["parser", "lark", "gotran", "ode"]
 urls = {Homepage = "https://github.com/finsberg/gotranx"}
@@ -54,6 +50,7 @@ docs = [
     "scipy",
     "sphinxcontrib-mermaid",
     "jax",
+    "numba",
 ]
 test = [
     "pytest",
@@ -162,7 +159,7 @@ tag = true
 sign_tags = false
 tag_name = "v{new_version}"
 tag_message = "Bump version: {current_version} → {new_version}"
-current_version = "1.1.1"
+current_version = "1.1.5"
 
 
 [[tool.bumpversion.files]]
