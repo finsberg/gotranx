@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from collections import defaultdict
 from typing import NamedTuple
-from typing import Type
 from typing import TypeVar
 
 import lark
@@ -144,7 +143,7 @@ def find_components(
 
 def lark_list_to_parameters(
     s: list[None | lark.tree.Tree | lark.lexer.Token],
-    cls: Type[T],
+    cls: type[T],
 ) -> tuple[T, ...]:
     """Convert a list of lark trees to parameters
 
@@ -152,7 +151,7 @@ def lark_list_to_parameters(
     ----------
     s : list[None  |  lark.tree.Tree  |  lark.lexer.Token]
         The list
-    cls : Type[T]
+    cls : type[T]
         The class of the parameters
 
     Returns
@@ -173,7 +172,7 @@ def lark_list_to_parameters(
 def tree2parameter(
     s: lark.Tree,
     components: tuple[str, ...],
-    cls: Type[T],
+    cls: type[T],
 ) -> T:
     """Convert a lark tree to a parameter
 
@@ -183,7 +182,7 @@ def tree2parameter(
         The tree
     components : tuple[str, ...]
         The components
-    cls : Type[T]
+    cls : type[T]
         The class of the parameter
 
     Returns
