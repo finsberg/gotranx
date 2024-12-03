@@ -126,7 +126,7 @@ class State(Atom):
 
     value: float | sp.core.Number = attr.ib()
 
-    def to_TimeDependentState(self, t: sp.Symbol) -> "TimeDependentState":
+    def to_TimeDependentState(self, t: sp.Symbol) -> TimeDependentState:
         return TimeDependentState(
             name=self.name,
             value=self.value,
@@ -288,7 +288,7 @@ class Assignment(Atom):
                 )
         return frozenset(singularity_list)
 
-    def remove_singularities(self, lookup: dict[str, Atom]) -> "Assignment":
+    def remove_singularities(self, lookup: dict[str, Atom]) -> Assignment:
         """Remove singularities from the assignment
 
         Parameters
@@ -354,7 +354,7 @@ class Assignment(Atom):
             comment=self.comment,
         )
 
-    def to_intermediate(self) -> "Intermediate":
+    def to_intermediate(self) -> Intermediate:
         """Convert the Assignment to an Intermediate"""
         return Intermediate(
             name=self.name,
@@ -368,7 +368,7 @@ class Assignment(Atom):
             comment=self.comment,
         )
 
-    def to_state_derivative(self, state: State) -> "StateDerivative":
+    def to_state_derivative(self, state: State) -> StateDerivative:
         """Convert the Assignment to a StateDerivative
 
         Parameters
@@ -389,7 +389,7 @@ class Assignment(Atom):
             comment=self.comment,
         )
 
-    def simplify(self) -> "Assignment":
+    def simplify(self) -> Assignment:
         """Simplify the expression of the assignment using sympy's
         simplify function. This function returns a new Assignment
         object with the simplified expression.
