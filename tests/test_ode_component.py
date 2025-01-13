@@ -86,7 +86,7 @@ def test_component_with_multiple_component_names(
 
 def test_component_intermediates(parser, trans):
     tree = parser.parse(
-        ("parameters(x=1, y=2)\n" "states(a=2, b=3)\n" "da_dt=0\n" "c=a+b\n" "db_dt=c - a"),
+        ("parameters(x=1, y=2)\nstates(a=2, b=3)\nda_dt=0\nc=a+b\ndb_dt=c - a"),
     )
     result = trans.transform(tree)
     comp = result.components[0]

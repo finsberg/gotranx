@@ -91,7 +91,7 @@ def Conditional(cond, true_value, false_value):
 
     if not isinstance(cond, (Relational, Boolean)):
         raise TypeError(
-            "Cond %s is of type %s, but must be a Relational" " or Boolean." % (cond, type(cond)),
+            "Cond %s is of type %s, but must be a Relational or Boolean." % (cond, type(cond)),
         )
 
     return sympy.functions.Piecewise(
@@ -124,7 +124,7 @@ def ContinuousConditional(cond, true_value, false_value, sigma=1.0):
     # FIXME: in latest sympy making comparison difficult
     if "<" not in cond.rel_op and ">" not in cond.rel_op:
         TypeError(
-            "Expected a lesser or greater than relational for " "a continuous conditional .",
+            "Expected a lesser or greater than relational for a continuous conditional .",
         )
 
     # Create Heaviside
