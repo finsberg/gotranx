@@ -463,11 +463,11 @@ def ode2julia(
         "-v",
         help="Verbose output",
     ),
-    scheme: Annotated[
+    scheme: typing.Annotated[
         typing.List[Scheme],
         typer.Option(help="Numerical scheme for solving the ODE"),
     ] = [],
-    stiff_states: Annotated[
+    stiff_states: typing.Annotated[
         typing.List[str],
         typer.Option("-s", "--stiff-states", help="Stiff states for the hybrid rush larsen scheme"),
     ] = [],
