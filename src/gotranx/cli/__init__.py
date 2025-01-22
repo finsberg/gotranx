@@ -421,11 +421,6 @@ def ode2julia(
         readable=True,
         resolve_path=True,
     ),
-    to: str = typer.Option(
-        ".jl",
-        "--to",
-        help="Generate code to another programming language",
-    ),
     outname: typing.Optional[str] = typer.Option(
         None,
         "-o",
@@ -491,13 +486,11 @@ def ode2julia(
     stiff_states = config_data.get("stiff_states", stiff_states)
     scheme = config_data.get("scheme", scheme)
     scheme = utils.validate_scheme(scheme)
-    c_config = config_data.get("c", {})
-    to = c_config.get("to", to)
+    # c_config = config_data.get("c", {})
     # format = CFormat(c_config.get("format", format))
 
     gotran2julia.main(
         fname=fname,
-        suffix=to,
         outname=outname,
         scheme=scheme,
         remove_unused=remove_unused,

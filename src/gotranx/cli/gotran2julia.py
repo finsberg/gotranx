@@ -87,7 +87,6 @@ def get_code(
 
 def main(
     fname: Path,
-    suffix: str = ".jl",
     outname: str | None = None,
     scheme: list[Scheme] | None = None,
     remove_unused: bool = False,
@@ -112,6 +111,6 @@ def main(
         stiff_states=stiff_states,
     )
     out = fname if outname is None else Path(outname)
-    out_name = out.with_suffix(suffix=suffix)
+    out_name = out.with_suffix(suffix=".jl")
     out_name.write_text(code)
     logger.info(f"Wrote {out_name}")
