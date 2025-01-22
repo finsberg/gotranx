@@ -34,10 +34,7 @@ class StateNotFoundInComponent(GotranxError):
     component_name: str
 
     def __str__(self) -> str:
-        return (
-            f"State with name {self.state_name!r} "
-            f"not found in component {self.component_name!r}"
-        )
+        return f"State with name {self.state_name!r} not found in component {self.component_name!r}"
 
 
 @dataclass
