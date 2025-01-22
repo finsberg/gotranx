@@ -157,15 +157,16 @@ def test_cellml2ode():
     out_odefile.unlink()
 
 
+@pytest.mark.parametrize("backend", gotranx.cli.gotran2py.Backend)
 @pytest.mark.parametrize("format", gotranx.codegen.PythonFormat)
-def test_gotran2py(format, odefile, all_schemes):
+def test_gotran2py(backend, format, odefile, all_schemes):
     outfile = odefile.with_suffix(".py")
 
     stiff_states = ["-s", "x", "-s", "y", "-s", "w"]
 
     result = runner.invoke(
         gotranx.cli.app,
-        ["ode2py", str(odefile), "-v", "-o", str(outfile), "-f", format.value]
+        ["ode2py", str(odefile), "-v", "-o", str(outfile), "-f", format.value, "-b", backend.value]
         + all_schemes
         + stiff_states,
     )
@@ -187,6 +188,9 @@ def test_gotran2py(format, odefile, all_schemes):
     assert "monitor_index" in code
     assert "state_index" in code
     assert "parameter_index" in code
+
+    if backend == gotranx.cli.gotran2py.Backend.jax:
+        assert "jax" in code
 
     outfile.unlink()
 

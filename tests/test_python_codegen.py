@@ -3,7 +3,7 @@ from unittest import mock
 
 import pytest
 from gotranx.schemes import get_scheme
-from gotranx.codegen import PythonCodeGenerator
+from gotranx.codegen import PythonCodeGenerator, JaxCodeGenerator
 from gotranx.codegen import RHSArgument
 from gotranx.ode import make_ode
 
@@ -33,6 +33,11 @@ def ode(trans, parser):
 @pytest.fixture(scope="module")
 def codegen(ode) -> PythonCodeGenerator:
     return PythonCodeGenerator(ode)
+
+
+@pytest.fixture(scope="module")
+def codegen_jax(ode) -> JaxCodeGenerator:
+    return JaxCodeGenerator(ode)
 
 
 @pytest.fixture(scope="module")
@@ -746,5 +751,76 @@ def test_codegen_rhs_singular_ode(singular_ode):
         "\n    values[0] = dx_dt"
         "\n"
         "\n    return values"
+        "\n"
+    )
+
+
+def test_python_jax_codegen_initial_state_values(codegen_jax: JaxCodeGenerator):
+    assert codegen_jax.initial_state_values() == (
+        "@jax.jit"
+        "\ndef init_state_values(**values):"
+        '\n    """Initialize state values"""'
+        "\n    # x=1.0, z=3.05, y=2.0"
+        "\n"
+        "\n    states = numpy.array([1.0, 3.05, 2.0], dtype=numpy.float64)"
+        "\n"
+        "\n    for key, value in values.items():"
+        "\n        states = states.at[state_index(key)].set(value)"
+        "\n"
+        "\n    return states"
+        "\n"
+    )
+
+
+def test_python_jax_codegen_rhs(codegen_jax: JaxCodeGenerator):
+    assert codegen_jax.rhs() == (
+        "@jax.jit"
+        "\ndef rhs(t, states, parameters):"
+        "\n"
+        "\n    # Assign states"
+        "\n    x = states[0]"
+        "\n    z = states[1]"
+        "\n    y = states[2]"
+        "\n"
+        "\n    # Assign parameters"
+        "\n    a = parameters[0]"
+        "\n    beta = parameters[1]"
+        "\n    rho = parameters[2]"
+        "\n    sigma = parameters[3]"
+        "\n"
+        "\n    # Assign expressions"
+        "\n    betaz = beta * z"
+        "\n    rhoz = rho - z"
+        "\n    dx_dt = sigma * (-x + y)"
+        "\n    _values_0 = dx_dt"
+        "\n    dz_dt = -betaz + x * y"
+        "\n    _values_1 = dz_dt"
+        "\n    dy_dt = rhoz * x - y"
+        "\n    _values_2 = dy_dt"
+        "\n"
+        "\n    return numpy.array("
+        "\n        ["
+        "\n            _values_0,"
+        "\n            _values_1,"
+        "\n            _values_2,"
+        "\n        ]"
+        "\n    )"
+        "\n"
+    )
+
+
+def test_python_jax_codegen_initial_parameter_values(codegen_jax: JaxCodeGenerator):
+    assert codegen_jax.initial_parameter_values() == (
+        "@jax.jit"
+        "\ndef init_parameter_values(**values):"
+        '\n    """Initialize parameter values"""'
+        "\n    # a=0, beta=2.4, rho=21.0, sigma=12.0"
+        "\n"
+        "\n    parameters = numpy.array([0, 2.4, 21.0, 12.0], dtype=numpy.float64)"
+        "\n"
+        "\n    for key, value in values.items():"
+        "\n        parameters = parameters.at[parameter_index(key)].set(value)"
+        "\n"
+        "\n    return parameters"
         "\n"
     )
