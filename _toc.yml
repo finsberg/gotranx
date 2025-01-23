@@ -17,6 +17,7 @@ parts:
     - file: "examples/split-ode/main.py"
     - file: "examples/compile-c-extension/main.py"
     - file: "docs/vectorized_computations"
+    - file: "examples/lorentz_julia.py"
   - caption: Explanation
     chapters:
     - file: "docs/about"

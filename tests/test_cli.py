@@ -255,3 +255,19 @@ def test_ode2c_config_file(odefile, config_file):
     code = outfile.read_text()
     assert "hybrid_rush_larsen" in code
     outfile.unlink()
+
+
+def test_ode2julia_config_file(odefile, config_file):
+    outfile = odefile.with_suffix(".jl")
+    result = runner.invoke(
+        gotranx.cli.app,
+        ["ode2julia", str(odefile), "-c", str(config_file), "-o", str(outfile)],
+    )
+    assert result.exit_code == 0
+    assert "lorentz.jl" in result.stdout
+    assert "lorentz" in result.stdout
+    assert "stiff_states=['x', 'y']" in result.stdout
+    assert outfile.is_file()
+    code = outfile.read_text()
+    assert "hybrid_rush_larsen" in code
+    outfile.unlink()
