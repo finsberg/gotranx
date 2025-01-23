@@ -8,6 +8,7 @@ from .python import PythonCodeGenerator, GotranPythonCodePrinter, Format as Pyth
 from .jax import JaxCodeGenerator
 from .base import CodeGenerator, Func, RHSArgument, SchemeArgument
 from .ode import GotranODECodePrinter, BaseGotranODECodePrinter
+from .julia import JuliaCodeGenerator, GotranJuliaCodePrinter
 
 __all__ = [
     "base",
@@ -26,5 +27,9 @@ __all__ = [
     "GotranCCodePrinter",
     "CFormat",
     "PythonFormat",
+    "JuliaCodeGenerator",
+    "GotranJuliaCodePrinter",
     "JaxCodeGenerator",
+    "JuliaCodeGenerator",
+    "GotranJuliaCodePrinter",
 ]

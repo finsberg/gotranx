@@ -84,8 +84,12 @@ namespaces = false
 [tool.aliases]
 test = "pytest"
 
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "benchmark: mark a test as a benchmark."
+]
 
 
 [tool.mypy]
