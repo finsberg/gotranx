@@ -17,8 +17,6 @@ urls = {Homepage = "https://github.com/finsberg/gotranx"}
 requires-python = ">=3.9"
 dependencies = [
     "attrs",
-    "clang-format-docs",
-    "black",
     "lark",
     "pint",
     "rich-click",
@@ -36,6 +34,10 @@ file = "README.md"
 content-type = "text/markdown"
 
 [project.optional-dependencies]
+formatters = [
+    "black",
+    "clang-format-docs",
+]
 dev = [
     "bump-my-version",
     "ipython",
@@ -51,12 +53,14 @@ docs = [
     "sphinxcontrib-mermaid",
     "jax",
     "numba",
+    "gotranx[formatters]",
 ]
 test = [
     "pytest",
     "pytest-cov",
     "jax",
     "cmake",
+    "gotranx[formatters]",
 ]
 benchmark = [
     "pytest-benchmark>=4.0.0",
@@ -64,6 +68,7 @@ benchmark = [
     "pytest-codspeed~=2.2.0; python_version < '3.13'",
     "gotranx[test]",
 ]
+all = ["gotranx[formatters,dev,docs,test]"]
 
 [project.scripts]
 gotranx = "gotranx.cli:app"
