@@ -87,8 +87,10 @@ def _print_Piecewise(
         else:
             return printer._print(cond)
 
-    expr = sympy.simplify(expr)
-
+    try:
+        expr = sympy.simplify(expr)
+    except TypeError:
+        logger.debug(f"Could not simplify expression {expr}")
     exprs = [printer._print(arg.expr) for arg in expr.args]
     conds = [print_cond(arg.cond) for arg in expr.args]
 
