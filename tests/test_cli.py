@@ -4,6 +4,11 @@ import pytest
 from pathlib import Path
 from typer.testing import CliRunner
 
+try:
+    import myokit
+except ImportError:
+    myokit = None
+
 here = Path(__file__).parent.absolute()
 runner = CliRunner(mix_stderr=False)
 
@@ -123,6 +128,7 @@ def test_gotran2c_old(odefile, all_schemes):
     outfile.with_suffix(".h").unlink()
 
 
+@pytest.mark.skipif(myokit is None, reason="myokit not installed")
 def test_cellml2ode_old():
     cellmlfile = here / "cellml_files" / "noble_1962.cellml"
     out_odefile = cellmlfile.with_suffix(".ode")
@@ -140,6 +146,7 @@ def test_cellml2ode_old():
     out_odefile.unlink()
 
 
+@pytest.mark.skipif(myokit is None, reason="myokit not installed")
 def test_cellml2ode():
     cellmlfile = here / "cellml_files" / "noble_1962.cellml"
     out_odefile = cellmlfile.with_suffix(".ode")

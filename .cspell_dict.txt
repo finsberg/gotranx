@@ -64,6 +64,7 @@ numba
 numpy
 odeblock
 odefile
+odefiles
 outname
 pdst
 pdts
