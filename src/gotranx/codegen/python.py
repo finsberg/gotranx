@@ -137,7 +137,7 @@ def get_formatter(format: Format) -> typing.Callable[[str], str]:
         try:
             import black
         except ImportError:
-            logger.warning("Cannot apply black, please install 'black'")
+            logger.debug("Cannot apply black, please install 'black'")
             return lambda x: x
         else:
             return partial(black.format_str, mode=black.Mode())
@@ -148,7 +148,7 @@ def get_formatter(format: Format) -> typing.Callable[[str], str]:
 
             ruff_bin = ruff.__main__.find_ruff_bin()
         except ImportError:
-            logger.warning("Cannot apply ruff, please install 'ruff'")
+            logger.debug("Cannot apply ruff, please install 'ruff'")
             return lambda x: x
         else:
             import subprocess
