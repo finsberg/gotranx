@@ -93,7 +93,8 @@ test = "pytest"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 markers = [
-    "benchmark: mark a test as a benchmark."
+    "benchmark: mark a test as a benchmark.",
+    "example: mark a test as an example."
 ]
 
 
