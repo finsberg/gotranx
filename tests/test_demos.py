@@ -16,11 +16,20 @@ def env():
     return env
 
 
+def examples():
+    try:
+        for f in (here / ".." / "examples").iterdir():
+            if f.is_dir():
+                yield f
+    except FileNotFoundError:
+        pass
+
+
 @pytest.mark.example
 @pytest.mark.skipif(sys.version_info < (3, 9), reason="requires python3.9 or higher")
 @pytest.mark.parametrize(
     "example",
-    (pytest.param(f, id=f.name) for f in (here / ".." / "examples").iterdir() if f.is_dir()),
+    (pytest.param(f, id=f.name) for f in examples()),
 )
 def test_examples(example, tmpdir, env):
     if not (example / "main.py").exists():
