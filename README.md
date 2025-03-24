@@ -27,6 +27,11 @@ or for the development version
 python3 -m pip install git+https://github.com/finsberg/gotranx
 ```
 
+You can also install `gotranx` using conda
+```
+conda install -c conda-forge gotranx
+```
+
 ## Quick start
 Define your ODE in a `.ode` file, e.g `file.ode` with the content
 ```
