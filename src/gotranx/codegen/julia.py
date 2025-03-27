@@ -16,14 +16,14 @@ def bool_to_int(expr: str) -> str:
 
 
 class GotranJuliaCodePrinter(JuliaCodePrinter):
-    def __init__(self, add_T: bool = False, *args, **kwargs):
+    def __init__(self, add_type: bool = False, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._add_T = add_T
+        self._add_type = add_type
         self._settings["contract"] = False
 
     def _print_Float(self, flt):
         value = str(float(flt))
-        if self._add_T:
+        if self._add_type:
             return self._print(f"T({value})")
         return self._print(value)
 
@@ -60,9 +60,9 @@ class GotranJuliaCodePrinter(JuliaCodePrinter):
 
 
 class JuliaCodeGenerator(CodeGenerator):
-    def __init__(self, ode: ODE, remove_unused: bool = False, add_T: bool = False) -> None:
+    def __init__(self, ode: ODE, remove_unused: bool = False, add_type: bool = False) -> None:
         super().__init__(ode, remove_unused=remove_unused)
-        self._printer = GotranJuliaCodePrinter(add_T=add_T)
+        self._printer = GotranJuliaCodePrinter(add_type=add_type)
         # setattr(self, "_formatter", get_formatter(format=format))
 
     @property
@@ -88,7 +88,7 @@ class JuliaCodeGenerator(CodeGenerator):
         self, order: RHSArgument | str = RHSArgument.stp, const_states: bool = True
     ) -> Func:
         value = RHSArgument.get_value(order)
-        if self._printer._add_T:
+        if self._printer._add_type:
             argument_dict = {
                 "s": "states::AbstractVector{T}",
                 "t": "t::T",
@@ -124,7 +124,7 @@ class JuliaCodeGenerator(CodeGenerator):
         const_states: bool = True,
     ) -> Func:
         value = SchemeArgument.get_value(order)
-        if self._printer._add_T:
+        if self._printer._add_type:
             argument_dict = {
                 "s": "states::AbstractVector{T}",
                 "t": "t::T",
@@ -132,7 +132,7 @@ class JuliaCodeGenerator(CodeGenerator):
                 "p": "parameters::AbstractVector{T}",
             }
             values = ["values::AbstractVector{T}"]
-            post_function_signature = " where T"
+            post_function_signature = " where {T}"
         else:
             argument_dict = {
                 "s": "states",

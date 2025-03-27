@@ -21,7 +21,7 @@ def get_code(
     missing_values: dict[str, int] | None = None,
     delta: float = 1e-8,
     stiff_states: list[str] | None = None,
-    add_T: bool = False,
+    add_type: bool = False,
 ) -> str:
     """Generate the Julia code for the ODE
 
@@ -42,7 +42,7 @@ def get_code(
     stiff_states : list[str] | None, optional
         Stiff states, by default None. Only applicable for
         the hybrid rush larsen scheme
-    add_T : bool, optional
+    add_type : bool, optional
         Add T to the function signature, by default False
 
     Returns
@@ -51,7 +51,7 @@ def get_code(
         The Julia code
     """
     codegen = JuliaCodeGenerator(
-        ode, remove_unused=remove_unused, add_T=add_T
+        ode, remove_unused=remove_unused, add_type=add_type
     )  # , format=Format.none)
     # formatter = get_formatter(format=format)
 
@@ -100,7 +100,7 @@ def main(
     missing_values: dict[str, int] | None = None,
     delta: float = 1e-8,
     stiff_states: list[str] | None = None,
-    add_T: bool = False,
+    add_type: bool = False,
 ) -> None:
     loglevel = logging.DEBUG if verbose else logging.INFO
     structlog.configure(
@@ -115,7 +115,7 @@ def main(
         missing_values=missing_values,
         delta=delta,
         stiff_states=stiff_states,
-        add_T=add_T,
+        add_type=add_type,
     )
     out = fname if outname is None else Path(outname)
     out_name = out.with_suffix(suffix=".jl")

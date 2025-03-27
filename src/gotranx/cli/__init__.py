@@ -470,9 +470,9 @@ def ode2julia(
         1e-8,
         help="Delta value for the rush larsen schemes",
     ),
-    add_T: bool = typer.Option(
+    add_type: bool = typer.Option(
         False,
-        "--add-T",
+        "--add-type",
         help="Add T to the function signature",
     ),
     # format: CFormat = typer.Option(
@@ -502,7 +502,7 @@ def ode2julia(
         verbose=verbose,
         stiff_states=stiff_states,
         delta=delta,
-        add_T=add_T,
+        add_type=add_type,
     )
 
 

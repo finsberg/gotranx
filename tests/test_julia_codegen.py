@@ -231,7 +231,7 @@ def test_consistent_floats_with_T(parser, trans):
     tree = parser.parse(expr)
     result = trans.transform(tree)
     ode = make_ode(*result, name="name")
-    codegen = JuliaCodeGenerator(ode, add_T=True)
+    codegen = JuliaCodeGenerator(ode, add_type=True)
     rhs = codegen.rhs()
     assert rhs == (
         "\nfunction rhs(t::T, states::AbstractVector{T}, parameters::AbstractVector{T}, values::AbstractVector{T}) where T"  # noqa: E501
