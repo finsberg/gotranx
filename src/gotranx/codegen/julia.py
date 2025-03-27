@@ -16,14 +16,14 @@ def bool_to_int(expr: str) -> str:
 
 
 class GotranJuliaCodePrinter(JuliaCodePrinter):
-    def __init__(self, add_type: bool = False, *args, **kwargs):
+    def __init__(self, type_stable: bool = False, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._add_type = add_type
+        self._type_stable = type_stable
         self._settings["contract"] = False
 
     def _print_Float(self, flt):
         value = str(float(flt))
-        if self._add_type:
+        if self._type_stable:
             return self._print(f"T({value})")
         return self._print(value)
 
@@ -60,9 +60,9 @@ class GotranJuliaCodePrinter(JuliaCodePrinter):
 
 
 class JuliaCodeGenerator(CodeGenerator):
-    def __init__(self, ode: ODE, remove_unused: bool = False, add_type: bool = False) -> None:
+    def __init__(self, ode: ODE, remove_unused: bool = False, type_stable: bool = False) -> None:
         super().__init__(ode, remove_unused=remove_unused)
-        self._printer = GotranJuliaCodePrinter(add_type=add_type)
+        self._printer = GotranJuliaCodePrinter(type_stable=type_stable)
         # setattr(self, "_formatter", get_formatter(format=format))
 
     @property
@@ -88,7 +88,7 @@ class JuliaCodeGenerator(CodeGenerator):
         self, order: RHSArgument | str = RHSArgument.stp, const_states: bool = True
     ) -> Func:
         value = RHSArgument.get_value(order)
-        if self._printer._add_type:
+        if self._printer._type_stable:
             argument_dict = {
                 "s": "states::AbstractVector{T}",
                 "t": "t::T",
@@ -124,7 +124,7 @@ class JuliaCodeGenerator(CodeGenerator):
         const_states: bool = True,
     ) -> Func:
         value = SchemeArgument.get_value(order)
-        if self._printer._add_type:
+        if self._printer._type_stable:
             argument_dict = {
                 "s": "states::AbstractVector{T}",
                 "t": "t::T",
