@@ -128,6 +128,7 @@ class JuliaCodeGenerator(CodeGenerator):
             argument_dict = {
                 "s": "states::AbstractVector{T}",
                 "t": "t::T",
+                "d": "dt::T",
                 "p": "parameters::AbstractVector{T}",
             }
             values = ["values::AbstractVector{T}"]
@@ -136,10 +137,12 @@ class JuliaCodeGenerator(CodeGenerator):
             argument_dict = {
                 "s": "states",
                 "t": "t",
+                "d": "dt",
                 "p": "parameters",
             }
             values = ["values"]
             post_function_signature = ""
+
         argument_list = [argument_dict[v] for v in value] + values
         states = sympy.IndexedBase("states", shape=(self.ode.num_states,), offset=1)
         parameters = sympy.IndexedBase("parameters", shape=(self.ode.num_parameters,), offset=1)
