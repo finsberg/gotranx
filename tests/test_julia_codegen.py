@@ -220,3 +220,31 @@ def test_consistent_floats(parser, trans):
         "\nend"
         "\n"
     )
+
+
+def test_consistent_floats_with_T(parser, trans):
+    expr = """
+    \nstates(x=0)
+    \ndx_dt = Conditional(Ge(x, 31.4978), 1.0, 1.0763*exp(-1.007*exp(-0.0829*x)))
+    """
+
+    tree = parser.parse(expr)
+    result = trans.transform(tree)
+    ode = make_ode(*result, name="name")
+    codegen = JuliaCodeGenerator(ode, add_T=True)
+    rhs = codegen.rhs()
+    assert rhs == (
+        "\nfunction rhs(t::T, states::AbstractVector{T}, parameters::AbstractVector{T}, values::AbstractVector{T}) where T"  # noqa: E501
+        "\n"
+        "\n    # Assign states"
+        "\n    x = states[1]"
+        "\n"
+        "\n    # Assign parameters"
+        "\n"
+        "\n"
+        "\n    # Assign expressions"
+        "\n    dx_dt = ((x >= T(31.4978)) ? (T(1.0)) : (T(1.0763) * exp((-T(1.007)) * exp((-T(0.0829)) * x))))"  # noqa: E501
+        "\n    values[1] = dx_dt"
+        "\nend"
+        "\n"
+    )

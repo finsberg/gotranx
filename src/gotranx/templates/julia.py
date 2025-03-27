@@ -45,14 +45,16 @@ def method(
     values: str,
     return_name: None = None,
     num_return_values: int = 0,
+    post_function_signature: str = "",
     **kwargs,
 ):
     indent_states = indent(states, "    ")
     indent_parameters = indent(parameters, "    ")
     indent_values = indent(values, "    ")
+
     return dedent(
         f"""
-function {name}({args})
+function {name}({args}){post_function_signature}
 
     # Assign states
 {indent_states}
