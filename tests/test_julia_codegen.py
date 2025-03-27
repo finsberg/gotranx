@@ -191,3 +191,32 @@ def test_julia_monitored(codegen: JuliaCodeGenerator):
         "\nend"
         "\n"
     )
+
+
+def test_consistent_floats(parser, trans):
+    expr = """
+    \nstates(x=0)
+    \ndx_dt = Conditional(Ge(x, 31.4978), 1.0, 1.0763*exp(-1.007*exp(-0.0829*x)))
+    """
+
+    tree = parser.parse(expr)
+    result = trans.transform(tree)
+    ode = make_ode(*result, name="name")
+    codegen = JuliaCodeGenerator(ode)
+    rhs = codegen.rhs()
+
+    assert rhs == (
+        "\nfunction rhs(t, states, parameters, values)"
+        "\n"
+        "\n    # Assign states"
+        "\n    x = states[1]"
+        "\n"
+        "\n    # Assign parameters"
+        "\n"
+        "\n"
+        "\n    # Assign expressions"
+        "\n    dx_dt = ((x >= 31.4978) ? (1.0) : (1.0763 * exp((-1.007) * exp((-0.0829) * x))))"
+        "\n    values[1] = dx_dt"
+        "\nend"
+        "\n"
+    )
