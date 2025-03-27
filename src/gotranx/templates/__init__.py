@@ -151,6 +151,7 @@ class Template(typing.Protocol):
         shape_info: str,
         values_type: str,
         missing_variables: str,
+        post_function_signature: str,
     ) -> str:
         """The method function is a function that generates a method
         for the model.
@@ -183,6 +184,8 @@ class Template(typing.Protocol):
             The type of the values
         missing_variables : str
             The code for handling missing variables
+        post_function_signature : str
+            The code going after the function signature (e.g. 'where T' or '-> None')
 
         Returns
         -------

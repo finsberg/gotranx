@@ -16,12 +16,16 @@ def bool_to_int(expr: str) -> str:
 
 
 class GotranJuliaCodePrinter(JuliaCodePrinter):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, type_stable: bool = False, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self._type_stable = type_stable
         self._settings["contract"] = False
 
     def _print_Float(self, flt):
-        return self._print(str(float(flt)))
+        value = str(float(flt))
+        if self._type_stable:
+            return self._print(f"T({value})")
+        return self._print(value)
 
     def _print_Piecewise(self, expr):
         if isinstance(expr.args[0][0], Assignment):
@@ -56,9 +60,9 @@ class GotranJuliaCodePrinter(JuliaCodePrinter):
 
 
 class JuliaCodeGenerator(CodeGenerator):
-    def __init__(self, ode: ODE, remove_unused: bool = False) -> None:
+    def __init__(self, ode: ODE, remove_unused: bool = False, type_stable: bool = False) -> None:
         super().__init__(ode, remove_unused=remove_unused)
-        self._printer = GotranJuliaCodePrinter()
+        self._printer = GotranJuliaCodePrinter(type_stable=type_stable)
         # setattr(self, "_formatter", get_formatter(format=format))
 
     @property
@@ -84,12 +88,23 @@ class JuliaCodeGenerator(CodeGenerator):
         self, order: RHSArgument | str = RHSArgument.stp, const_states: bool = True
     ) -> Func:
         value = RHSArgument.get_value(order)
-        argument_dict = {
-            "s": "states",
-            "t": "t",
-            "p": "parameters",
-        }
-        argument_list = [argument_dict[v] for v in value] + ["values"]
+        if self._printer._type_stable:
+            argument_dict = {
+                "s": "states::AbstractVector{T}",
+                "t": "t::T",
+                "p": "parameters::AbstractVector{T}",
+            }
+            values = ["values::AbstractVector{T}"]
+            post_function_signature = " where T"
+        else:
+            argument_dict = {
+                "s": "states",
+                "t": "t",
+                "p": "parameters",
+            }
+            values = ["values"]
+            post_function_signature = ""
+        argument_list = [argument_dict[v] for v in value] + values
         states = sympy.IndexedBase("states", shape=(self.ode.num_states,), offset=1)
         parameters = sympy.IndexedBase("parameters", shape=(self.ode.num_parameters,), offset=1)
         values = sympy.IndexedBase("values", shape=(self.ode.num_states,), offset=1)
@@ -100,6 +115,7 @@ class JuliaCodeGenerator(CodeGenerator):
             parameters=parameters,
             values=values,
             values_type="",
+            post_function_signature=post_function_signature,
         )
 
     def _scheme_arguments(
@@ -108,13 +124,26 @@ class JuliaCodeGenerator(CodeGenerator):
         const_states: bool = True,
     ) -> Func:
         value = SchemeArgument.get_value(order)
-        argument_dict = {
-            "s": "states",
-            "t": "t",
-            "d": "dt",
-            "p": "parameters",
-        }
-        argument_list = [argument_dict[v] for v in value] + ["values"]
+        if self._printer._type_stable:
+            argument_dict = {
+                "s": "states::AbstractVector{T}",
+                "t": "t::T",
+                "d": "dt::T",
+                "p": "parameters::AbstractVector{T}",
+            }
+            values = ["values::AbstractVector{T}"]
+            post_function_signature = " where {T}"
+        else:
+            argument_dict = {
+                "s": "states",
+                "t": "t",
+                "d": "dt",
+                "p": "parameters",
+            }
+            values = ["values"]
+            post_function_signature = ""
+
+        argument_list = [argument_dict[v] for v in value] + values
         states = sympy.IndexedBase("states", shape=(self.ode.num_states,), offset=1)
         parameters = sympy.IndexedBase("parameters", shape=(self.ode.num_parameters,), offset=1)
         values = sympy.IndexedBase("values", shape=(self.ode.num_states,), offset=1)
@@ -125,4 +154,5 @@ class JuliaCodeGenerator(CodeGenerator):
             parameters=parameters,
             values=values,
             values_type="",
+            post_function_signature=post_function_signature,
         )

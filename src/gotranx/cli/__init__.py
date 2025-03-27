@@ -470,6 +470,11 @@ def ode2julia(
         1e-8,
         help="Delta value for the rush larsen schemes",
     ),
+    type_stable: bool = typer.Option(
+        False,
+        "--type-stable",
+        help="Add T to the function signature",
+    ),
     # format: CFormat = typer.Option(
     #     CFormat.clang_format,
     #     "--format",
@@ -497,6 +502,7 @@ def ode2julia(
         verbose=verbose,
         stiff_states=stiff_states,
         delta=delta,
+        type_stable=type_stable,
     )
 
 
