@@ -43,7 +43,7 @@ def get_code(
         Stiff states, by default None. Only applicable for
         the hybrid rush larsen scheme
     type_stable : bool, optional
-        Add T to the function signature, by default False
+        Add TYPE to the function signature, by default False
 
     Returns
     -------

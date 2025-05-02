@@ -473,7 +473,7 @@ def ode2julia(
     type_stable: bool = typer.Option(
         False,
         "--type-stable",
-        help="Add T to the function signature",
+        help="Add TYPE to the function signature",
     ),
     # format: CFormat = typer.Option(
     #     CFormat.clang_format,
