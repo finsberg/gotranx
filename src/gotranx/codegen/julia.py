@@ -95,7 +95,7 @@ class JuliaCodeGenerator(CodeGenerator):
                 "p": "parameters::AbstractVector{TYPE}",
             }
             values = ["values::AbstractVector{TYPE}"]
-            post_function_signature = " where T"
+            post_function_signature = " where {TYPE}"
         else:
             argument_dict = {
                 "s": "states",
