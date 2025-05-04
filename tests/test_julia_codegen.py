@@ -234,7 +234,7 @@ def test_consistent_floats_with_T(parser, trans):
     codegen = JuliaCodeGenerator(ode, type_stable=True)
     rhs = codegen.rhs()
     assert rhs == (
-        "\nfunction rhs(t::T, states::AbstractVector{T}, parameters::AbstractVector{T}, values::AbstractVector{T}) where T"  # noqa: E501
+        "\nfunction rhs(t::TYPE, states::AbstractVector{TYPE}, parameters::AbstractVector{TYPE}, values::AbstractVector{TYPE}) where {TYPE}"  # noqa: E501
         "\n"
         "\n    # Assign states"
         "\n    x = states[1]"
@@ -243,7 +243,7 @@ def test_consistent_floats_with_T(parser, trans):
         "\n"
         "\n"
         "\n    # Assign expressions"
-        "\n    dx_dt = ((x >= T(31.4978)) ? (T(1.0)) : (T(1.0763) * exp((-T(1.007)) * exp((-T(0.0829)) * x))))"  # noqa: E501
+        "\n    dx_dt = ((x >= TYPE(31.4978)) ? (TYPE(1.0)) : (TYPE(1.0763) * exp((-TYPE(1.007)) * exp((-TYPE(0.0829)) * x))))"  # noqa: E501
         "\n    values[1] = dx_dt"
         "\nend"
         "\n"

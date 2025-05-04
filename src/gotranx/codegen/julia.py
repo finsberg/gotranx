@@ -24,7 +24,7 @@ class GotranJuliaCodePrinter(JuliaCodePrinter):
     def _print_Float(self, flt):
         value = str(float(flt))
         if self._type_stable:
-            return self._print(f"T({value})")
+            return self._print(f"TYPE({value})")
         return self._print(value)
 
     def _print_Piecewise(self, expr):
@@ -90,12 +90,12 @@ class JuliaCodeGenerator(CodeGenerator):
         value = RHSArgument.get_value(order)
         if self._printer._type_stable:
             argument_dict = {
-                "s": "states::AbstractVector{T}",
-                "t": "t::T",
-                "p": "parameters::AbstractVector{T}",
+                "s": "states::AbstractVector{TYPE}",
+                "t": "t::TYPE",
+                "p": "parameters::AbstractVector{TYPE}",
             }
-            values = ["values::AbstractVector{T}"]
-            post_function_signature = " where T"
+            values = ["values::AbstractVector{TYPE}"]
+            post_function_signature = " where {TYPE}"
         else:
             argument_dict = {
                 "s": "states",
@@ -126,13 +126,13 @@ class JuliaCodeGenerator(CodeGenerator):
         value = SchemeArgument.get_value(order)
         if self._printer._type_stable:
             argument_dict = {
-                "s": "states::AbstractVector{T}",
-                "t": "t::T",
-                "d": "dt::T",
-                "p": "parameters::AbstractVector{T}",
+                "s": "states::AbstractVector{TYPE}",
+                "t": "t::TYPE",
+                "d": "dt::TYPE",
+                "p": "parameters::AbstractVector{TYPE}",
             }
-            values = ["values::AbstractVector{T}"]
-            post_function_signature = " where {T}"
+            values = ["values::AbstractVector{TYPE}"]
+            post_function_signature = " where {TYPE}"
         else:
             argument_dict = {
                 "s": "states",
