@@ -24,6 +24,7 @@ dependencies = [
     "sympy",
     "typer",
     "myokit",
+    "click<8.2",
     "toml; python_version < '3.11'",
     'graphlib-backport;python_version < "3.9"',
     'typing_extensions;python_version < "3.9"',
