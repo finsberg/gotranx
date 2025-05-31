@@ -13,6 +13,9 @@
 
 `gotranx` is the next generation General ODE translator. The general idea is that you write your ODE in a high level markup language and use `gotranx` to generate code for solving the ODE in different programming languages.  `gotranx` uses [`sympy`](https://www.sympy.org/en/index.html) to create a symbolic representation of the ODE which is used to generate the jacobian and numerical schemes.
 
+
+`gotranx` makes it also possible generate code from `e.g` [CellML models](https://models.physiomeproject.org/cellml) using conversion tools from [`myokit`](https://github.com/myokit/myokit).
+
 - Source code: https://github.com/finsberg/gotranx
 - Documentation: https://finsberg.github.io/gotranx/
 
@@ -175,6 +178,22 @@ python3 -m pytest tests/ --codspeed
 ```
 You can find more info at https://docs.codspeed.io/benchmarks/python
 
+## Citing
+If you use `gotranx` in your research project we would appreciate if you could use the following citation
+```
+@article{Finsberg2024,
+    doi = {10.21105/joss.07063},
+    url = {https://doi.org/10.21105/joss.07063},
+    year = {2024},
+    publisher = {The Open Journal},
+    volume = {9},
+    number = {102},
+    pages = {7063},
+    author = {Henrik Finsberg and Johan Hake},
+    title = {gotranx: General ODE translator},
+    journal = {Journal of Open Source Software}
+}
+```
 
 ## License
 MIT
