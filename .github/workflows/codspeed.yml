@@ -26,3 +26,4 @@ jobs:
         with:
           token: ${{ secrets.CODSPEED_TOKEN }}
           run: pytest tests/test_benchmarks.py --codspeed --benchmark-warmup-iterations 1 --benchmark-min-rounds 1 --benchmark-calibration-precision 1
+          mode: "instrumentation"
