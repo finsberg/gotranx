@@ -118,6 +118,7 @@ def main(
     delta: float = 1e-8,
     suffix: str = ".py",
     backend: Backend = Backend.numpy,
+    shape: Shape = Shape.dynamic,
 ) -> None:
     loglevel = logging.DEBUG if verbose else logging.INFO
     structlog.configure(
@@ -134,6 +135,7 @@ def main(
         stiff_states=stiff_states,
         delta=delta,
         backend=backend,
+        shape=shape,
     )
     out = fname if outname is None else Path(outname)
     out_name = out.with_suffix(suffix=suffix)
