@@ -7,6 +7,7 @@ import typer
 
 from ..schemes import Scheme, get_scheme
 from ..codegen import PythonFormat, CFormat
+from ..codegen.base import Shape
 from . import gotran2c, gotran2py, gotran2julia
 from . import utils
 
@@ -286,6 +287,12 @@ def ode2py(
         "-b",
         help="Backend for the generated code",
     ),
+    shape: Shape = typer.Option(
+        Shape.dynamic,
+        "--shape",
+        "-S",
+        help="Shape of the output arrays",
+    ),
 ):
     if fname is None:
         return typer.echo("No file specified")
@@ -295,6 +302,7 @@ def ode2py(
     delta = config_data.get("delta", delta)
     stiff_states = config_data.get("stiff_states", stiff_states)
     scheme = config_data.get("scheme", scheme)
+    shape = Shape(config_data.get("shape", shape))
     scheme = utils.validate_scheme(scheme)
     py_config = config_data.get("python", {})
     format = PythonFormat(py_config.get("format", format))
@@ -310,6 +318,7 @@ def ode2py(
         delta=delta,
         format=format,
         backend=backend,
+        shape=shape,
     )
 
 
