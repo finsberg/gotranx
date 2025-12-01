@@ -8,7 +8,7 @@ import typer
 from ..schemes import Scheme, get_scheme
 from ..codegen import PythonFormat, CFormat
 from ..codegen.base import Shape
-from . import gotran2c, gotran2py, gotran2julia
+from . import gotran2c, gotran2py, gotran2julia, gotran2md
 from . import utils
 
 app = typer.Typer()
@@ -559,3 +559,37 @@ def inspect(
     ),
 ):
     typer.echo("Hello from inspect")
+
+
+@app.command()
+def ode2md(
+    fname: typing.Optional[Path] = typer.Argument(
+        None,
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        writable=False,
+        readable=True,
+        resolve_path=True,
+    ),
+    outname: typing.Optional[str] = typer.Option(
+        None,
+        "-o",
+        "--outname",
+        help="Output name",
+    ),
+    verbose: bool = typer.Option(
+        False,
+        "--verbose",
+        "-v",
+        help="Verbose output",
+    ),
+):
+    if fname is None:
+        return typer.echo("No file specified")
+
+    gotran2md.main(
+        fname=fname,
+        outname=outname,
+        verbose=verbose,
+    )
