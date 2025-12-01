@@ -278,3 +278,26 @@ def test_ode2julia_config_file(odefile, config_file):
     code = outfile.read_text()
     assert "hybrid_rush_larsen" in code
     outfile.unlink()
+
+
+def test_ode2md(odefile):
+    outfile = odefile.with_suffix(".md")
+    result = runner.invoke(
+        gotranx.cli.app,
+        ["ode2md", str(odefile), "-o", str(outfile), "--pdf"],
+    )
+    assert result.exit_code == 0
+    assert f"Wrote {outfile}" in result.stdout
+    assert outfile.is_file()
+
+    content = outfile.read_text()
+    assert "# lorentz" in content
+    assert "## Component: My component" in content
+    assert "| `sigma` | $12.0$ | - | Some description |" in content
+    assert "\\frac{d x}{dt} &= \\sigma \\cdot \\left(- x + y\\right) \\\\" in content
+
+    outfile.unlink()
+    pdf_file = odefile.with_suffix(".pdf")
+    assert f"Wrote {pdf_file}" in result.stdout
+    assert pdf_file.is_file()
+    pdf_file.unlink()

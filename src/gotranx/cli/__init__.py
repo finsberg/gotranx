@@ -584,12 +584,13 @@ def ode2md(
         "-v",
         help="Verbose output",
     ),
+    pdf: bool = typer.Option(
+        False,
+        "--pdf",
+        help="Generate PDF output",
+    ),
 ):
     if fname is None:
         return typer.echo("No file specified")
 
-    gotran2md.main(
-        fname=fname,
-        outname=outname,
-        verbose=verbose,
-    )
+    gotran2md.main(fname=fname, outname=outname, verbose=verbose, pdf=pdf)

@@ -13,23 +13,25 @@ class GotranLatexPrinter(LatexPrinter):
             return super()._print_Symbol(sympy.Symbol(expr.name))
         return super()._print_Symbol(expr)
 
-    def _print_Derivative(self, expr):
-        # Pretty print derivatives: dx/dt instead of d/dt x(t)
-        if len(expr.variables) == 1 and str(expr.variables[0]) == "t":
-            # Extract the function name without (t)
-            func = expr.args[0]
-            if isinstance(func, sympy.Function):
-                name = func.name
-            else:
-                name = self._print(func)
-            return f"\\frac{{d {name}}}{{dt}}"
-        return super()._print_Derivative(expr)
+    # def _print_Mul(self, expr):
+    #     # Use \cdot for multiplication
+    #     nodes = [self._print(a) for a in expr.args]
+    #     res = super()._print_Mul(expr)
+    #     breakpoint()
+    #     if nodes[0] == "-1":
+    #         # -1 * x -> - x
+    #         return res
+    #     return " \\cdot ".join(nodes)
+
+
+def print_derivative(name) -> str:
+    return f"\\frac{{d {name}}}{{dt}}"
 
 
 class MarkdownGenerator:
     def __init__(self, ode: ODE):
         self.ode = ode
-        self._printer = GotranLatexPrinter()
+        self._printer = GotranLatexPrinter(settings={"mul_symbol": " \\cdot "})
 
     def _format_atom(self, atom: atoms.Atom) -> dict[str, str]:
         unit = f"${sympy.latex(atom.unit)}$" if atom.unit else "-"
@@ -40,14 +42,18 @@ class MarkdownGenerator:
             val = f"${val}$"
 
         return {
-            "name": f"``{atom.name}``",
+            "name": f"`{atom.name}`",
             "value": val,
             "unit": unit,
             "description": desc,
         }
 
     def _print_assignment(self, assignment: atoms.Assignment) -> str:
-        lhs = self._printer.doprint(assignment.symbol)
+        if isinstance(assignment, atoms.StateDerivative):
+            lhs = print_derivative(assignment.state.name)
+        else:
+            lhs = self._printer.doprint(assignment.symbol)
+
         rhs = self._printer.doprint(assignment.expr)
         return f"{lhs} &= {rhs} \\\\"
 
