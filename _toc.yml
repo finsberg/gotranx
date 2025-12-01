@@ -18,6 +18,7 @@ parts:
     - file: "examples/compile-c-extension/main.py"
     - file: "docs/vectorized_computations"
     - file: "examples/lorentz_julia.py"
+    - file: "docs/ode2md"
   - caption: Explanation
     chapters:
     - file: "docs/about"

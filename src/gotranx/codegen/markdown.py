@@ -13,16 +13,6 @@ class GotranLatexPrinter(LatexPrinter):
             return super()._print_Symbol(sympy.Symbol(expr.name))
         return super()._print_Symbol(expr)
 
-    # def _print_Mul(self, expr):
-    #     # Use \cdot for multiplication
-    #     nodes = [self._print(a) for a in expr.args]
-    #     res = super()._print_Mul(expr)
-    #     breakpoint()
-    #     if nodes[0] == "-1":
-    #         # -1 * x -> - x
-    #         return res
-    #     return " \\cdot ".join(nodes)
-
 
 def print_derivative(name) -> str:
     return f"\\frac{{d {name}}}{{dt}}"
