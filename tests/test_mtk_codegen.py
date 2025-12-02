@@ -1,5 +1,4 @@
 from textwrap import dedent
-from pathlib import Path
 
 import gotranx
 import pytest
@@ -47,7 +46,7 @@ def test_mtk_codegen(parser, trans):
 
 
 @pytest.fixture(scope="module")
-def odefile(tmp_path_factory) -> Path:
+def odefile(tmp_path_factory):
     fname = tmp_path_factory.mktemp("data") / "lorentz.ode"
     fname.write_text(_lorentz_expr())
     yield fname
