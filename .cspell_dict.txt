@@ -66,6 +66,7 @@ odeblock
 odefile
 odefiles
 outname
+pandoc
 pdst
 pdts
 psdt
