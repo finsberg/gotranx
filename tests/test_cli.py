@@ -308,7 +308,8 @@ def test_ode2md(odefile, pdf):
     assert "\\frac{d x}{dt} &= \\sigma \\cdot \\left(- x + y\\right) \\\\" in content
 
     outfile.unlink()
-    pdf_file = odefile.with_suffix(".pdf")
-    assert f"Wrote {pdf_file}" in result.stdout
-    assert pdf_file.is_file()
-    pdf_file.unlink()
+    if pdf:
+        pdf_file = odefile.with_suffix(".pdf")
+        assert f"Wrote {pdf_file}" in result.stdout
+        assert pdf_file.is_file()
+        pdf_file.unlink()
