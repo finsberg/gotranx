@@ -55,7 +55,9 @@ def equations_block(entries: list[str]) -> str:
     )
 
 
-def defaults_block(state_defaults: list[tuple[str, str]], param_defaults: list[tuple[str, str]]) -> str:
+def defaults_block(
+    state_defaults: list[tuple[str, str]], param_defaults: list[tuple[str, str]]
+) -> str:
     pairs = []
     for name, value in state_defaults + param_defaults:
         pairs.append(f"{name} => {value}")
