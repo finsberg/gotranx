@@ -6,6 +6,7 @@ from . import python
 from . import jax
 from . import julia
 from . import mtk
+from . import markdown
 
 
 class Template(typing.Protocol):
@@ -195,4 +196,4 @@ class Template(typing.Protocol):
         """
 
 
-__all__ = ["c", "python", "jax", "julia", "mtk", "Template"]
+__all__ = ["c", "python", "jax", "julia", "markdown", "mtk", "Template"]
