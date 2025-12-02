@@ -280,11 +280,22 @@ def test_ode2julia_config_file(odefile, config_file):
     outfile.unlink()
 
 
-def test_ode2md(odefile):
+@pytest.mark.parametrize("pdf", [True, False])
+def test_ode2md(odefile, pdf):
     outfile = odefile.with_suffix(".md")
+
+    args = ["ode2md", str(odefile), "-o", str(outfile)]
+    import shutil
+
+    pandoc = shutil.which("pandoc")
+    if pdf:
+        if pandoc is not None:
+            args.append("--pdf")
+        else:
+            pytest.skip("pandoc not installed")
     result = runner.invoke(
         gotranx.cli.app,
-        ["ode2md", str(odefile), "-o", str(outfile), "--pdf"],
+        args,
     )
     assert result.exit_code == 0
     assert f"Wrote {outfile}" in result.stdout

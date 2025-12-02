@@ -33,7 +33,11 @@ def main(
 
         pandoc = shutil.which("pandoc")
         if pandoc is None:
-            msg = "Please install pandoc to generate PDF output. 'pip install pandoc'"
+            msg = (
+                "Please install pandoc to generate PDF output. "
+                "See https://pandoc.org/installing.html for installation instructions."
+            )
+
             logger.error(msg)
             raise RuntimeError(msg)
 

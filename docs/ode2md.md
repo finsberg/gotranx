@@ -93,4 +93,4 @@ If you would like to convert the `.ode` file directly to a PDF file, you can use
 ```bash
 gotranx ode2md lorentz.ode --pdf
 ```
-This will create a `lorentz.pdf` file in the same directory. Note that this requires `pandoc` to be installed on your system.
+This will create a `lorentz.pdf` file in the same directory. Note that this requires `pandoc` to be installed on your system. See https://pandoc.org/installing.html for installation instructions.
