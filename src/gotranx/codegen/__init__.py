@@ -9,6 +9,7 @@ from .jax import JaxCodeGenerator
 from .base import CodeGenerator, Func, RHSArgument, SchemeArgument
 from .ode import GotranODECodePrinter, BaseGotranODECodePrinter
 from .julia import JuliaCodeGenerator, GotranJuliaCodePrinter
+from .mtk import MTKCodeGenerator
 
 __all__ = [
     "base",
@@ -30,6 +31,5 @@ __all__ = [
     "JuliaCodeGenerator",
     "GotranJuliaCodePrinter",
     "JaxCodeGenerator",
-    "JuliaCodeGenerator",
-    "GotranJuliaCodePrinter",
+    "MTKCodeGenerator",
 ]

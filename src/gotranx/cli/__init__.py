@@ -8,7 +8,7 @@ import typer
 from ..schemes import Scheme, get_scheme
 from ..codegen import PythonFormat, CFormat
 from ..codegen.base import Shape
-from . import gotran2c, gotran2py, gotran2julia, gotran2md
+from . import gotran2c, gotran2py, gotran2julia, gotran2md, gotran2mtk
 from . import utils
 
 app = typer.Typer()
@@ -512,6 +512,69 @@ def ode2julia(
         stiff_states=stiff_states,
         delta=delta,
         type_stable=type_stable,
+    )
+
+
+@app.command()
+def ode2mtk(
+    fname: typing.Optional[Path] = typer.Argument(
+        None,
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        writable=False,
+        readable=True,
+        resolve_path=True,
+    ),
+    outname: typing.Optional[str] = typer.Option(
+        None,
+        "-o",
+        "--outname",
+        help="Output name",
+    ),
+    remove_unused: bool = typer.Option(
+        False,
+        "--remove-unused",
+        help="Remove unused variables",
+    ),
+    version: bool = typer.Option(
+        None,
+        "--version",
+        callback=version_callback,
+        is_eager=True,
+        help="Show version",
+    ),
+    license: bool = typer.Option(
+        None,
+        "--license",
+        callback=license_callback,
+        is_eager=True,
+        help="Show license",
+    ),
+    config: typing.Optional[Path] = typer.Option(
+        None,
+        "-c",
+        "--config",
+        help="Read configuration options from a configuration file",
+    ),
+    verbose: bool = typer.Option(
+        False,
+        "--verbose",
+        "-v",
+        help="Verbose output",
+    ),
+):
+    if fname is None:
+        return typer.echo("No file specified")
+
+    config_data = utils.read_config(config)
+    verbose = config_data.get("verbose", verbose)
+    remove_unused = config_data.get("remove_unused", remove_unused)
+    gotran2mtk.main(
+        fname=fname,
+        outname=outname,
+        remove_unused=remove_unused,
+        verbose=verbose,
     )
 
 
