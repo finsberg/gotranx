@@ -10,7 +10,7 @@ except ImportError:
     myokit = None
 
 here = Path(__file__).parent.absolute()
-runner = CliRunner(mix_stderr=False)
+runner = CliRunner()
 
 
 @pytest.fixture(scope="session")
