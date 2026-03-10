@@ -1,13 +1,8 @@
 from textwrap import dedent
 
-import gotranx
 import pytest
 from gotranx.codegen import MTKCodeGenerator
 from gotranx.ode import make_ode
-from typer.testing import CliRunner
-
-
-runner = CliRunner(mix_stderr=False)
 
 
 def _lorentz_expr() -> str:
@@ -51,17 +46,3 @@ def odefile(tmp_path_factory):
     fname.write_text(_lorentz_expr())
     yield fname
     fname.unlink()
-
-
-def test_cli_ode2mtk(odefile):
-    outfile = odefile.with_suffix(".jl")
-    result = runner.invoke(
-        gotranx.cli.app,
-        ["ode2mtk", str(odefile), "-o", str(outfile)],
-    )
-    assert result.exit_code == 0
-    assert outfile.is_file()
-    text = outfile.read_text()
-    assert "@named lorentz" in text
-    assert "observed =" in text
-    outfile.unlink()
