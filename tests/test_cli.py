@@ -313,3 +313,17 @@ def test_ode2md(odefile, pdf):
         assert f"Wrote {pdf_file}" in result.stdout
         assert pdf_file.is_file()
         pdf_file.unlink()
+
+
+def test_cli_ode2mtk(odefile):
+    outfile = odefile.with_suffix(".jl")
+    result = runner.invoke(
+        gotranx.cli.app,
+        ["ode2mtk", str(odefile), "-o", str(outfile)],
+    )
+    assert result.exit_code == 0
+    assert outfile.is_file()
+    text = outfile.read_text()
+    assert "@named lorentz" in text
+    assert "observed =" in text
+    outfile.unlink()
