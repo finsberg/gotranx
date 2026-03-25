@@ -319,8 +319,8 @@ def test_expressions_with_invalid_unit_becomes_comment(parser, trans):
     expr = """
     expressions("My Component", "My second component")
     x = 1  # Some variable that we want to define
-    y = 2  # 1 + 1
-    z = 2  # 3.14
+    y = 2  # xyz
+    z = 2  # _
     """
     tree = parser.parse(expr)
     result = trans.transform(tree)
@@ -351,7 +351,7 @@ def test_expressions_with_invalid_unit_becomes_comment(parser, trans):
             [lark.Token("SCIENTIFIC_NUMBER", "2")],
         )
         assert y.unit is None
-        assert y.comment.text == "1 + 1"
+        assert y.comment.text == "xyz"
 
         z = component.find_assignment("z")
         assert x.components == ("My Component", "My second component")
@@ -361,7 +361,7 @@ def test_expressions_with_invalid_unit_becomes_comment(parser, trans):
             [lark.Token("SCIENTIFIC_NUMBER", "2")],
         )
         assert z.unit is None
-        assert z.comment.text == "3.14"
+        assert z.comment.text == "_"
 
 
 @pytest.mark.parametrize(
