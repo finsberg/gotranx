@@ -11,7 +11,7 @@ logger = structlog.get_logger()
 
 def main(
     fname: Path,
-    outname: str | None = None,
+    outname: Path | str | None = None,
     verbose: bool = False,
     pdf: bool = False,
 ) -> None:

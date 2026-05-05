@@ -109,7 +109,7 @@ def get_code(
 
 def main(
     fname: Path,
-    outname: str | None = None,
+    outname: Path | str | None = None,
     format: Format = Format.black,
     scheme: list[Scheme] | None = None,
     remove_unused: bool = False,

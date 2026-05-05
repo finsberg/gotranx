@@ -88,7 +88,7 @@ def get_code(
 def main(
     fname: Path,
     suffix: str = ".h",
-    outname: str | None = None,
+    outname: Path | str | None = None,
     scheme: list[Scheme] | None = None,
     remove_unused: bool = False,
     format: Format = Format.clang_format,

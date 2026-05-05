@@ -22,7 +22,7 @@ def get_code(
 
 def main(
     fname: Path,
-    outname: str | None = None,
+    outname: Path | str | None = None,
     remove_unused: bool = False,
     verbose: bool = False,
 ) -> None:

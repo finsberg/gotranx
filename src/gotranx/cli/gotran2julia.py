@@ -83,19 +83,14 @@ def get_code(
 
     code = codegen._format("\n".join(comp))
 
-    # if format != Format.none:
-    #     logger.debug("Applying formatter", format=format)
-    #     code = formatter(code)
-
     return code
 
 
 def main(
     fname: Path,
-    outname: str | None = None,
+    outname: Path | str | None = None,
     scheme: list[Scheme] | None = None,
     remove_unused: bool = False,
-    # format: Format = Format.clang_format,
     verbose: bool = False,
     missing_values: dict[str, int] | None = None,
     delta: float = 1e-8,
