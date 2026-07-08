@@ -327,3 +327,59 @@ def test_cli_ode2mtk(odefile):
     assert "@named lorentz" in text
     assert "observed =" in text
     outfile.unlink()
+
+
+@pytest.mark.parametrize("format", gotranx.codegen.PythonFormat)
+def test_gotran2ufl(format, odefile, all_schemes):
+    outfile = odefile.with_suffix(".py")
+
+    stiff_states = ["-s", "x", "-s", "y", "-s", "w"]
+
+    result = runner.invoke(
+        gotranx.cli.app,
+        ["ode2ufl", str(odefile), "-v", "-o", str(outfile), "-f", format.value]
+        + all_schemes
+        + stiff_states,
+    )
+    assert result.exit_code == 0
+    assert "lorentz.py" in result.stdout
+    assert "lorentz" in result.stdout
+    if format != gotranx.codegen.PythonFormat.none:
+        assert "Applying formatter" in result.stdout
+        assert format.value in result.stdout
+
+    assert outfile.is_file()
+
+    code = outfile.read_text()
+    for scheme in gotranx.schemes.Scheme:
+        assert scheme.value in code
+
+    assert "rhs" in code
+    assert "import ufl" in code
+    assert "init_state_values" in code
+    assert "init_parameter_values" in code
+    assert "monitor_index" in code
+    assert "state_index" in code
+    assert "parameter_index" in code
+
+    outfile.unlink()
+
+
+def test_ode2ufl_config_file(odefile, config_file):
+    outfile = odefile.with_suffix(".py")
+    result = runner.invoke(
+        gotranx.cli.app,
+        ["ode2ufl", str(odefile), "-c", str(config_file), "-o", str(outfile)],
+    )
+    assert result.exit_code == 0
+    assert "lorentz.py" in result.stdout
+    assert "lorentz" in result.stdout
+    assert "stiff_states=['x', 'y']" in result.stdout
+    assert "Applying formatter" in result.stdout
+    assert "ruff" in result.stdout
+    assert outfile.is_file()
+
+    code = outfile.read_text()
+    assert "hybrid_rush_larsen" in code
+    assert "import ufl" in code
+    outfile.unlink()
