@@ -1,6 +1,9 @@
 import pytest
+from pathlib import Path
 import gotranx
 from gotranx.codegen.ufl import UFLCodeGenerator
+
+here = Path(__file__).parent.absolute()
 
 
 @pytest.fixture
@@ -75,3 +78,42 @@ def test_ufl_codegen_full(ode_for_ufl):
     assert "def init_parameter_values" in code
     assert "def rhs" in code
     assert "ufl.conditional" in code
+
+
+def test_ufl_codegen_ordmm_land():
+    """Stress test UFL generation against a complex, real-world cell model."""
+    ode_path = here / "odefiles" / "ORdmm_Land.ode"
+
+    # Load the ODE directly from the file
+    ode = gotranx.load_ode(ode_path)
+
+    codegen = UFLCodeGenerator(ode)
+
+    code = "\n".join(
+        [
+            codegen.imports(),
+            codegen.initial_state_values(),
+            codegen.initial_parameter_values(),
+            codegen.rhs(),
+        ]
+    )
+
+    # Ensure the standard structure is successfully generated
+    assert "import ufl" in code
+    assert "import numpy" in code
+    assert "def init_state_values(**values):" in code
+    assert "def init_parameter_values(**values):" in code
+    assert "def rhs(t, states, parameters):" in code
+
+    # The ORdmm_Land model is highly complex and should trigger mathematical conversions
+    assert "ufl.exp" in code
+    assert "ufl.conditional" in code
+
+    # Ensure we return a flat list containing all the derivatives/states for the ODE
+    compact_code = code.replace(" ", "").replace("\n", "")
+    assert "return[" in compact_code
+
+    # Check that known states from ORdmm_Land were
+    # generated successfully as state array index mappings
+    assert "hL = states[" in code
+    assert "a = states[" in code

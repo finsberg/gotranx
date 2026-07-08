@@ -21,6 +21,7 @@ class UFLPrinter(GotranPythonCodePrinter):
         "cosh": "ufl.cosh",
         "tanh": "ufl.tanh",
         "sqrt": "ufl.sqrt",
+        "Abs": "abs",  # SymPy's Abs maps to Python's built-in abs, which UFL intercepts
     }
 
     def _hprint_Pow(self, expr, rational=False, sqrt="ufl.sqrt"):
@@ -80,6 +81,16 @@ class UFLPrinter(GotranPythonCodePrinter):
     def _print_Or(self, expr):
         args = [self._print(arg) for arg in expr.args]
         return functools.reduce(lambda x, y: f"ufl.Or({x}, {y})", args)
+
+    def _print_Min(self, expr):
+        # ufl.min_value only takes two arguments, so reduce multi-argument Mins
+        args = [self._print(arg) for arg in expr.args]
+        return functools.reduce(lambda x, y: f"ufl.min_value({x}, {y})", args)
+
+    def _print_Max(self, expr):
+        # ufl.max_value only takes two arguments, so reduce multi-argument Max
+        args = [self._print(arg) for arg in expr.args]
+        return functools.reduce(lambda x, y: f"ufl.max_value({x}, {y})", args)
 
     def _print_sign(self, e):
         return f"ufl.sign({self._print(e.args[0])})"

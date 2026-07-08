@@ -65,6 +65,7 @@ numpy
 odeblock
 odefile
 odefiles
+ordmm
 outname
 pandoc
 pdst
