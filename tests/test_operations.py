@@ -53,6 +53,8 @@ from gotranx.expressions import build_expression
 def test_operations(expr, expected, parser, trans):
     tree = parser.parse(expr)
     result = trans.transform(tree)
-    assert len(result) == 1
-    sympy_expr = build_expression(result[0].value.tree)
+    assignments = result.components[0].assignments
+    assert len(assignments) == 1
+    assignment = list(assignments)[0]
+    sympy_expr = build_expression(assignment.value.tree)
     assert math.isclose(float(sympy_expr), expected)
