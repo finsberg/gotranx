@@ -141,3 +141,41 @@ def test_parameter_with_unit_and_desc(expr, expected, parser, trans):
     result = trans.transform(tree)
     parameters = tuple(sorted(result.components[0].parameters, key=lambda x: x.name))
     assert parameters == expected
+
+
+@pytest.mark.parametrize(
+    "expr",
+    [
+        "parameters(x=1,)",
+        "parameters(x = 1 , )",
+        """parameters(
+            x=1,
+        )""",
+    ],
+)
+def test_parameters_single_trailing_comma(expr, parser, trans):
+    tree = parser.parse(expr)
+    result = trans.transform(tree)
+    parameters = list(result.components[0].parameters)
+    assert len(parameters) == 1
+    assert parameters[0] == atoms.Parameter(name="x", value=1)
+
+
+@pytest.mark.parametrize(
+    "expr",
+    [
+        "parameters(x=1, y=2,)",
+        "parameters(x=1, y=2 , )",
+        """parameters(
+            x=1,
+            y=2,
+        )""",
+    ],
+)
+def test_parameters_double_trailing_comma(expr, parser, trans):
+    tree = parser.parse(expr)
+    result = trans.transform(tree)
+    parameters = sorted(result.components[0].parameters, key=lambda x: x.name)
+    assert len(parameters) == 2
+    assert parameters[0] == atoms.Parameter(name="x", value=1)
+    assert parameters[1] == atoms.Parameter(name="y", value=2)
