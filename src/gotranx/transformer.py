@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from typing import NamedTuple
-from typing import TypeVar
+from typing import TypeVar, Any
 
 import lark
 
@@ -110,13 +110,13 @@ def find_assignments(
 
 
 def find_components(
-    s: list[None | lark.tree.Tree | lark.lexer.Token],
+    s: list[Any],
 ) -> tuple[int, tuple[str, ...]]:
     """Find components in a list
 
     Parameters
     ----------
-    s : list[None  |  lark.tree.Tree  |  lark.lexer.Token]
+    s : list[Any]
         The list
 
     Returns
@@ -142,31 +142,31 @@ def find_components(
 
 
 def lark_list_to_parameters(
-    s: list[None | lark.tree.Tree | lark.lexer.Token],
+    s: list[Any],
     cls: type[T],
-) -> tuple[T, ...]:
+) -> tuple[T | atoms.Comment, ...]:
     """Convert a list of lark trees to parameters
 
     Parameters
     ----------
-    s : list[None  |  lark.tree.Tree  |  lark.lexer.Token]
+    s : list[Any]
         The list
     cls : type[T]
         The class of the parameters
 
     Returns
     -------
-    tuple[T, ...]
-        The parameters
+    tuple[T | atoms.Comment, ...]
+        The parameters and any standalone comments
     """
     i, components = find_components(s)
-    return tuple(
-        [
-            tree2parameter(p, components=components, cls=cls)
-            for p in s[i:]
-            if isinstance(p, lark.Tree)
-        ],
-    )
+    res: list[T | atoms.Comment] = []
+    for p in s[i:]:
+        if isinstance(p, lark.Tree):
+            res.append(tree2parameter(p, components=components, cls=cls))
+        elif isinstance(p, atoms.Comment):
+            res.append(p)
+    return tuple(res)
 
 
 def tree2parameter(
@@ -262,24 +262,25 @@ class TreeToODE(lark.Transformer):
         """Convert a comment to an atoms.Comment"""
         return atoms.Comment(" ".join(map(str.lstrip, map(lambda x: x.lstrip("#"), map(str, s)))))
 
-    def states(self, s: list[None | lark.tree.Tree | lark.lexer.Token]) -> tuple[atoms.State, ...]:
+    def states(self, s: list[Any]) -> tuple[atoms.State | atoms.Comment, ...]:
         """Convert a list of states to atoms.State"""
         return lark_list_to_parameters(s, cls=atoms.State)
 
-    def parameters(
-        self, s: list[None | lark.tree.Tree | lark.lexer.Token]
-    ) -> tuple[atoms.Parameter, ...]:
+    def parameters(self, s: list[Any]) -> tuple[atoms.Parameter | atoms.Comment, ...]:
         """Convert a list of parameters to atoms.Parameter"""
         return lark_list_to_parameters(s, cls=atoms.Parameter)
 
-    def expressions(self, s) -> tuple[atoms.Assignment, ...]:
-        """Convert a list of expressions to atoms.Assignment"""
+    def expressions(self, s) -> tuple[atoms.Assignment | atoms.Comment, ...]:
+        """Convert a list of expressions to atoms.Assignment and atoms.Comment"""
         i, components = find_components(s)
 
-        assignments = []
+        assignments: list[atoms.Assignment | atoms.Comment] = []
 
         for si in s[i:]:
-            assignments.extend(find_assignments(si, components=components))
+            if isinstance(si, atoms.Comment):
+                assignments.append(si)
+            else:
+                assignments.extend(find_assignments(si, components=components))
 
         return tuple(assignments)
 
@@ -289,7 +290,7 @@ class TreeToODE(lark.Transformer):
         Parameters
         ----------
         s : list[Any]
-            List of objects that could by states, parameters or assignments
+            List of objects that could by states, parameters, assignments, or comments
 
         Returns
         -------
@@ -307,10 +308,8 @@ class TreeToODE(lark.Transformer):
             lambda: {atom: set() for atom in mapping.values()},
         )
 
-        # breakpoint()
-
         comments = []
-        for line in s:  # Each line in the block
+        for line in s:  # Each line in the block is now a tuple
             if isinstance(line, atoms.Comment):
                 comments.append(line)
                 continue
@@ -319,7 +318,11 @@ class TreeToODE(lark.Transformer):
                 # Skip empty lines
                 continue
 
-            for atom in line:  # State, Parameters or Assignment
+            for atom in line:  # State, Parameters, Assignment, or standalone Comment
+                if isinstance(atom, atoms.Comment):
+                    comments.append(atom)
+                    continue
+
                 for component in atom.components:
                     components[component][mapping[type(atom)]].add(atom)
 

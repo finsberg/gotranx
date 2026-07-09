@@ -17,9 +17,12 @@ from gotranx.expressions import build_expression
 def test_build_expression(expr, symbol_values, expected, parser, trans):
     tree = parser.parse(expr)
     result = trans.transform(tree)
+    components = result.components[0]
+    assignment = components.find_assignment("x")
 
     symbols = {name: sp.Symbol(name) for name in symbol_values}
-    value = result[0].value.tree
+
+    value = assignment.value.tree
     sympy_expr = build_expression(value, symbols)
 
     assert sympy_expr.subs(symbol_values).evalf() == pytest.approx(expected)
@@ -104,6 +107,8 @@ def test_expression_missing_symbol(parser, trans):
     expr = "x = a + 1"
     tree = parser.parse(expr)
     result = trans.transform(tree)
+    components = result.components[0]
+    assignment = components.find_assignment("x")
     with pytest.raises(gotranx.expressions.MissingSymbolError) as e:
-        build_expression(result[0].value.tree, symbols={})
+        build_expression(assignment.value.tree, symbols={})
     assert str(e.value) == "Symbol 'a' not found in line 1"

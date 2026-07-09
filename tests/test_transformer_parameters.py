@@ -18,8 +18,9 @@ from gotranx import atoms
 def test_parameters_single(expr, parser, trans):
     tree = parser.parse(expr)
     result = trans.transform(tree)
-    assert len(result) == 1
-    assert result[0] == atoms.Parameter(name="x", value=1)
+    parameters = list(result.components[0].parameters)
+    assert len(parameters) == 1
+    assert parameters[0] == atoms.Parameter(name="x", value=1)
 
 
 @pytest.mark.parametrize(
@@ -39,18 +40,20 @@ def test_parameters_single(expr, parser, trans):
 def test_parameters_double(expr, parser, trans):
     tree = parser.parse(expr)
     result = trans.transform(tree)
-    assert len(result) == 2
-    assert result[0] == atoms.Parameter(name="x", value=1)
-    assert result[1] == atoms.Parameter(name="y", value=2)
+    parameters = sorted(result.components[0].parameters, key=lambda x: x.name)
+    assert len(parameters) == 2
+    assert parameters[0] == atoms.Parameter(name="x", value=1)
+    assert parameters[1] == atoms.Parameter(name="y", value=2)
 
 
 def test_parameters_with_component(parser, trans):
     expr = 'parameters("My Component", x=1, y=2)'
     tree = parser.parse(expr)
     result = trans.transform(tree)
-    assert len(result) == 2
-    assert result[0] == atoms.Parameter(name="x", value=1, components=("My Component",))
-    assert result[1] == atoms.Parameter(name="y", value=2, components=("My Component",))
+    parameters = sorted(result.components[0].parameters, key=lambda x: x.name)
+    assert len(parameters) == 2
+    assert parameters[0] == atoms.Parameter(name="x", value=1, components=("My Component",))
+    assert parameters[1] == atoms.Parameter(name="y", value=2, components=("My Component",))
 
 
 def test_different_sets_of_parameters(parser, trans):
@@ -136,4 +139,5 @@ def test_different_sets_of_parameters(parser, trans):
 def test_parameter_with_unit_and_desc(expr, expected, parser, trans):
     tree = parser.parse(expr)
     result = trans.transform(tree)
-    assert result == expected
+    parameters = tuple(sorted(result.components[0].parameters, key=lambda x: x.name))
+    assert parameters == expected
