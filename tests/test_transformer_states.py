@@ -181,3 +181,41 @@ def test_states_with_unit_and_desc(expr, expected, parser, trans):
     result = trans.transform(tree)
     states = tuple(sorted(result.components[0].states, key=lambda x: x.name))
     assert states == expected
+
+
+@pytest.mark.parametrize(
+    "expr",
+    [
+        "states(x=1,)",
+        "states(x = 1 , )",
+        """states(
+            x=1,
+        )""",
+    ],
+)
+def test_states_single_trailing_comma(expr, parser, trans):
+    tree = parser.parse(expr)
+    result = trans.transform(tree)
+    states = list(result.components[0].states)
+    assert len(states) == 1
+    assert states[0] == atoms.State(name="x", value=1)
+
+
+@pytest.mark.parametrize(
+    "expr",
+    [
+        "states(x=1, y=2,)",
+        "states(x=1, y=2 , )",
+        """states(
+            x=1,
+            y=2,
+        )""",
+    ],
+)
+def test_states_double_trailing_comma(expr, parser, trans):
+    tree = parser.parse(expr)
+    result = trans.transform(tree)
+    states = sorted(result.components[0].states, key=lambda x: x.name)
+    assert len(states) == 2
+    assert states[0] == atoms.State(name="x", value=1)
+    assert states[1] == atoms.State(name="y", value=2)
