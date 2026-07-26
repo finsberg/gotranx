@@ -117,6 +117,9 @@ plt.show()
 
 Note that this is a rather artificial example, so check out the demos in the [documentation](https://finsberg.github.io/gotranx/) for more elaborate examples.
 
+## Syntax highlighting in VS Code
+If you would like to have syntax highlighting in VS code for the `.ode` files, then you can check out the vscode extension found here: https://github.com/finsberg/gotranx-ode-vscode
+
 ## FAQ
 
 **Why should I use `gotranx`?**
