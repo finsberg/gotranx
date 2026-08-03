@@ -22,7 +22,7 @@ jobs:
         run: python3 -m pip install -e .[benchmark]
 
       - name: Run benchmarks
-        uses: CodSpeedHQ/action@v4.19.1
+        uses: CodSpeedHQ/action@v5.0.1
         with:
           token: ${{ secrets.CODSPEED_TOKEN }}
           run: pytest tests/test_benchmarks.py --codspeed --benchmark-warmup-iterations 1 --benchmark-min-rounds 1 --benchmark-calibration-precision 1
