@@ -1,6 +1,6 @@
 # # Using the Python API
 #
-# Since `gotranx` is a python library you can also use it directly in python.
+# Since `gotranx` is a Python library you can also use it directly in Python.
 # First we will import `gotranx` as well as a few other packages
 #
 
@@ -9,19 +9,19 @@ from typing import Any
 import numpy as np
 import matplotlib.pyplot as plt
 
-# For this tutorial we will use a rather large system of ODE which simulated the electromechanics in cardiac cells that are based on the [O'Hara-Rudy model for electrophysiology](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1002061) and the [Land model](https://www.sciencedirect.com/science/article/abs/pii/S0022282817300639). You can download the model in `.ode` format {download}`here <./ORdmm_Land.ode>`
+# For this tutorial we will use a rather large system of ODEs which simulates the electromechanics in cardiac cells that are based on the [O'Hara-Rudy model for electrophysiology](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1002061) and the [Land model](https://www.sciencedirect.com/science/article/abs/pii/S0022282817300639). You can download the model in `.ode` format {download}`here <./ORdmm_Land.ode>`
 #
 # We load the model using the {py:func}`load_ode` function
 
 ode = gotranx.load_ode("ORdmm_Land.ode")
 
-# Now we can generate code in python using the `cli` subpackage and the `gotran2py` module`. We will also generate code for the generalized rush larsen scheme
+# Now we can generate code in Python using the `cli` subpackage and the `gotran2py` module. We will also generate code for the Generalized Rush Larsen scheme
 
 code = gotranx.cli.gotran2py.get_code(
     ode, scheme=[gotranx.schemes.Scheme.generalized_rush_larsen]
 )
 
-# Now we get back the code as a string. To actually execute this code you can either save it to a python file and import it, or you can execute it directly into some namespace (e.g a dictionary). Let's do the latter
+# Now we get back the code as a string. To actually execute this code you can either save it to a Python file and import it, or you can execute it directly into some namespace (e.g a dictionary). Let's do the latter
 #
 
 model: dict[str, Any] = {}

@@ -1,5 +1,5 @@
 # # Your first ODE file
-# In this tutorial we will show how to write your own ODE file from scratch. We will use Lorentz system as an example. The Lorentz system is a system of ordinary differential equations first studied by Edward Lorenz. It is notable for having chaotic solutions for certain parameter values and initial conditions. In particular, the Lorenz attractor is a set of chaotic solutions of the Lorenz system which, when plotted, resemble a butterfly or figure eight.
+# In this tutorial we will show how to write your own ODE file from scratch. We will use the Lorenz system as an example. The Lorenz system is a system of ordinary differential equations first studied by Edward Lorenz. It is notable for having chaotic solutions for certain parameter values and initial conditions. In particular, the Lorenz attractor is a set of chaotic solutions of the Lorenz system which, when plotted, resembles a butterfly or figure eight.
 # The equations are given by:
 #
 # ```{math}
@@ -50,7 +50,7 @@ dy_dt = x * (rho - z) - y  # m/s
 dz_dt = x * y - beta * z
 """
 
-# Note that we have also add a description and a unit to the state `x`, and some description and units to `dx_dt` and `dy_dt` respectively. We can now save the file to disk in a file called `lorentz.ode` and load it with `gotranx.load_ode("lorentz.ode")`, or we can just create the ODE from a string directly
+# Note that we have also added a description and a unit to the state `x`, and some description and units to `dx_dt` and `dy_dt` respectively. We can now save the file to disk in a file called `lorentz.ode` and load it with `gotranx.load_ode("lorentz.ode")`, or we can just create the ODE from a string directly
 
 # +
 import gotranx
@@ -84,7 +84,7 @@ pprint(ode.intermediates)
 
 print(ode.text)
 
-# We can also get a dictionary with all the sympy symbols using i the model
+# We can also get a dictionary with all the sympy symbols used in the model
 
 print(ode.symbols)
 
@@ -92,12 +92,12 @@ print(ode.symbols)
 
 print(ode.dependents())
 
-# Here for example `dz_dt` depends only on `beta`, while all state derivatives depend on the state `y`. Now let use take a closer look at one of the states, for example `x` where
+# Here for example `dz_dt` depends only on `beta`, while all state derivatives depend on the state `y`. Now let us take a closer look at one of the states, for example `x` where
 
 x = ode["x"]
 print(x)
 
-# Can print the value
+# We can print the value
 
 print(x.value)
 
@@ -136,13 +136,13 @@ print(dx_dt.value.tree.pretty())
 
 print(dx_dt.value.dependencies)
 
-# For the state derivatives `dy_dt` we also added a comment, but this was meant to be a unit. When parsing the comment, `gotranx` first tries to parse the comment as a unit, and if that fails it will be stored as a comment. We can access the unit using the `unit` attribute
+# For the state derivative `dy_dt` we also added a comment, but this was meant to be a unit. When parsing the comment, `gotranx` first tries to parse the comment as a unit, and if that fails it will be stored as a comment. We can access the unit using the `unit` attribute
 
 dy_dt = ode["dy_dt"]
 print(dy_dt.unit)
 
 
-# Now to generate code can create a code generator object
+# Now to generate code we can create a code generator object
 
 codegen = gotranx.codegen.PythonCodeGenerator(ode)
 
@@ -163,7 +163,7 @@ print(codegen.scheme(f=gotranx.get_scheme("forward_explicit_euler"), order="ptsd
 
 print(gotranx.schemes.list_schemes())
 
-# So let us try to solve it using the forward euler scheme. We can use the `gotranx.cli.gotran2py.get_code` function to generate the code for all the necessary functions
+# So let us try to solve it using the forward Euler scheme. We can use the `gotranx.cli.gotran2py.get_code` function to generate the code for all the necessary functions
 
 code = gotranx.cli.gotran2py.get_code(
     ode, scheme=[gotranx.schemes.Scheme.forward_explicit_euler]

@@ -1,11 +1,11 @@
 # # Splitting an ODE into two sub-ODEs
 #
-# In some cases it might be useful to split an ODE into two separate ODEs, for example when you are modeling different dynamics and these are happening on different time scales. One example of this is when we model both the electrical and the mechanics of heart cells. We can model them within the same ODE, but you might want to embed the model inside a 3D tissue model, in which it is important to solve the dependent variables within the correct model (the PDEs for mechanics are typically more expensive to solve, so we want to solve them less frequently)
+# In some cases it might be useful to split an ODE into two separate ODEs, for example when you are modeling different dynamics and these are happening on different time scales. One example of this is when we model both the electrical and mechanical dynamics of heart cells. We can model them within the same ODE, but you might want to embed the model inside a 3D tissue model, in which it is important to solve the dependent variables within the correct model (the PDEs for mechanics are typically more expensive to solve, so we want to solve them less frequently)
 #
 # In this demo we will show how to split a model containing both the mechanical and the electrical models for a human heart cell.
-# We will use a rather large system of ODE which simulated the electromechanics in cardiac cells that are based on the [O'Hara-Rudy model for electrophysiology](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1002061) and the [Land model](https://www.sciencedirect.com/science/article/abs/pii/S0022282817300639). You can download the model in `.ode` format {download}`here <./ORdmm_Land.ode>`
+# We will use a rather large system of ODEs which simulates the electromechanics in cardiac cells that are based on the [O'Hara-Rudy model for electrophysiology](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1002061) and the [Land model](https://www.sciencedirect.com/science/article/abs/pii/S0022282817300639). You can download the model in `.ode` format {download}`here <./ORdmm_Land.ode>`
 #
-# First lets do the necessary imports
+# First let's do the necessary imports
 
 from pathlib import Path
 import gotranx
@@ -21,11 +21,11 @@ ode = gotranx.load_ode(Path.cwd() / "ORdmm_Land.ode")
 mechanics_comp = ode.get_component("mechanics")
 mechanics_ode = mechanics_comp.to_ode()
 
-# We can now find the remaining ODE by subtracting the full ODE from the mechanics ODE
+# We can now find the remaining ODE by subtracting the mechanics ODE from the full ODE
 
 ep_ode = ode - mechanics_comp
 
-# Now let us generate code for all the ODEs. We generate code for full model
+# Now let us generate code for all the ODEs. We generate code for the full model
 
 code = gotranx.cli.gotran2py.get_code(
     ode,
@@ -57,7 +57,7 @@ exec(code_ep, ep_model)
 mechanics_model: dict[str, Any] = {}
 exec(code_mechanics, mechanics_model)
 
-# We set time step to 0.1 ms, and simulate model for 1000 ms
+# We set the time step to 0.1 ms, and simulate the model for 1000 ms
 
 dt = 0.1
 t = np.arange(0, 1000, dt)

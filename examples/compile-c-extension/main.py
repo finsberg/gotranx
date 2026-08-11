@@ -1,13 +1,13 @@
 #  # Compiling a C-extension
 #
-# In this demo we will show how to set up a system that takes your `.ode` file, generates C-code, compiles the code just-in-time and imports the functions into python again. Note that there are several steps involved in this process we therefore split the code across two different modules `utils.py` and `cmodel.py`
+# In this demo we will show how to set up a system that takes your `.ode` file, generates C-code, compiles the code just-in-time and imports the functions into Python again. Note that there are several steps involved in this process, so we split the code across two different modules `utils.py` and `cmodel.py`
 #
-# To start with we will just run through an example how how this can be used.
+# To start with we will just run through an example of how this can be used.
 #
 # First we import the modules `utils` where we add all the functionality as well as `matplotlib` for plotting
 #
 # ```{note}
-# The full source code for the all the files need for this demo (including `utils.py`) is found at the bottom of this document
+# The full source code for all the files needed for this demo (including `utils.py`) is found at the bottom of this document
 # ```
 #
 
@@ -15,9 +15,9 @@ import matplotlib.pyplot as plt
 import utils
 
 
-# For this tutorial we will use a rather large system of ODE which simulated the electromechanics in cardiac cells that are based on the [O'Hara-Rudy model for electrophysiology](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1002061) and the [Land model](https://www.sciencedirect.com/science/article/abs/pii/S0022282817300639). You can download the model in `.ode` format {download}`here <./ORdmm_Land.ode>`
+# For this tutorial we will use a rather large system of ODEs which simulates the electromechanics in cardiac cells that are based on the [O'Hara-Rudy model for electrophysiology](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1002061) and the [Land model](https://www.sciencedirect.com/science/article/abs/pii/S0022282817300639). You can download the model in `.ode` format {download}`here <./ORdmm_Land.ode>`
 #
-# Next we load the model. This is function contains the functionality for generating code and compiling the C-extension. Currently it will also regenerate the code as well as recompiling the code code every time you run the code. It is also possible to only do this if the relevant files do not exist.
+# Next we load the model. This function contains the functionality for generating code and compiling the C-extension. Currently it will also regenerate the code as well as recompiling the code every time you run the code. It is also possible to only do this if the relevant files do not exist.
 
 model = utils.load_model("ORdmm_Land.ode", rebuild=True, regenerate=True)
 
@@ -28,7 +28,7 @@ y = model.initial_state_values()
 p = model.initial_parameter_values()
 parameters = model.parameter_values_to_dict(p)
 
-# Next we solve the model for 1000.0 milliseconds with a time step of `0.01` ms. Note that it would also be possible to make this loop in python (similar to [the python API demo](../run-python/main.py)), however we will get a lot of performance gain if we instead do this loop in C.
+# Next we solve the model for 1000.0 milliseconds with a time step of `0.01` ms. Note that it would also be possible to make this loop in Python (similar to [the Python API demo](../run-python/main.py)); however, we will get a lot of performance gain if we instead do this loop in C.
 
 # Simulate the model
 sol = model.solve(0, 1000, dt=0.01, u0=y, parameters=parameters)

@@ -11,23 +11,23 @@ import numpy as np
 import time
 import matplotlib.pyplot as plt
 
-# For this tutorial we will use a rather large system of ODE which simulated the electromechanics in cardiac cells that are based on the [O'Hara-Rudy model for electrophysiology](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1002061) and the [Land model](https://www.sciencedirect.com/science/article/abs/pii/S0022282817300639). You can download the model in `.ode` format {download}`here <./ORdmm_Land.ode>`
+# For this tutorial we will use a rather large system of ODEs which simulates the electromechanics in cardiac cells that are based on the [O'Hara-Rudy model for electrophysiology](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1002061) and the [Land model](https://www.sciencedirect.com/science/article/abs/pii/S0022282817300639). You can download the model in `.ode` format {download}`here <./ORdmm_Land.ode>`
 #
 # We load the model using the {py:func}`load_ode` function
 
 ode = gotranx.load_ode("ORdmm_Land.ode")
 
-# This set of ODE also contains some singularities that we can remove by replacing the expressions with piecewise functions. This is particularly important if we want to jit compile it because, while e.g division by zero in `numpy` only yields a warning, `numba`  will crash if this happens. We can do this using the `remove_singularities` method
+# This set of ODEs also contains some singularities that we can remove by replacing the expressions with piecewise functions. This is particularly important if we want to jit compile it because, while e.g division by zero in `numpy` only yields a warning, `numba`  will crash if this happens. We can do this using the `remove_singularities` method
 
 ode = ode.remove_singularities()
 
-# Now we can generate code in python using the `cli` subpackage and the `gotran2py` module. We will also generate code for the generalized rush larsen scheme, and here we also explicitly set the shape of the output arrays to be single.  By default, the function will check whether you run vectorized or not, and adapt the shape accordingly. However, such conditional statements are not supported by `numba`, so we need to explicitly set the shape to single.
+# Now we can generate code in Python using the `cli` subpackage and the `gotran2py` module. We will also generate code for the Generalized Rush Larsen scheme, and here we also explicitly set the shape of the output arrays to be single.  By default, the function will check whether you run vectorized or not, and adapt the shape accordingly. However, such conditional statements are not supported by `numba`, so we need to explicitly set the shape to single.
 
 code = gotranx.cli.gotran2py.get_code(
     ode, scheme=[gotranx.schemes.Scheme.generalized_rush_larsen], shape=gotranx.codegen.base.Shape.single,
 )
 
-# Now we get back the code as a string. To actually execute this code you can either save it to a python file and import it, or you can execute it directly into some namespace (e.g a dictionary). Let's do the latter
+# Now we get back the code as a string. To actually execute this code you can either save it to a Python file and import it, or you can execute it directly into some namespace (e.g a dictionary). Let's do the latter
 #
 
 model: dict[str, Any] = {}
@@ -49,7 +49,7 @@ Ca_index = model["state_index"]("cai")
 Ta_index = model["monitor_index"]("Ta")
 Istim_index = model["monitor_index"]("Istim")
 
-# Now we will compile the functions using `numba`. We will use the `njit` decorator to compile the functions. We will also compile the `monitor_values` function, which is used to monitor extract intermediate values such as Ta.
+# Now we will compile the functions using `numba`. We will use the `njit` decorator to compile the functions. We will also compile the `monitor_values` function, which is used to monitor and extract intermediate values such as Ta.
 
 fgr = numba.njit(model["generalized_rush_larsen"])
 mon = numba.njit(model["monitor_values"])
