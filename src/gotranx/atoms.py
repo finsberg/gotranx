@@ -13,6 +13,35 @@ from . import exceptions
 logger = get_logger()
 
 
+def make_symbol(name: str) -> sp.Symbol:
+    """Create the canonical sympy symbol used for an atom with the given name
+
+    Every atom (state, parameter, intermediate, ...) with a given name must
+    use a symbol built by this function - sympy symbols with different
+    assumptions are not considered equal even if they share a name (e.g.
+    ``sp.Symbol("x") != sp.Symbol("x", real=True)``), so any code that needs
+    to compare or substitute atom symbols (e.g. via ``xreplace``) must use
+    symbols created here rather than a bare ``sp.Symbol(name)``.
+
+    Parameters
+    ----------
+    name : str
+        The name of the symbol
+
+    Returns
+    -------
+    sp.Symbol
+        The canonical symbol for this name
+    """
+    return sp.Symbol(
+        name=name,
+        real=True,
+        imaginary=False,
+        commutative=True,
+        finite=True,
+    )
+
+
 def _set_symbol(instance, name: str) -> None:
     """Helper function to set the symbol attribute of a frozen instance
 
@@ -23,17 +52,7 @@ def _set_symbol(instance, name: str) -> None:
     name : str
         The name of the symbol
     """
-    object.__setattr__(
-        instance,
-        "symbol",
-        sp.Symbol(
-            name=name,
-            real=True,
-            imaginary=False,
-            commutative=True,
-            finite=True,
-        ),
-    )
+    object.__setattr__(instance, "symbol", make_symbol(name))
 
 
 def unit_from_string(unit_str: str | None) -> pint.Unit | None:

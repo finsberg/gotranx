@@ -18,7 +18,7 @@ def main(
     structlog.configure(
         wrapper_class=structlog.make_filtering_bound_logger(loglevel),
     )
-    assert fname.suffix in ".ode", f"File {fname} must be an ode file"
+    assert fname.suffix == ".ode", f"File {fname} must be an ode file"
     assert fname.exists(), f"File {fname} does not exist"
     ode = load_ode(fname)
     logger.info(f"Converting {fname} to CellML")

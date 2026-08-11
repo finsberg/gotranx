@@ -164,6 +164,80 @@ def test_cellml2ode():
     out_odefile.unlink()
 
 
+@pytest.mark.skipif(myokit is None, reason="myokit not installed")
+def test_ode2cellml(odefile):
+    out_cellmlfile = odefile.with_suffix(".cellml")
+    result = runner.invoke(
+        gotranx.cli.app,
+        ["ode2cellml", str(odefile), "-o", str(out_cellmlfile)],
+    )
+    assert result.exit_code == 0
+
+    assert f"Wrote {out_cellmlfile}" in result.stdout
+    assert out_cellmlfile.is_file()
+    out_cellmlfile.unlink()
+
+
+@pytest.mark.skipif(myokit is None, reason="myokit not installed")
+def test_roundtrip_ode_to_cellml_to_ode(odefile):
+    # odefile has a named component containing a space ("My component") and
+    # a parameter named "beta", which collides with a sympy builtin - both
+    # of these used to break the ode -> cellml conversion or the round trip.
+    original_ode = gotranx.load_ode(odefile)
+
+    cellmlfile = odefile.with_name("lorentz_roundtrip.cellml")
+    result = runner.invoke(gotranx.cli.app, ["ode2cellml", str(odefile), "-o", str(cellmlfile)])
+    assert result.exit_code == 0
+    assert cellmlfile.is_file()
+
+    roundtrip_odefile = odefile.with_name("lorentz_roundtrip.ode")
+    result = runner.invoke(
+        gotranx.cli.app, ["cellml2ode", str(cellmlfile), "-o", str(roundtrip_odefile)]
+    )
+    assert result.exit_code == 0
+    assert roundtrip_odefile.is_file()
+
+    roundtrip_ode = gotranx.load_ode(roundtrip_odefile)
+    assert roundtrip_ode.num_states == original_ode.num_states
+    assert roundtrip_ode.num_parameters == original_ode.num_parameters
+
+    cellmlfile.unlink()
+    roundtrip_odefile.unlink()
+
+
+@pytest.mark.skipif(myokit is None, reason="myokit not installed")
+def test_roundtrip_cellml_to_ode_to_cellml():
+    cellmlfile = here / "cellml_files" / "noble_1962.cellml"
+
+    odefile = cellmlfile.with_suffix(".ode")
+    result = runner.invoke(gotranx.cli.app, ["cellml2ode", str(cellmlfile), "-o", str(odefile)])
+    assert result.exit_code == 0
+    assert odefile.is_file()
+    original_ode = gotranx.load_ode(odefile)
+
+    roundtrip_cellmlfile = odefile.with_suffix(".roundtrip.cellml")
+    result = runner.invoke(
+        gotranx.cli.app, ["ode2cellml", str(odefile), "-o", str(roundtrip_cellmlfile)]
+    )
+    assert result.exit_code == 0
+    assert roundtrip_cellmlfile.is_file()
+
+    roundtrip_odefile = roundtrip_cellmlfile.with_suffix(".ode")
+    result = runner.invoke(
+        gotranx.cli.app,
+        ["cellml2ode", str(roundtrip_cellmlfile), "-o", str(roundtrip_odefile)],
+    )
+    assert result.exit_code == 0
+    roundtrip_ode = gotranx.load_ode(roundtrip_odefile)
+
+    assert roundtrip_ode.num_states == original_ode.num_states
+    assert roundtrip_ode.num_parameters == original_ode.num_parameters
+
+    odefile.unlink()
+    roundtrip_cellmlfile.unlink()
+    roundtrip_odefile.unlink()
+
+
 @pytest.mark.parametrize("backend", gotranx.cli.gotran2py.Backend)
 @pytest.mark.parametrize("format", gotranx.codegen.PythonFormat)
 def test_gotran2py(backend, format, odefile, all_schemes):

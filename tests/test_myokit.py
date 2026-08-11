@@ -68,3 +68,59 @@ def test_myokit_to_gotran_and_back(cellml_file):
         var = myokit_model.get(qname)
         assert var.unit() == orig_var.unit()
         assert math.isclose(var.value(), orig_var.value(), abs_tol=1e-12)
+
+
+@pytest.mark.skipif(myokit is None, reason="myokit not installed")
+def test_gotran_to_myokit_cross_component_reference():
+    # A state derivative in one component referencing an intermediate
+    # defined in a *different* component used to raise a KeyError, because
+    # the symbol substitution map in gotran_to_myokit was built from plain
+    # sp.Symbol(name) objects while gotranx atoms use sp.Symbol(name,
+    # real=True, ...) - the two are never equal, so xreplace silently did
+    # nothing for any cross-component reference.
+    ode = gotranx.load.ode_from_string(
+        """
+        states("membrane", V=ScalarParam(-87, unit="mV", description=""))
+
+        parameters("leak",
+        E_L=ScalarParam(-60.0, unit="mV", description=""),
+        g_L=ScalarParam(75.0, unit="uS", description="")
+        )
+
+        parameters("membrane",
+        Cm=ScalarParam(12.0, unit="uF", description="")
+        )
+
+        expressions("leak")
+        i_Leak = g_L*(-E_L + V) # nA
+
+        expressions("membrane")
+        dV_dt = -i_Leak/Cm # mV
+        """
+    )
+    myokit_model = gotranx.myokit.gotran_to_myokit(ode)
+    v = myokit_model.get("membrane.V")
+    # The right-hand side must reference the *qualified* leak.i_Leak variable,
+    # not the bare (and therefore unresolved) name "i_Leak".
+    assert "leak.i_Leak" in v.rhs().code()
+
+
+@pytest.mark.skipif(myokit is None, reason="myokit not installed")
+@pytest.mark.parametrize(
+    "component_name",
+    ["", "My component", "environment"],
+    ids=["unnamed", "with-space", "reserved"],
+)
+def test_gotran_to_myokit_sanitizes_component_names(component_name):
+    # Component names in gotranx are free-form strings: they default to the
+    # empty string when not given explicitly, and may contain spaces or other
+    # characters that are not valid myokit/CellML identifiers. Both used to
+    # raise myokit.InvalidNameError.
+    if component_name:
+        text = f'states("{component_name}", x=1.0)\nexpressions("{component_name}")\ndx_dt = -x\n'
+    else:
+        text = "states(x=1.0)\ndx_dt = -x\n"
+    ode = gotranx.load.ode_from_string(text)
+
+    myokit_model = gotranx.myokit.gotran_to_myokit(ode)
+    myokit_model.validate()
