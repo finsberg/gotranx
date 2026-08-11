@@ -25,6 +25,7 @@ class Func(typing.NamedTuple):
     values_type: str
     return_name: str = "values"
     num_return_values: int = 0
+    post_function_signature: str = ""
 
 
 class RHSArgument(str, Enum):
@@ -87,8 +88,10 @@ def _print_Piecewise(
         else:
             return printer._print(cond)
 
-    expr = sympy.simplify(expr)
-
+    try:
+        expr = sympy.simplify(expr)
+    except TypeError:
+        logger.debug(f"Could not simplify expression {expr}")
     exprs = [printer._print(arg.expr) for arg in expr.args]
     conds = [print_cond(arg.cond) for arg in expr.args]
 
@@ -330,6 +333,7 @@ class CodeGenerator(abc.ABC):
             shape_info="",
             values_type=rhs.values_type,
             missing_variables=missing_variables,
+            post_function_signature=rhs.post_function_signature,
         )
 
         return self._format(code)
@@ -394,10 +398,11 @@ class CodeGenerator(abc.ABC):
             parameters=parameters,
             values=values,
             return_name=rhs.return_name,
-            num_return_values=rhs.num_return_values,
+            num_return_values=shape,
             shape_info=shape_info,
             values_type="numpy.zeros(shape)",
             missing_variables=missing_variables,
+            post_function_signature=rhs.post_function_signature,
         )
 
         return self._format(code)
@@ -444,10 +449,11 @@ class CodeGenerator(abc.ABC):
             parameters=parameters,
             values="\n".join(values_lst),
             return_name=rhs.return_name,
-            num_return_values=rhs.num_return_values,
+            num_return_values=len(values),
             shape_info=shape_info,
             values_type="numpy.zeros(shape)",
             missing_variables=missing_variables,
+            post_function_signature=rhs.post_function_signature,
         )
 
         return self._format(code)
@@ -501,6 +507,7 @@ class CodeGenerator(abc.ABC):
             shape_info="",
             values_type=rhs.values_type,
             missing_variables=missing_variables,
+            post_function_signature=rhs.post_function_signature,
         )
         return self._format(code)
 

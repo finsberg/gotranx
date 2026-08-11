@@ -15,6 +15,14 @@ class GotranxError(Exception):
 
 
 @dataclass
+class GotranxImportError(GotranxError):
+    module: str
+
+    def __str__(self) -> str:
+        return f"Could not use functionality. Please install {self.module!r}"
+
+
+@dataclass
 class ODEFileNotFound(GotranxError):
     fname: Path
 

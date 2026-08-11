@@ -16,7 +16,9 @@ from gotranx.ode import gather_atoms
 def test_expression_dependencies(expr, deps, parser, trans):
     tree = parser.parse(expr)
     result = trans.transform(tree)
-    assert result[0].value.dependencies == deps
+    # Extract the assignment from the implicitly created empty component ""
+    assignment = result.components[0].find_assignment("x")
+    assert assignment.value.dependencies == deps
 
 
 def test_parameter_arguments(parser, trans):

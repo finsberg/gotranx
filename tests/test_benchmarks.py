@@ -2,20 +2,23 @@ from pathlib import Path
 import gotranx
 import pytest
 
+try:
+    import myokit
+except ImportError:
+    myokit = None
+
 here = Path(__file__).parent
 
 cellml_file = here / "cellml_files" / "ToRORd_dynCl_mid.cellml"
-ode_file = here / "cellml_files" / "ToRORd_dynCl_mid.ode"
+ode_file = here / "odefiles" / "ToRORd_dyn_chloride.ode"
 
 
 @pytest.fixture(scope="module", autouse=True)
 def ode():
-    _ode = gotranx.myokit.cellml_to_gotran(cellml_file)
-    _ode.save(ode_file)
     yield gotranx.load_ode(ode_file)
-    ode_file.unlink()
 
 
+@pytest.mark.skipif(myokit is None, reason="myokit not installed")
 @pytest.mark.benchmark
 def test_cell2gotran():
     gotranx.myokit.cellml_to_gotran(cellml_file)

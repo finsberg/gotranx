@@ -13,8 +13,8 @@ jobs:
   benchmarks:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
@@ -22,7 +22,8 @@ jobs:
         run: python3 -m pip install -e .[benchmark]
 
       - name: Run benchmarks
-        uses: CodSpeedHQ/action@v3
+        uses: CodSpeedHQ/action@v5.0.3
         with:
           token: ${{ secrets.CODSPEED_TOKEN }}
           run: pytest tests/test_benchmarks.py --codspeed --benchmark-warmup-iterations 1 --benchmark-min-rounds 1 --benchmark-calibration-precision 1
+          mode: "simulation"

@@ -25,12 +25,12 @@ Once you submit your PR, a team member will review your proposal. We may ask que
 - We may ask for changes to be made before a PR can be merged, either using [suggested changes](https://docs.github.com/en/github/collaborating-with-issues-and-pull-requests/incorporating-feedback-in-your-pull-request) or pull request comments. You can apply suggested changes directly through the UI. You can make any other changes in your fork, then commit them to your branch.
 - As you update your PR and apply changes, mark each conversation as [resolved](https://docs.github.com/en/github/collaborating-with-issues-and-pull-requests/commenting-on-a-pull-request#resolving-conversations).
 - If you run into any merge issues, checkout this [git tutorial](https://lab.github.com/githubtraining/managing-merge-conflicts) to help you resolve merge conflicts and other issues.
-- Please make sure that all tests are passing, github pages renders nicely, and code coverage are are not lower than before your contribution. You see the different github action workflows by clicking the "Action" tab in the GitHub repository.
+- Please make sure that all tests are passing, github pages renders nicely, and code coverage is not lower than before your contribution. You see the different github action workflows by clicking the "Action" tab in the GitHub repository.
 
 
 ### Enforced style guide using pre-commit hooks
 
-We want to have a consistent style on all the contributions to the repository. The way we enforce this is through pre-commit hooks and contributors are encouraged to install the pre-commit hooks locally when developing. You can install the pre commit hooks by first install `pre-commit`
+We want to have a consistent style on all the contributions to the repository. The way we enforce this is through pre-commit hooks and contributors are encouraged to install the pre-commit hooks locally when developing. You can install the pre-commit hooks by first installing `pre-commit`
 ```
 python3 -m pip install pre-commit
 ```
@@ -49,7 +49,7 @@ pre-commit run --all
 To learn more about pre-commit you can check out https://pre-commit.com
 
 ## Test suite
-For every new feature of bugfix you should also make sure to not lower the code coverage for the test suite. This means that if you for example add a new function then you should also make sure that the function is properly tested (at a minimum it should be covered by the test suite).
+For every new feature or bugfix you should also make sure to not lower the code coverage for the test suite. This means that if you for example add a new function then you should also make sure that the function is properly tested (at a minimum it should be covered by the test suite).
 
 To run the test suite, please install the package with the optional dependencies `test`, i.e
 ```

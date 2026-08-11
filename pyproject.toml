@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gotranx"
-version = "1.1.5"
+version = "1.8.0"
 description = "A declarative language describing ordinary differential equations"
 authors = [{name = "Henrik Finsberg", email = "henriknf@simula.no"}]
 license = {text = "MIT"}
@@ -17,8 +17,6 @@ urls = {Homepage = "https://github.com/finsberg/gotranx"}
 requires-python = ">=3.9"
 dependencies = [
     "attrs",
-    "clang-format-docs",
-    "black",
     "lark",
     "pint",
     "rich-click",
@@ -26,6 +24,7 @@ dependencies = [
     "sympy",
     "typer",
     "myokit",
+    "click",
     "toml; python_version < '3.11'",
     'graphlib-backport;python_version < "3.9"',
     'typing_extensions;python_version < "3.9"',
@@ -36,6 +35,10 @@ file = "README.md"
 content-type = "text/markdown"
 
 [project.optional-dependencies]
+formatters = [
+    "black",
+    "clang-format-docs",
+]
 dev = [
     "bump-my-version",
     "ipython",
@@ -45,18 +48,20 @@ dev = [
     "wheel",
 ]
 docs = [
-    "jupyter-book",
+    "jupyter-book<2.0",
     "jupytext",
     "scipy",
     "sphinxcontrib-mermaid",
     "jax",
     "numba",
+    "gotranx[formatters]",
 ]
 test = [
     "pytest",
     "pytest-cov",
     "jax",
     "cmake",
+    "gotranx[formatters]",
 ]
 benchmark = [
     "pytest-benchmark>=4.0.0",
@@ -64,6 +69,7 @@ benchmark = [
     "pytest-codspeed~=2.2.0; python_version < '3.13'",
     "gotranx[test]",
 ]
+all = ["gotranx[formatters,dev,docs,test]"]
 
 [project.scripts]
 gotranx = "gotranx.cli:app"
@@ -84,8 +90,13 @@ namespaces = false
 [tool.aliases]
 test = "pytest"
 
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "benchmark: mark a test as a benchmark.",
+    "example: mark a test as an example."
+]
 
 
 [tool.mypy]
@@ -159,7 +170,7 @@ tag = true
 sign_tags = false
 tag_name = "v{new_version}"
 tag_message = "Bump version: {current_version} → {new_version}"
-current_version = "1.1.5"
+current_version = "1.8.0"
 
 
 [[tool.bumpversion.files]]

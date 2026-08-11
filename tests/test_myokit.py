@@ -2,11 +2,17 @@ from pathlib import Path
 import math
 import pytest
 import gotranx.myokit
-import myokit.formats.cellml
+
+try:
+    import myokit
+    import myokit.formats.cellml
+except ImportError:
+    myokit = None
 
 here = Path(__file__).parent.absolute()
 
 
+@pytest.mark.skipif(myokit is None, reason="myokit not installed")
 @pytest.mark.parametrize(
     "cellml_file, num_states, num_parameters",
     [("noble_1962.cellml", 4, 5), ("ToRORd_dynCl_mid.cellml", 45, 112)],
@@ -22,6 +28,7 @@ def test_cellml_to_gotran_and_back(cellml_file, num_states, num_parameters):
     assert myokit_model
 
 
+@pytest.mark.skipif(myokit is None, reason="myokit not installed")
 @pytest.mark.parametrize(
     "mmt_file, num_states, num_parameters",
     [("example.mmt", 8, 18)],
@@ -34,6 +41,7 @@ def test_mmt_to_gotran_and_back(mmt_file, num_states, num_parameters):
     assert ode.num_parameters == num_parameters
 
 
+@pytest.mark.skipif(myokit is None, reason="myokit not installed")
 @pytest.mark.parametrize(
     "cellml_file",
     ["noble_1962.cellml", "ToRORd_dynCl_mid.cellml"],

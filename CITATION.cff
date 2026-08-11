@@ -1,0 +1,22 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Fisberg"
+  given-names: "Henrik"
+  orcid: "https://orcid.org/0000-0003-3766-2393"
+title: "gotranx"
+url: "https://github.com/finsberg/gotranx"
+preferred-citation:
+  type: article
+  doi: "10.21105/joss.07063"
+  journal: "Journal of Open Source Software"
+  title: "gotranx: General ODE translator"
+  year: 2024
+  volume: 9
+  issue: 102
+  authors:
+  - family-names: "Finsberg"
+    given-names: "Henrik"
+    orcid: "https://orcid.org/0000-0003-3766-2393"
+  - family-names: "Hake"
+    given-names: "Johan"

@@ -1,17 +1,21 @@
 ?start: ode
 
-?ode: (parameters | states | expressions | comment | NEWLINE) *
+ode: (parameters | states | expressions)*
+
 ?parameter: NAME "=" expression  -> param
     | NAME "=" "ScalarParam" "(" expression ["," "unit" "=" UNIT_STR] ["," "description" "=" DESCRIPTION] ")" -> scalarparam
 
 ?assignment : VARIABLE "=" expression [ comment ] [ NEWLINE ]
 
 comment : ("#" /.+/)+
-parameters : "parameters" "("  (COMPONENT_NAME ",")* parameter ("," parameter)* [ NEWLINE ] ")"
-states : "states" "("  (COMPONENT_NAME ",")* parameter ("," parameter)* [ NEWLINE ] ")"
-expressions: (assignment)+
-    | "expressions" "(" COMPONENT_NAME ("," COMPONENT_NAME)* ")" (assignment)+
-    | "component" "(" COMPONENT_NAME ("," COMPONENT_NAME)* ")" (assignment)+
+
+_param_content: parameter | "," | comment | NEWLINE
+parameters : "parameters" "("  (COMPONENT_NAME ",")* _param_content* ")"
+states : "states" "("  (COMPONENT_NAME ",")* _param_content* ")"
+
+expressions: (assignment | comment | NEWLINE)+
+    | "expressions" "(" COMPONENT_NAME ("," COMPONENT_NAME)* ")" (assignment | comment | NEWLINE)*
+    | "component" "(" COMPONENT_NAME ("," COMPONENT_NAME)* ")" (assignment | comment | NEWLINE)*
 
 
 ?expression: term (_add_op term)*

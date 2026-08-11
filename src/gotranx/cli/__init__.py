@@ -7,7 +7,8 @@ import typer
 
 from ..schemes import Scheme, get_scheme
 from ..codegen import PythonFormat, CFormat
-from . import gotran2c, gotran2py
+from ..codegen.base import Shape
+from . import gotran2c, gotran2py, gotran2julia, gotran2md, gotran2mtk, gotran2ufl
 from . import utils
 
 app = typer.Typer()
@@ -116,7 +117,7 @@ def convert(
     ),
 ):
     warnings.warn(
-        "convert command is deprecated, use ode2c, ode2py or cellml2ode instead",
+        "convert command is deprecated, use ode2c, ode2py, ode2julia or cellml2ode instead",
         DeprecationWarning,
         stacklevel=1,
     )
@@ -340,6 +341,12 @@ def ode2py(
         "-b",
         help="Backend for the generated code",
     ),
+    shape: Shape = typer.Option(
+        Shape.dynamic,
+        "--shape",
+        "-S",
+        help="Shape of the output arrays",
+    ),
 ):
     if fname is None:
         return typer.echo("No file specified")
@@ -349,6 +356,7 @@ def ode2py(
     delta = config_data.get("delta", delta)
     stiff_states = config_data.get("stiff_states", stiff_states)
     scheme = config_data.get("scheme", scheme)
+    shape = Shape(config_data.get("shape", shape))
     scheme = utils.validate_scheme(scheme)
     py_config = config_data.get("python", {})
     format = PythonFormat(py_config.get("format", format))
@@ -364,6 +372,7 @@ def ode2py(
         delta=delta,
         format=format,
         backend=backend,
+        shape=shape,
     )
 
 
@@ -465,6 +474,165 @@ def ode2c(
 
 
 @app.command()
+def ode2julia(
+    fname: typing.Optional[Path] = typer.Argument(
+        None,
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        writable=False,
+        readable=True,
+        resolve_path=True,
+    ),
+    outname: typing.Optional[str] = typer.Option(
+        None,
+        "-o",
+        "--outname",
+        help="Output name",
+    ),
+    remove_unused: bool = typer.Option(
+        False,
+        "--remove-unused",
+        help="Remove unused variables",
+    ),
+    version: bool = typer.Option(
+        None,
+        "--version",
+        callback=version_callback,
+        is_eager=True,
+        help="Show version",
+    ),
+    license: bool = typer.Option(
+        None,
+        "--license",
+        callback=license_callback,
+        is_eager=True,
+        help="Show license",
+    ),
+    config: typing.Optional[Path] = typer.Option(
+        None,
+        "-c",
+        "--config",
+        help="Read configuration options from a configuration file",
+    ),
+    verbose: bool = typer.Option(
+        False,
+        "--verbose",
+        "-v",
+        help="Verbose output",
+    ),
+    scheme: typing.Annotated[
+        typing.List[Scheme],
+        typer.Option(help="Numerical scheme for solving the ODE"),
+    ] = [],
+    stiff_states: typing.Annotated[
+        typing.List[str],
+        typer.Option("-s", "--stiff-states", help="Stiff states for the hybrid rush larsen scheme"),
+    ] = [],
+    delta: float = typer.Option(
+        1e-8,
+        help="Delta value for the rush larsen schemes",
+    ),
+    type_stable: bool = typer.Option(
+        False,
+        "--type-stable",
+        help="Add TYPE to the function signature",
+    ),
+    # format: CFormat = typer.Option(
+    #     CFormat.clang_format,
+    #     "--format",
+    #     "-f",
+    #     help="Formatter for the output code",
+    # ),
+):
+    if fname is None:
+        return typer.echo("No file specified")
+
+    config_data = utils.read_config(config)
+    verbose = config_data.get("verbose", verbose)
+    delta = config_data.get("delta", delta)
+    stiff_states = config_data.get("stiff_states", stiff_states)
+    scheme = config_data.get("scheme", scheme)
+    scheme = utils.validate_scheme(scheme)
+    # c_config = config_data.get("c", {})
+    # format = CFormat(c_config.get("format", format))
+
+    gotran2julia.main(
+        fname=fname,
+        outname=outname,
+        scheme=scheme,
+        remove_unused=remove_unused,
+        verbose=verbose,
+        stiff_states=stiff_states,
+        delta=delta,
+        type_stable=type_stable,
+    )
+
+
+@app.command()
+def ode2mtk(
+    fname: typing.Optional[Path] = typer.Argument(
+        None,
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        writable=False,
+        readable=True,
+        resolve_path=True,
+    ),
+    outname: typing.Optional[str] = typer.Option(
+        None,
+        "-o",
+        "--outname",
+        help="Output name",
+    ),
+    remove_unused: bool = typer.Option(
+        False,
+        "--remove-unused",
+        help="Remove unused variables",
+    ),
+    version: bool = typer.Option(
+        None,
+        "--version",
+        callback=version_callback,
+        is_eager=True,
+        help="Show version",
+    ),
+    license: bool = typer.Option(
+        None,
+        "--license",
+        callback=license_callback,
+        is_eager=True,
+        help="Show license",
+    ),
+    config: typing.Optional[Path] = typer.Option(
+        None,
+        "-c",
+        "--config",
+        help="Read configuration options from a configuration file",
+    ),
+    verbose: bool = typer.Option(
+        False,
+        "--verbose",
+        "-v",
+        help="Verbose output",
+    ),
+):
+    if fname is None:
+        return typer.echo("No file specified")
+
+    config_data = utils.read_config(config)
+    verbose = config_data.get("verbose", verbose)
+    remove_unused = config_data.get("remove_unused", remove_unused)
+    gotran2mtk.main(
+        fname=fname,
+        outname=outname,
+        remove_unused=remove_unused,
+        verbose=verbose,
+    )
+
+
+@app.command()
 def list_schemes():
     from rich.console import Console
     from rich.table import Table
@@ -508,3 +676,137 @@ def inspect(
     ),
 ):
     typer.echo("Hello from inspect")
+
+
+@app.command()
+def ode2md(
+    fname: typing.Optional[Path] = typer.Argument(
+        None,
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        writable=False,
+        readable=True,
+        resolve_path=True,
+    ),
+    outname: typing.Optional[str] = typer.Option(
+        None,
+        "-o",
+        "--outname",
+        help="Output name",
+    ),
+    verbose: bool = typer.Option(
+        False,
+        "--verbose",
+        "-v",
+        help="Verbose output",
+    ),
+    pdf: bool = typer.Option(
+        False,
+        "--pdf",
+        help="Generate PDF output",
+    ),
+):
+    if fname is None:
+        return typer.echo("No file specified")
+
+    gotran2md.main(fname=fname, outname=outname, verbose=verbose, pdf=pdf)
+
+
+@app.command()
+def ode2ufl(
+    fname: typing.Optional[Path] = typer.Argument(
+        None,
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        writable=False,
+        readable=True,
+        resolve_path=True,
+    ),
+    outname: typing.Optional[str] = typer.Option(
+        None,
+        "-o",
+        "--outname",
+        help="Output name",
+    ),
+    remove_unused: bool = typer.Option(
+        False,
+        "--remove-unused",
+        help="Remove unused variables",
+    ),
+    version: bool = typer.Option(
+        None,
+        "--version",
+        callback=version_callback,
+        is_eager=True,
+        help="Show version",
+    ),
+    license: bool = typer.Option(
+        None,
+        "--license",
+        callback=license_callback,
+        is_eager=True,
+        help="Show license",
+    ),
+    config: typing.Optional[Path] = typer.Option(
+        None,
+        "-c",
+        "--config",
+        help="Read configuration options from a configuration file",
+    ),
+    verbose: bool = typer.Option(
+        False,
+        "--verbose",
+        "-v",
+        help="Verbose output",
+    ),
+    scheme: typing.Annotated[
+        typing.List[Scheme],
+        typer.Option(help="Numerical scheme for solving the ODE"),
+    ] = [],
+    stiff_states: typing.Annotated[
+        typing.List[str],
+        typer.Option("-s", "--stiff-states", help="Stiff states for the hybrid rush larsen scheme"),
+    ] = [],
+    delta: float = typer.Option(
+        1e-8,
+        help="Delta value for the rush larsen schemes",
+    ),
+    format: PythonFormat = typer.Option(
+        PythonFormat.black,
+        "--format",
+        "-f",
+        help="Formatter for the output code",
+    ),
+    shape: Shape = typer.Option(
+        Shape.dynamic,
+        "--shape",
+        "-S",
+        help="Shape of the output arrays",
+    ),
+):
+    if fname is None:
+        return typer.echo("No file specified")
+
+    config_data = utils.read_config(config)
+    verbose = config_data.get("verbose", verbose)
+    delta = config_data.get("delta", delta)
+    stiff_states = config_data.get("stiff_states", stiff_states)
+    scheme = config_data.get("scheme", scheme)
+    shape = Shape(config_data.get("shape", shape))
+    scheme = utils.validate_scheme(scheme)
+    py_config = config_data.get("python", {})
+    format = PythonFormat(py_config.get("format", format))
+
+    gotran2ufl.main(
+        fname=fname,
+        outname=outname,
+        scheme=scheme,
+        remove_unused=remove_unused,
+        verbose=verbose,
+        stiff_states=stiff_states,
+        delta=delta,
+        format=format,
+        shape=shape,
+    )

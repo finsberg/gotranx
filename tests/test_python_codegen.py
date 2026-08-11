@@ -824,3 +824,33 @@ def test_python_jax_codegen_initial_parameter_values(codegen_jax: JaxCodeGenerat
         "\n    return parameters"
         "\n"
     )
+
+
+def test_conditional_times_float(parser, trans):
+    expr = """ \
+    \nstates(x=0)
+    \ndx_dt = (-1.0 - x) * Conditional(Lt(x, -1.0), 1.0,0.0) \
+    """
+
+    tree = parser.parse(expr)
+    result = trans.transform(tree)
+    ode = make_ode(*result, name="name")
+    codegen = PythonCodeGenerator(ode)
+    rhs = codegen.rhs()
+    assert rhs == (
+        "def rhs(t, states, parameters):"
+        "\n"
+        "\n    # Assign states"
+        "\n    x = states[0]"
+        "\n"
+        "\n    # Assign parameters"
+        "\n"
+        "\n    # Assign expressions"
+        "\n"
+        "\n    values = numpy.zeros_like(states, dtype=numpy.float64)"
+        "\n    dx_dt = (-x - 1.0) * numpy.where((x < -1.0), 1.0, 0.0)"
+        "\n    values[0] = dx_dt"
+        "\n"
+        "\n    return values"
+        "\n"
+    )

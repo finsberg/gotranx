@@ -23,8 +23,11 @@ def test_Conditional_expr(expr, expected, parser, trans):
     time = sp.Symbol("time")
     tree = parser.parse(expr)
     result = trans.transform(tree)
-    assert len(result) == 1
-    sympy_expr = build_expression(result[0].value.tree, symbols={"time": time})
+    assert len(result.components[0].assignments) == 1
+
+    assignment = result.components[0].find_assignment("x")
+    sympy_expr = build_expression(assignment.value.tree, symbols={"time": time})
+
     assert sympy_expr.subs({"time": 0}) == expected[0]
     assert sympy_expr.subs({"time": 1}) == expected[1]
     assert sympy_expr.subs({"time": -1}) == expected[2]

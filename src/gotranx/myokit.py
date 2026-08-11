@@ -5,16 +5,26 @@ from pathlib import Path
 from typing import overload
 
 import sympy as sp
-import myokit
-import myokit.formats.sympy
-import myokit.lib.guess
-import myokit.formats.cellml
+
+try:
+    import myokit
+    import myokit.formats.sympy
+    import myokit.lib.guess
+    import myokit.formats.cellml
+except ImportError:
+    myokit = None
 
 from . import atoms
 from .ode_component import MyokitComponent
 from .ode import ODE
+from .exceptions import GotranxImportError
 
 reserved_names = {name for name in dir(sp) if not name.startswith("_")}
+
+
+def assert_has_myokit():
+    if myokit is None:
+        raise GotranxImportError("myokit")
 
 
 @overload
@@ -44,7 +54,7 @@ def extract_unit(unit: str | None) -> str | None:
 
 
 def extract_nested_variables(
-    model: myokit.Model,
+    model: "myokit.Model",
 ) -> tuple[dict[sp.Symbol, sp.Symbol], dict[str, dict[sp.Symbol, sp.Symbol]]]:
     """Extract nested variables from myokit model
 
@@ -94,12 +104,13 @@ def mmt_to_gotran(filename: str | Path) -> ODE:
     gotranx.ode.ODE
         The gotran ODE
     """
+    assert_has_myokit()
     model, protocol, _ = myokit.load(filename)
 
     return myokit_to_gotran(model, protocol=protocol)
 
 
-def myokit_to_gotran(model: myokit.Model, protocol=None) -> ODE:
+def myokit_to_gotran(model: "myokit.Model", protocol=None) -> ODE:
     """Convert a myokit model to gotran ODE
 
     Parameters
@@ -114,6 +125,7 @@ def myokit_to_gotran(model: myokit.Model, protocol=None) -> ODE:
     gotranx.ode.ODE
         The gotran ODE
     """
+    assert_has_myokit()
     # Embed protocol
     if protocol is not None:
         model = model.clone()
@@ -213,7 +225,7 @@ def myokit_to_gotran(model: myokit.Model, protocol=None) -> ODE:
     )
 
 
-def gotran_to_myokit(ode: ODE, time_component="engine", time_unit="s") -> myokit.Model:
+def gotran_to_myokit(ode: ODE, time_component="engine", time_unit="s") -> "myokit.Model":
     """Convert a gotran ODE to myokit model
 
     Parameters
@@ -226,6 +238,7 @@ def gotran_to_myokit(ode: ODE, time_component="engine", time_unit="s") -> myokit
     myokit.Model
         The myokit model
     """
+    assert_has_myokit()
     model = myokit.Model(ode.name)
     model.meta["author"] = "GotranX API"
     comp = model.add_component(time_component)
@@ -303,6 +316,7 @@ def cellml_to_gotran(filename: str | Path) -> ODE:
     gotranx.ode.ODE
         The gotran ODE
     """
+    assert_has_myokit()
     myokit_model = myokit.formats.cellml.CellMLImporter().model(filename)
     return myokit_to_gotran(myokit_model)
 
@@ -317,5 +331,6 @@ def gotran_to_cellml(ode: ODE, filename: str | Path) -> None:
     filename : str | Path
         The filename of the cellml file
     """
+    assert_has_myokit()
     model = gotran_to_myokit(ode)
     myokit.formats.cellml.CellMLExporter().model(filename, model, version="1.0")

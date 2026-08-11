@@ -1,12 +1,9 @@
 from __future__ import annotations
 from pathlib import Path
 import logging
-import enum
 import structlog
 
-from ..codegen.base import Shape
-from ..codegen.jax import JaxCodeGenerator
-from ..codegen.python import PythonCodeGenerator, get_formatter, Format
+from ..codegen.julia import JuliaCodeGenerator  # , Format, get_formatter
 from ..load import load_ode
 from ..schemes import Scheme
 from ..ode import ODE
@@ -16,23 +13,17 @@ from .utils import add_schemes
 logger = structlog.get_logger()
 
 
-class Backend(str, enum.Enum):
-    numpy = "numpy"
-    jax = "jax"
-
-
 def get_code(
     ode: ODE,
     scheme: list[Scheme] | None = None,
-    format: Format = Format.black,
+    # format: Format = Format.clang_format,
     remove_unused: bool = False,
     missing_values: dict[str, int] | None = None,
     delta: float = 1e-8,
     stiff_states: list[str] | None = None,
-    backend: Backend = Backend.numpy,
-    shape: Shape = Shape.dynamic,
+    type_stable: bool = False,
 ) -> str:
-    """Generate the Python code for the ODE
+    """Generate the Julia code for the ODE
 
     Parameters
     ----------
@@ -51,31 +42,19 @@ def get_code(
     stiff_states : list[str] | None, optional
         Stiff states, by default None. Only applicable for
         the hybrid rush larsen scheme
-    backend : Backend, optional
-        The backend, by default Backend.numpy
-    shape : Shape, optional
-        The shape of the output arrays, by default Shape.dynamic
-
+    type_stable : bool, optional
+        Add TYPE to the function signature, by default False
 
     Returns
     -------
     str
-        The Python code
+        The Julia code
     """
-    if backend == Backend.numpy:
-        CodeGenerator = PythonCodeGenerator
-    elif backend == Backend.jax:
-        CodeGenerator = JaxCodeGenerator
-    else:
-        raise ValueError(f"Unknown backend {backend}")
+    codegen = JuliaCodeGenerator(
+        ode, remove_unused=remove_unused, type_stable=type_stable
+    )  # , format=Format.none)
+    # formatter = get_formatter(format=format)
 
-    codegen = CodeGenerator(
-        ode,
-        format=Format.none,
-        remove_unused=remove_unused,
-        shape=shape,
-    )
-    formatter = get_formatter(format=format)
     if missing_values is not None:
         _missing_values = codegen.missing_values(missing_values)
     else:
@@ -83,6 +62,9 @@ def get_code(
 
     comp = [
         codegen.imports(),
+        f"const NUM_STATES = {len(ode.states)};",
+        f"const NUM_PARAMS = {len(ode.parameters)};",
+        f"const NUM_MONITORED = {len(ode.state_derivatives) + len(ode.intermediates)};",
         codegen.parameter_index(),
         codegen.state_index(),
         codegen.monitor_index(),
@@ -98,46 +80,39 @@ def get_code(
         delta=delta,
         stiff_states=stiff_states,
     )
+
     code = codegen._format("\n".join(comp))
 
-    if format != Format.none:
-        # Run the formatter only once
-        logger.debug("Applying formatter", format=format)
-        code = formatter(code)
     return code
 
 
 def main(
     fname: Path,
     outname: Path | str | None = None,
-    format: Format = Format.black,
     scheme: list[Scheme] | None = None,
     remove_unused: bool = False,
-    verbose: bool = True,
-    stiff_states: list[str] | None = None,
+    verbose: bool = False,
+    missing_values: dict[str, int] | None = None,
     delta: float = 1e-8,
-    suffix: str = ".py",
-    backend: Backend = Backend.numpy,
-    shape: Shape = Shape.dynamic,
+    stiff_states: list[str] | None = None,
+    type_stable: bool = False,
 ) -> None:
     loglevel = logging.DEBUG if verbose else logging.INFO
     structlog.configure(
         wrapper_class=structlog.make_filtering_bound_logger(loglevel),
     )
-
     ode = load_ode(fname)
-
     code = get_code(
         ode,
         scheme=scheme,
-        format=format,
+        # format=format,
         remove_unused=remove_unused,
-        stiff_states=stiff_states,
+        missing_values=missing_values,
         delta=delta,
-        backend=backend,
-        shape=shape,
+        stiff_states=stiff_states,
+        type_stable=type_stable,
     )
     out = fname if outname is None else Path(outname)
-    out_name = out.with_suffix(suffix=suffix)
+    out_name = out.with_suffix(suffix=".jl")
     out_name.write_text(code)
     logger.info(f"Wrote {out_name}")
