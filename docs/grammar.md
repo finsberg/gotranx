@@ -23,7 +23,7 @@ dz_dt = x * y - beta * z
 
 We will now go through the basic building block for creating an ODE
 
-- `parameters` allows users to define parameters in the ODE. These are constant that the a user can provide as arguments. For example
+- `parameters` allows users to define parameters in the ODE. These are constants that a user can provide as arguments. For example
     ```
     parameters(sigma=12.0, rho=21.0, beta=2.4)
     ```
@@ -33,9 +33,9 @@ We will now go through the basic building block for creating an ODE
   ```
   states(x=1.0, y=2.0, z=3.05)
   ```
-  will define three state variables `x`, `y` and `z` who's default initial condition will be set to `1`, `2` and `3.0` respectively.
+  will define three state variables `x`, `y` and `z` whose default initial condition will be set to `1`, `2` and `3.0` respectively.
 
-- `expressions` allows users to define mathematical expressions using parameters and other variables. You can also define new variables as an expression. In this section you also need to specify the the state derivatives of all the state variables. For the state derivatives you need the variables name to be `d{STATE_NAME}_dt`, e.g `dx_dt` for the state derivative of `x`. In this case we could for example have
+- `expressions` allows users to define mathematical expressions using parameters and other variables. You can also define new variables as an expression. In this section you also need to specify the state derivatives of all the state variables. For the state derivatives you need the variables name to be `d{STATE_NAME}_dt`, e.g `dx_dt` for the state derivative of `x`. In this case we could for example have
   ```
   dx_dt = sigma * (y - x)
   a = rho - z
@@ -94,7 +94,7 @@ y = 1.0           # Will be casted to a float
 z = 1 / 4         # Will be cased to a rational number
 w = (2 * 3) / 3   # Will be cased to an expression
 ```
-It is also possible to use scientific notation using either uppercase of lowercase `e`, e.g the following numbers are equivalent
+It is also possible to use scientific notation using either uppercase or lowercase `e`, e.g the following numbers are equivalent
 ```
 x = 100
 x = 1e2
@@ -108,7 +108,7 @@ x = 1E-2
 ```
 
 ### Mathematical constants
-There is currently only one reserved constant with is `pi`. This means that you can e.g write
+There is currently only one reserved constant which is `pi`. This means that you can e.g write
 ```
 x = cos(2 * pi)
 ```
@@ -140,10 +140,10 @@ $$
 
 can be defined as follows
 ```
-H = Conditional(Geq(x, 0), 1, 0)
+H = Conditional(Ge(x, 0), 1, 0)
 ```
 
-This would be similar to implemented an `if-else` statement, e.g
+This would be similar to implementing an `if-else` statement, e.g
 ```python
 if x >= 0:
   H = 1
@@ -151,13 +151,13 @@ else:
   H = 0
 ```
 
-We could also have a conditional with three value, e.g
+We could also have a conditional with three values, e.g
 
 $$
 H(x) = \begin{cases} 1, \;\; x > 0, \\ 0.5 \;\; x = 0, \\ 0, \;\; x < 0, \end{cases}
 $$
 
-which would be equivalent to and `if-elif-else` statement, e.g
+which would be equivalent to an `if-elif-else` statement, e.g
 ```python
 if x > 0:
   H = 1
@@ -204,7 +204,7 @@ f = Conditional(Ge(x, y), x, y)
 ## Advanced usage
 
 ### Adding components, units and descriptions
-If you have a large system of ODE's it might be good to group parts that together in the same group, which we will refer to as components.
+If you have a large system of ODEs it might be good to group related parts together, which we will refer to as components.
 
 ```
 states("membrane",

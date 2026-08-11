@@ -80,7 +80,7 @@ Now let us take a look at the generated code
 ```
 
 
-We wee the the code contains the following functions
+We see that the code contains the following functions
 
 - {py:func}`parameter_index<gotranx.templates.Template.parameter_index>`
 - {py:func}`state_index<gotranx.templates.Template.state_index>`
@@ -93,7 +93,7 @@ We wee the the code contains the following functions
 
 You can click on each of them so see what is the purpose and use of them.
 
-In the case of Python, the source code will be saved in a file called `noble_1962.py`, and we can solve use the code to solve the ODE as follows
+In the case of Python, the source code will be saved in a file called `noble_1962.py`, and we can use the code to solve the ODE as follows
 
 ```{code-cell} python
 import noble_1962 as model
@@ -129,7 +129,7 @@ Here we have also used [`scipy.integrate.solve_ivp`](https://docs.scipy.org/doc/
 
 
 ### Generating schemes for ODE
-In the example above we only generated the right hand side (function `rhs`) which can be passed to `solve_ivp`, but it might be more appropriate to use a specific numerical scheme for solving the ODE. One example of a numerical scheme is the *forward euler*  scheme. Another popular scheme for solving cardiac cell models is the [Generalized Rush Larsen scheme](https://doi.org/10.1109/TBME.2009.2014739).
+In the example above we only generated the right hand side (function `rhs`) which can be passed to `solve_ivp`, but it might be more appropriate to use a specific numerical scheme for solving the ODE. One example of a numerical scheme is the *forward Euler* scheme. Another popular scheme for solving cardiac cell models is the [Generalized Rush Larsen scheme](https://doi.org/10.1109/TBME.2009.2014739).
 
 We can generate this scheme using the following command
 ```{code-cell} shell

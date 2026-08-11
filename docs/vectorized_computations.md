@@ -4,4 +4,4 @@ One particular important application within cardiac electrophysiology is coupled
 
 There is a library called [`fenics-beat`](https://finsberg.github.io/fenics-beat) that implements this functionality and that relies heavily on `gotranx` for code generation.
 
-Users that are interested in using `gotranx` as a backend for solving system of ODE's that are part of a PDE-ODE coupled system should check out the examples in this package to see how this could be done.
+Users that are interested in using `gotranx` as a backend for solving a system of ODEs that is part of a PDE-ODE coupled system should check out the examples in this package to see how this could be done.

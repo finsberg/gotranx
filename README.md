@@ -11,7 +11,7 @@
 
 # gotranx
 
-`gotranx` is the next generation General ODE translator. The general idea is that you write your ODE in a high level markup language and use `gotranx` to generate code for solving the ODE in different programming languages.  `gotranx` uses [`sympy`](https://www.sympy.org/en/index.html) to create a symbolic representation of the ODE which is used to generate the jacobian and numerical schemes.
+`gotranx` is the next generation General ODE translator. The general idea is that you write your ODE in a high level markup language and use `gotranx` to generate code for solving the ODE in different programming languages. `gotranx` uses [`sympy`](https://www.sympy.org/en/index.html) to create a symbolic representation of the ODE which is used to generate the jacobian and numerical schemes.
 
 
 `gotranx` makes it also possible generate code from `e.g` [CellML models](https://models.physiomeproject.org/cellml) using conversion tools from [`myokit`](https://github.com/myokit/myokit).
@@ -131,13 +131,13 @@ The main reasons to use `gotranx` are
 
 
 **How does it differ from `scipy.integrate.solve_ivp`?**
-`scipy.integrate.solve_ivp` is an ODE solver which takes as input a function defining the right-hand. `gotranx` takes a high level representation of the ODE and can generate code for the right hand side. In other words, you can use `scipy.integrate.solve_ivp` to solve the ODE and use `gotranx` to generate the right hand side.
+`scipy.integrate.solve_ivp` is an ODE solver which takes as input a function defining the right-hand side. `gotranx` takes a high level representation of the ODE and can generate code for the right hand side. In other words, you can use `scipy.integrate.solve_ivp` to solve the ODE and use `gotranx` to generate the right hand side.
 
 
 ## Automated tests
 
 ### Unit tests
-Automated tests can be found in the [`test`](https://github.com/finsberg/gotranx/tree/main/tests) folder. To the run the tests please install the test dependencies
+Automated tests can be found in the [`test`](https://github.com/finsberg/gotranx/tree/main/tests) folder. To run the tests please install the test dependencies
 ```
 python3 -m pip install "gotranx[test]"
 ```
@@ -152,7 +152,7 @@ python3 -m pytest
 Also note that the tests are run on every push and pull request to `main` using [GitHub actions](https://github.com/finsberg/gotranx/actions).
 
 ### Linting and formatting
-We use [`pre-commit`](https://pre-commit.com) to run the a set of linters and formatters in order to ensure consistent code style. Developers should install the [pre-commit hooks](https://github.com/finsberg/gotranx/blob/main/.pre-commit-config.yaml) by first installing `pre-commit`
+We use [`pre-commit`](https://pre-commit.com) to run a set of linters and formatters in order to ensure consistent code style. Developers should install the [pre-commit hooks](https://github.com/finsberg/gotranx/blob/main/.pre-commit-config.yaml) by first installing `pre-commit`
 ```
 python3 -m pip install pre-commit
 ```
@@ -166,7 +166,7 @@ pre-commit run --all
 ```
 For further instructions see the [contributing guide](https://finsberg.github.io/gotranx/CONTRIBUTING.html).
 
-Note also the we run all hooks as a part of our [continuous integration](https://github.com/finsberg/gotranx/actions/workflows/pre-commit.yml), and we are also using [pre-commit.ci](https://pre-commit.ci) to update branches automatically that can fix issues automatically.
+Note also that we run all hooks as a part of our [continuous integration](https://github.com/finsberg/gotranx/actions/workflows/pre-commit.yml), and we are also using [pre-commit.ci](https://pre-commit.ci) to update branches automatically that can fix issues automatically.
 
 ### Performance monitoring
 We have defined a set of benchmarks that run on every push to the `main` branch using [codspeed](https://codspeed.io). To monitor the performance over time you can check out the [performance report](https://codspeed.io/finsberg/gotranx).
