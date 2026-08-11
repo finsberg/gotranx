@@ -82,13 +82,13 @@ classDiagram
 An `Atom` contains a number of different fields
 
 - `name` is the name of the variable represented as a string. For example of the name of the parameter `rho` is the string `"rho"`
-- `symbol` is similar to `name` this this is a `sympy` object and this is used within the expressions in the assignments.
-- `components` is just a list of components that a given atom belongs to. In this simple ODE we don't have any components (or practically speaking we have one component). However in lager ODE systems it might be useful to group parameters, states and assignments into different components. In these cases it is possible for an atom to be part of several components.
+- `symbol` is similar to `name`, but this is a `sympy` object and this is used within the expressions in the assignments.
+- `components` is just a list of components that a given atom belongs to. In this simple ODE we don't have any components (or practically speaking we have one component). However in larger ODE systems it might be useful to group parameters, states and assignments into different components. In these cases it is possible for an atom to be part of several components.
 - `description` is just a string with some information. In our example, the state `x` has the description `"x variable"` and `dx_dt` has the description `"The derivative of x"`.
-- `unit_str` is a string representation of a unit, for example `x` has the unit string `"m"` while `dy_dt` has the unit string `m/s`. If no using is provided this is set to `None`
+- `unit_str` is a string representation of a unit, for example `x` has the unit string `"m"` while `dy_dt` has the unit string `m/s`. If no unit is provided this is set to `None`
 - `unit` is a [pint unit](https://pint.readthedocs.io/en/stable/) and this can be used e.g to convert to and from different units.
 
-We note that the 3 assignments are a special type of assignment called a `StateDerivative`. There is also another type of assignment called and `Intermediate`. The `StateDerivative` is special because it is associated with a given `State` and represents the temporal derivative of the state variable. For example `dx_dt` is associated with the state `x`.
+We note that the 3 assignments are a special type of assignment called a `StateDerivative`. There is also another type of assignment called an `Intermediate`. The `StateDerivative` is special because it is associated with a given `State` and represents the temporal derivative of the state variable. For example `dx_dt` is associated with the state `x`.
 
 Whenever you have a state variable, there has to be a corresponding state derivative. We can try to create an ODE with a missing derivative
 ```{code-cell} python
