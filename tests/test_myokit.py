@@ -1,6 +1,7 @@
 from pathlib import Path
 import math
 import pytest
+import sympy as sp
 import gotranx.myokit
 
 try:
@@ -124,3 +125,52 @@ def test_gotran_to_myokit_sanitizes_component_names(component_name):
 
     myokit_model = gotranx.myokit.gotran_to_myokit(ode)
     myokit_model.validate()
+
+
+def _pow_unevaluated(base, exponent):
+    # Build a Pow node the same way myokit.formats.sympy.write() does: with
+    # evaluate=False, so Python/sympy never gets a chance to auto-simplify
+    # the exponent (e.g. collapsing a double reciprocal) before our own
+    # normalization runs.
+    with sp.core.parameters.evaluate(False):
+        return sp.Pow(base, exponent, evaluate=False)
+
+
+@pytest.mark.skipif(myokit is None, reason="myokit not installed")
+@pytest.mark.parametrize(
+    "expr, expected",
+    [
+        # myokit's sympy writer represents 1/x as x**Float(-1.0), which the
+        # sympy printer can't recognize as a reciprocal (unlike x**Integer(-1)),
+        # so it used to print as "1.0/x**1.0" instead of "1.0/x".
+        (
+            sp.Mul(sp.Float(1.0), _pow_unevaluated(sp.Symbol("x"), sp.Float(-1.0)), evaluate=False),
+            "1.0/x",
+        ),
+        # A bare power of 1.0 should collapse to just the base.
+        (_pow_unevaluated(sp.Symbol("x"), sp.Float(1.0)), "x"),
+        # Integer-valued float exponents elsewhere should become clean integers.
+        (_pow_unevaluated(sp.Symbol("x"), sp.Float(4.0)), "x**4"),
+        # Non-integer exponents must be left untouched.
+        (_pow_unevaluated(sp.Symbol("x"), sp.Float(1.5)), "x**1.5"),
+    ],
+)
+def test_normalize_integer_powers(expr, expected):
+    normalized = gotranx.myokit._normalize_integer_powers(expr)
+    assert str(normalized) == expected
+
+
+@pytest.mark.skipif(myokit is None, reason="myokit not installed")
+def test_cellml_to_gotran_has_no_redundant_float_powers(tmp_path):
+    # Regression test: myokit's sympy writer used to leave expressions such
+    # as divisions (1/x) with a *float* exponent (x**-1.0 rather than
+    # x**-1), which the sympy printer renders as "1.0/x**1.0" - a redundant
+    # "**1.0" that should never appear in generated .ode files.
+    ode = gotranx.myokit.cellml_to_gotran(
+        filename=here / "cellml_files" / "ToRORd_dynCl_mid.cellml",
+    )
+    out_odefile = tmp_path / "ToRORd_dynCl_mid.ode"
+    ode.save(out_odefile)
+    text = out_odefile.read_text()
+    assert "**1.0" not in text
+    assert "**-1.0" not in text
