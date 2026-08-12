@@ -107,6 +107,36 @@ def test_gotran_to_myokit_cross_component_reference():
 
 
 @pytest.mark.skipif(myokit is None, reason="myokit not installed")
+def test_gotran_to_myokit_does_not_distribute_coefficients():
+    # gotran_to_myokit substitutes local symbol names for their fully
+    # qualified myokit.qname() equivalent via xreplace(). Without wrapping
+    # that call in `with sp.core.parameters.evaluate(False)`, sympy rebuilds
+    # every ancestor of a substituted symbol using its default (evaluate=True)
+    # constructor, which auto-distributes numeric coefficients over sums -
+    # e.g. (v - 4.823)/51.12 silently became 0.0195618153364632*v -
+    # 0.0943466353677621. This must not happen: the qualified expression
+    # should have the same *structure* as the original, just with `v`
+    # replaced by `membrane.v`.
+    ode = gotranx.load.ode_from_string(
+        """
+        states("membrane", v=-91.33918)
+        expressions("membrane")
+        dv_dt = -v
+        expressions("other")
+        tm = 0.06487*exp(-((v - 1*4.823)/51.12)**2)
+        """
+    )
+    myokit_model = gotranx.myokit.gotran_to_myokit(ode)
+    tm = myokit_model.get("other.tm")
+    code = tm.rhs().code()
+    assert "membrane.v" in code
+    # The distributed form would contain a decimal coefficient in front of
+    # membrane.v (e.g. "1.95618...e-2 * membrane.v"); the un-distributed
+    # form keeps "membrane.v" appearing on its own next to the literal 51.12.
+    assert "51.12" in code
+
+
+@pytest.mark.skipif(myokit is None, reason="myokit not installed")
 @pytest.mark.parametrize(
     "component_name",
     ["", "My component", "environment"],

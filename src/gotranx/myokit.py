@@ -429,14 +429,24 @@ def gotran_to_myokit(ode: ODE, time_component="engine", time_unit="s") -> "myoki
             state = state_derivative.state
             v = comp[state.name]
 
-            expr = state_derivative.expr.xreplace(global_var_map)
+            # xreplace() rebuilds any node containing a substituted symbol
+            # using the default (evaluate=True) constructor unless told
+            # otherwise - without this, sympy auto-distributes numeric
+            # coefficients over sums (e.g. (v - 4.823)/51.12 turns into
+            # 0.0195618153364632*v - 0.0943466353677621), silently
+            # rewriting the user's expression into a numerically equivalent
+            # but far less readable (and needlessly floating-point-heavy)
+            # form.
+            with sp.core.parameters.evaluate(False):
+                expr = state_derivative.expr.xreplace(global_var_map)
             expr = sympy_reader.ex(expr)
             v.set_rhs(expr)
             v.promote(state.value)
 
         for intermediate in component.intermediates:
             v = comp[intermediate.name]
-            expr = intermediate.expr.xreplace(global_var_map)
+            with sp.core.parameters.evaluate(False):
+                expr = intermediate.expr.xreplace(global_var_map)
             expr = sympy_reader.ex(expr)
             v.set_rhs(expr)
 
