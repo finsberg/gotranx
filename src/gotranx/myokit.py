@@ -172,6 +172,44 @@ def extract_nested_variables(
     return all_subs, component_subs
 
 
+def _normalize_integer_powers(expr: sp.Expr) -> sp.Expr:
+    """Replace float exponents that represent an integer with that integer
+
+    myokit's sympy writer (``myokit.formats.sympy.write``) represents
+    e.g. ``1/x`` as ``x**Float(-1.0)`` rather than the sympy convention of
+    an integer exponent (``x**Integer(-1)``). Because the exponent is a
+    ``Float`` rather than an ``Integer``, sympy's printer can't recognize it
+    as a reciprocal or drop a redundant power of 1, so expressions print as
+    e.g. ``1.0/x**1.0`` instead of ``1/x``, or ``x**1.0`` instead of ``x``.
+
+    Parameters
+    ----------
+    expr : sp.Expr
+        The expression to normalize
+
+    Returns
+    -------
+    sp.Expr
+        The expression with integer-valued float exponents replaced by
+        integer exponents (and powers of 1 dropped entirely)
+    """
+
+    def fix_power(power: sp.Pow) -> sp.Expr:
+        base: sp.Expr = power.base
+        exponent: sp.Expr = power.exp
+        # sympy's Float and Integer are not `==`-equal even when numerically
+        # identical (a Float carries finite precision, an Integer is exact),
+        # so integer-valued floats must be detected via plain float/int
+        # comparison rather than sympy's own equality.
+        if exponent.is_Float and float(exponent) == int(exponent):
+            exponent = sp.Integer(int(exponent))
+        if exponent == 1:
+            return base
+        return sp.Pow(base, exponent, evaluate=False)
+
+    return sp.sympify(expr.replace(lambda e: e.is_Pow, fix_power))
+
+
 def mmt_to_gotran(filename: str | Path) -> ODE:
     """Convert a myokit model to gotran ODE
 
@@ -244,6 +282,7 @@ def myokit_to_gotran(model: "myokit.Model", protocol=None) -> ODE:
                 states.append(state)
                 with sp.core.parameters.evaluate(False):
                     expr = myokit.formats.sympy.write(var.eq().rhs)
+                    expr = _normalize_integer_powers(expr)
                     expr = expr.xreplace({v.name(): v.uname() for v in var.variables(deep=True)})
                     expr = expr.xreplace(component_subs.get(component.name(), {}))
                     expr = expr.xreplace(all_subs)
@@ -262,6 +301,7 @@ def myokit_to_gotran(model: "myokit.Model", protocol=None) -> ODE:
             else:
                 with sp.core.parameters.evaluate(False):
                     expr = myokit.formats.sympy.write(var.rhs())
+                    expr = _normalize_integer_powers(expr)
                 if expr.is_Number:
                     parameter = atoms.Parameter(
                         name=name,
@@ -389,14 +429,24 @@ def gotran_to_myokit(ode: ODE, time_component="engine", time_unit="s") -> "myoki
             state = state_derivative.state
             v = comp[state.name]
 
-            expr = state_derivative.expr.xreplace(global_var_map)
+            # xreplace() rebuilds any node containing a substituted symbol
+            # using the default (evaluate=True) constructor unless told
+            # otherwise - without this, sympy auto-distributes numeric
+            # coefficients over sums (e.g. (v - 4.823)/51.12 turns into
+            # 0.0195618153364632*v - 0.0943466353677621), silently
+            # rewriting the user's expression into a numerically equivalent
+            # but far less readable (and needlessly floating-point-heavy)
+            # form.
+            with sp.core.parameters.evaluate(False):
+                expr = state_derivative.expr.xreplace(global_var_map)
             expr = sympy_reader.ex(expr)
             v.set_rhs(expr)
             v.promote(state.value)
 
         for intermediate in component.intermediates:
             v = comp[intermediate.name]
-            expr = intermediate.expr.xreplace(global_var_map)
+            with sp.core.parameters.evaluate(False):
+                expr = intermediate.expr.xreplace(global_var_map)
             expr = sympy_reader.ex(expr)
             v.set_rhs(expr)
 

@@ -62,6 +62,26 @@ def test_rhs_matrix(ode: ODE):
     assert str(rhs[2]) == "(-beta)*z + x*y"
 
 
+def test_rhs_matrix_does_not_distribute_coefficients(trans, parser):
+    # rhs_matrix eliminates intermediates via xreplace(). Without wrapping
+    # that call in `with sympy.core.parameters.evaluate(False)`, sympy
+    # rebuilds every ancestor of a substituted symbol using the default
+    # (evaluate=True) constructor, which auto-distributes numeric
+    # coefficients over sums - e.g. (tm - 4.823)/51.12 would silently
+    # become 0.0195618153364632*tm - 0.0943466353677621 once tm is
+    # substituted with an expression containing v. Matches the same fix
+    # applied in myokit.gotran_to_myokit.
+    expr = """
+    states(v=-91.33918)
+    dv_dt = (tm - 1*4.823)/51.12
+    tm = v
+    """
+    tree = parser.parse(expr)
+    ode = make_ode(*trans.transform(tree))
+    rhs = sympytools.rhs_matrix(ode)
+    assert str(rhs[0]) == "(v - 4.823)/51.12"
+
+
 def test_jacobian_matrix(ode: ODE):
     jac = sympytools.jacobi_matrix(ode)
 
