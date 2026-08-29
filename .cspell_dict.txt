@@ -1,3 +1,4 @@
+afterload
 arange
 autouse
 betaz
@@ -16,6 +17,7 @@ cpath
 ctypeslib
 CUDA
 DCELL
+dolfinx
 doprint
 dpst
 dpts
@@ -110,6 +112,8 @@ tsdp
 tspd
 ureg
 userfunc
+Windkessel
+windkessel
 xlabel
 xrelplace
 xreplace
