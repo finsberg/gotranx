@@ -15,6 +15,7 @@ from . import templates
 from . import myokit
 
 from .cli import inspect as _cli_inspect
+
 cli.app.command(name="inspect", help="Inspect an .ode file")(_cli_inspect.inspect)
 
 from .load import load_ode

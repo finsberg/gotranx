@@ -1,4 +1,5 @@
 """Inspect an ODE file from the command line."""
+
 from pathlib import Path
 
 import typer
