@@ -146,9 +146,9 @@ H = Conditional(Ge(x, 0), 1, 0)
 This would be similar to implementing an `if-else` statement, e.g
 ```python
 if x >= 0:
-  H = 1
+    H = 1
 else:
-  H = 0
+    H = 0
 ```
 
 We could also have a conditional with three values, e.g
@@ -160,11 +160,11 @@ $$
 which would be equivalent to an `if-elif-else` statement, e.g
 ```python
 if x > 0:
-  H = 1
+    H = 1
 elif x == 0:
-  H = 0.5
+    H = 0.5
 else:
-  H = 0
+    H = 0
 ```
 
 
@@ -187,9 +187,9 @@ f = min(x, y)
 is equivalent to
 ```python
 if x <= y:
-  f = x
+    f = x
 else:
-  f = y
+    f = y
 ```
 So `f = min(x, y)` could be implemented as
 ```
