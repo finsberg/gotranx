@@ -25,5 +25,8 @@ The plan is to have all the features from the old [gotran](https://github.com/Co
     - [x] CellML (supported via MyoKit)
 - [ ] Add support for lookup tables. A master student has currently implemented support for this in legacy gotran, see https://www.mn.uio.no/ifi/studier/masteroppgaver/bmi/automated-code-generation-for-simulating-cardiac-c.html
 - [ ] Better handling of singularities, see ongoing work here https://github.com/finsberg/gotranx/pull/68
+    - The Rush-Larsen schemes linearize by differentiating through intermediates,
+      which multiplies removable singularities in terms like `x/(exp(x) - 1)`.
+      `remove_singularities` should be extended over the linearized block.
 
 If you have additional feature requests, please [open an issue](https://github.com/finsberg/gotranx/issues)
