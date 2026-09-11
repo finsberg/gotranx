@@ -1,5 +1,6 @@
 import pytest
 import sympy
+from structlog.testing import capture_logs
 from gotranx.ode import make_ode
 from gotranx.ode import ODE
 from gotranx import schemes
@@ -80,7 +81,7 @@ def test_hybrid_rush_larsen(ode: ODE):
     dt = sympy.Symbol("dt")
     eqs = schemes.hybrid_rush_larsen(ode, dt, stiff_states=["y", "z"])
 
-    assert len(eqs) == 9
+    assert len(eqs) == 10
 
     assert str(eqs[0]) == "y_int = x*(rho - z)"
     assert str(eqs[1]) == "z_int = (-beta)*z"
@@ -95,7 +96,13 @@ def test_hybrid_rush_larsen(ode: ODE):
         "else (dt*dy_dt))"
     )
     assert str(eqs[7]) == "dz_dt = x*y + z_int"
-    assert str(eqs[8]) == "values[2] = dt*dz_dt + z"
+    assert str(eqs[8]) == "dz_dt_linearized = -beta"
+    assert str(eqs[9]) == (
+        "values[2] = z + "
+        "((dz_dt*(math.exp(dt*dz_dt_linearized) - 1)"
+        "/dz_dt_linearized) if (abs(dz_dt_linearized) > 1.0e-8) "
+        "else (dt*dz_dt))"
+    )
 
 
 INLINED = """
@@ -189,3 +196,55 @@ def test_linearized_assignments_skips_taken_names():
 
     assert replacements
     assert replacements[0][0].name == "_dx_dt_linearized_1"
+
+
+def test_hybrid_rush_larsen_does_not_claim_a_present_state_is_missing(parser, trans):
+    """A stiff state that is in the ODE must never be reported as not found."""
+    ode = make_ode(*trans.transform(parser.parse(VIA_INTERMEDIATE)))
+    with capture_logs() as logs:
+        schemes.hybrid_rush_larsen(ode, sympy.Symbol("dt"), stiff_states=["V"])
+
+    assert not [log for log in logs if "not found in the ODE" in log.get("event", "")]
+
+
+def test_hybrid_rush_larsen_warns_about_a_stiff_state_that_is_not_in_the_ode(parser, trans):
+    """A genuine typo in --stiff-states should be audible."""
+    ode = make_ode(*trans.transform(parser.parse(VIA_INTERMEDIATE)))
+    with capture_logs() as logs:
+        schemes.hybrid_rush_larsen(ode, sympy.Symbol("dt"), stiff_states=["Vm"])
+
+    warnings = [log for log in logs if log.get("log_level") == "warning"]
+    assert any("not found in the ODE" in log["event"] for log in warnings)
+    assert any("Vm" in log["event"] for log in warnings)
+
+
+def test_hybrid_rush_larsen_warns_when_a_stiff_state_cannot_be_linearized(parser, trans):
+    """A user asking for RL on a state with zero df/dx gets forward Euler.
+    That request cannot be honored, so say so."""
+    ode = make_ode(
+        *trans.transform(
+            parser.parse(
+                """
+                states("C", x=1.0, y=2.0)
+
+                expressions("C")
+                dx_dt = y
+                dy_dt = 0
+                """
+            )
+        )
+    )
+    with capture_logs() as logs:
+        schemes.hybrid_rush_larsen(ode, sympy.Symbol("dt"), stiff_states=["x"])
+
+    warnings = [log for log in logs if log.get("log_level") == "warning"]
+    assert any("x" in log["event"] for log in warnings)
+
+
+def test_hybrid_rush_larsen_is_invariant_to_naming_a_subexpression(parser, trans):
+    """The Task 2 property, for the hybrid scheme with V marked stiff."""
+    inlined, via_intermediate = _invariance_case(
+        parser, trans, schemes.hybrid_rush_larsen, stiff_states=["V"]
+    )
+    assert inlined == via_intermediate
+    assert "dV_dt_linearized = -g" in inlined

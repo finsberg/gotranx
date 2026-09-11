@@ -48,6 +48,7 @@ Kristian
 lalr
 LIBFILE
 linalg
+linearizable
 linearization
 linestyle
 linspace

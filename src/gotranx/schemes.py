@@ -238,7 +238,13 @@ def hybrid_rush_larsen(
     will only be used for these states. If the derivative
     of a state is zero, the scheme falls back to forward Euler.
 
-    We fall back to forward Euler if the derivative is zero.
+    The linearization :math:`g = \partial f_i / \partial y_i` is the diagonal of
+    the Jacobian of the full right-hand side, computed by differentiating through
+    intermediate expressions. It therefore does not depend on whether the model
+    author named a subexpression.
+
+    If :math:`g` is zero the update reduces to :math:`x_{n+1} = x_n + dt f`, which
+    is the exact :math:`g \to 0` limit of the expression above, not a fallback.
 
     Parameters
     ----------
@@ -255,8 +261,11 @@ def hybrid_rush_larsen(
     delta : float, optional
         Tolerance for zero division check, by default 1e-8
     stiff_states : list[str] | None, optional
-        Stiff states, by default None. If no stiff states are provided,
-        the hybrid rush larsen scheme will be the same as the explicit Euler scheme
+        States to integrate with the Rush-Larsen update; all others use forward
+        Euler. By default None, which makes this scheme equivalent to explicit
+        Euler. Every state has a usable linearization, so this is a cost/accuracy
+        trade-off rather than a statement about which states can be linearized:
+        the Rush-Larsen update costs an exponential per state per step.
 
     Returns
     -------
@@ -267,10 +276,13 @@ def hybrid_rush_larsen(
     if stiff_states is None:
         stiff_states = []
     logger.debug("Generating hybrid Rush-Larsen scheme", stiff_states=stiff_states)
-    stiff_states_set = set(stiff_states) or set()
+    stiff_states_set = set(stiff_states)
     found_stiff_states_set = set()
+    not_linearizable = set()
     eqs = []
     values = sympy.IndexedBase(name, shape=(len(ode.state_derivatives),))
+    jacobian = diagonal_jacobian(ode, remove_unused=remove_unused)
+    taken = _taken_names(ode)
     i = 0
     for x in ode.sorted_assignments(remove_unused=remove_unused):
         eqs.append(printer(x.symbol, x.expr, use_variable_prefix=True))
@@ -278,8 +290,16 @@ def hybrid_rush_larsen(
         if not isinstance(x, atoms.StateDerivative):
             continue
 
-        expr_diff = x.expr.diff(x.state.symbol)
+        expr_diff = jacobian[x.state.name]
         state_is_stiff = x.state.name in stiff_states_set
+
+        # Record the state as found before deciding how to integrate it, so a
+        # state that is present but cannot be linearized is never reported as
+        # missing from the ODE.
+        if state_is_stiff:
+            found_stiff_states_set.add(x.state.name)
+            if expr_diff.is_zero:
+                not_linearizable.add(x.state.name)
 
         if not state_is_stiff or expr_diff.is_zero:
             # Use forward Euler
@@ -292,12 +312,20 @@ def hybrid_rush_larsen(
             i += 1
             continue
 
-        found_stiff_states_set.add(x.state.name)
         logger.debug(f"State {x.state.name} is stiff")
+        replacements, expr_diff = _linearized_assignments(x.name, expr_diff, taken)
+        for symbol, sub_expr in replacements:
+            eqs.append(printer(symbol, sub_expr, use_variable_prefix=True))
+
         linearized_name = x.name + "_linearized"
         linearized = sympy.Symbol(linearized_name)
         eqs.append(printer(linearized, expr_diff, use_variable_prefix=True))
 
+        # `expr_diff` is the post-CSE reduced expression, so this check runs on
+        # the CSE'd form: if a provably-nonzero factor is hidden behind an
+        # opaque temporary, the check can't see through it and conservatively
+        # asks for a zero-division guard that a pre-CSE check would have
+        # skipped. That's an accepted cost of factoring first, not a bug.
         need_zero_div_check = not fraction_numerator_is_nonzero(expr_diff)
         if not need_zero_div_check:
             logger.debug(f"{linearized_name} cannot be zero. Skipping zero division check")
@@ -316,10 +344,18 @@ def hybrid_rush_larsen(
             )
         )
         i += 1
-    logger.debug(
-        "The following states where marked as stiff but not found in the ODE:",
-        extra=stiff_states_set.difference(found_stiff_states_set),
-    )
+
+    if not_linearizable:
+        logger.warning(
+            "The following states were marked as stiff but their derivative does "
+            "not depend on the state, so they use forward Euler: "
+            f"{sorted(not_linearizable)}"
+        )
+    missing = stiff_states_set.difference(found_stiff_states_set)
+    if missing:
+        logger.warning(
+            f"The following states were marked as stiff but not found in the ODE: {sorted(missing)}"
+        )
     return eqs
 
 
