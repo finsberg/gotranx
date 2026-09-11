@@ -33,6 +33,12 @@ load
 .. automodule:: gotranx.load
     :members:
 
+linearization
+-------------
+
+.. automodule:: gotranx.linearization
+    :members:
+
 
 myokit
 ------
