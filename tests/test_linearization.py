@@ -1,4 +1,3 @@
-import pytest
 import sympy
 
 from gotranx.linearization import diagonal_jacobian

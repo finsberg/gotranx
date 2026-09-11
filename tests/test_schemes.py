@@ -46,7 +46,7 @@ def test_generalized_rush_larsen(ode: ODE):
     dt = sympy.Symbol("dt")
     eqs = schemes.generalized_rush_larsen(ode, dt)
 
-    assert len(eqs) == 10
+    assert len(eqs) == 11
 
     assert str(eqs[0]) == "y_int = x*(rho - z)"
     assert str(eqs[1]) == "z_int = (-beta)*z"
@@ -67,7 +67,13 @@ def test_generalized_rush_larsen(ode: ODE):
         "else (dt*dy_dt))"
     )
     assert str(eqs[8]) == "dz_dt = x*y + z_int"
-    assert str(eqs[9]) == "values[2] = dt*dz_dt + z"
+    assert str(eqs[9]) == "dz_dt_linearized = -beta"
+    assert str(eqs[10]) == (
+        "values[2] = z + "
+        "((dz_dt*(math.exp(dt*dz_dt_linearized) - 1)"
+        "/dz_dt_linearized) if (abs(dz_dt_linearized) > 1.0e-8) "
+        "else (dt*dz_dt))"
+    )
 
 
 def test_hybrid_rush_larsen(ode: ODE):
@@ -90,3 +96,40 @@ def test_hybrid_rush_larsen(ode: ODE):
     )
     assert str(eqs[7]) == "dz_dt = x*y + z_int"
     assert str(eqs[8]) == "values[2] = dt*dz_dt + z"
+
+
+INLINED = """
+parameters(g=100.0, E=-85.0)
+states("Membrane", V=-80.0)
+
+expressions("Membrane")
+dV_dt = -(g*(V - E))
+"""
+
+VIA_INTERMEDIATE = """
+parameters(g=100.0, E=-85.0)
+states("Membrane", V=-80.0)
+
+expressions("Membrane")
+I = g*(V - E)
+dV_dt = -I
+"""
+
+
+def _invariance_case(parser, trans, scheme, **scheme_kwargs):
+    """Generate both spellings and return the lines that encode the scheme."""
+    dt = sympy.Symbol("dt")
+    out = []
+    for expr in (INLINED, VIA_INTERMEDIATE):
+        ode = make_ode(*trans.transform(parser.parse(expr)))
+        eqs = [str(e) for e in scheme(ode, dt, **scheme_kwargs)]
+        out.append([e for e in eqs if "linearized" in e or e.startswith("values[")])
+    return out
+
+
+def test_generalized_rush_larsen_is_invariant_to_naming_a_subexpression(parser, trans):
+    """Naming a current must not change the scheme. Both spellings describe
+    the same f, so both must linearize to -g."""
+    inlined, via_intermediate = _invariance_case(parser, trans, schemes.generalized_rush_larsen)
+    assert inlined == via_intermediate
+    assert "dV_dt_linearized = -g" in inlined

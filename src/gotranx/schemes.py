@@ -7,6 +7,7 @@ from structlog import get_logger
 
 from . import atoms
 from .ode import ODE
+from .linearization import diagonal_jacobian
 from . import sympytools
 from enum import Enum
 
@@ -119,6 +120,47 @@ def fraction_numerator_is_nonzero(expr):
             return True
     else:
         return False
+
+
+def _taken_names(ode: ODE) -> set[str]:
+    """Every identifier already in use in the ODE.
+
+    Used to keep generated CSE temporaries from shadowing a model symbol. The
+    `.ode` grammar uses Lark's CNAME, which permits a leading underscore, so a
+    `_` prefix is not by itself collision-proof.
+    """
+    names = {s.name for s in ode.states} | {p.name for p in ode.parameters}
+    names |= {a.name for a in ode.sorted_assignments()}
+    return names
+
+
+def _linearized_assignments(
+    derivative_name: str,
+    expr: sympy.Expr,
+    taken: set[str],
+) -> tuple[list[tuple[sympy.Symbol, sympy.Expr]], sympy.Expr]:
+    """Factor shared subexpressions out of one linearized expression.
+
+    CSE is applied per state rather than jointly across all states. Joint CSE
+    gives a lower operation count but leaves every temporary live across the
+    whole function, which on the vectorized backends means one live array per
+    temporary. Per-state temporaries are dead by the end of the state's own
+    update.
+
+    Returns the temporaries, in the order they must be emitted, and the reduced
+    expression to assign to ``<derivative_name>_linearized``.
+    """
+
+    def fresh():
+        i = 0
+        while True:
+            name = f"_{derivative_name}_linearized_{i}"
+            if name not in taken:
+                yield sympy.Symbol(name, real=True)
+            i += 1
+
+    replacements, reduced = sympy.cse([expr], symbols=fresh(), optimizations="basic")
+    return replacements, reduced[0]
 
 
 def explicit_euler(
@@ -299,7 +341,13 @@ def generalized_rush_larsen(
 
     where :math:`g(x_n, t_n)` is the linearization of :math:`f(x_n, t_n)` around :math:`x_n`
 
-    We fall back to forward Euler if the derivative is zero.
+    The linearization :math:`g = \partial f_i / \partial y_i` is the diagonal of
+    the Jacobian of the full right-hand side, computed by differentiating through
+    intermediate expressions. It therefore does not depend on whether the model
+    author named a subexpression.
+
+    If :math:`g` is zero the update reduces to :math:`x_{n+1} = x_n + dt f`, which
+    is the exact :math:`g \to 0` limit of the expression above, not a fallback.
 
     Parameters
     ----------
@@ -324,6 +372,8 @@ def generalized_rush_larsen(
     logger.debug("Generating generalized Rush-Larsen scheme")
     eqs = []
     values = sympy.IndexedBase(name, shape=(len(ode.state_derivatives),))
+    jacobian = diagonal_jacobian(ode, remove_unused=remove_unused)
+    taken = _taken_names(ode)
     i = 0
     for x in ode.sorted_assignments(remove_unused=remove_unused):
         eqs.append(printer(x.symbol, x.expr, use_variable_prefix=True))
@@ -331,10 +381,15 @@ def generalized_rush_larsen(
         if not isinstance(x, atoms.StateDerivative):
             continue
 
-        expr_diff = x.expr.diff(x.state.symbol)
+        expr_diff = jacobian[x.state.name]
 
         if expr_diff.is_zero:
-            # Use forward Euler
+            # df/dx is genuinely zero, so f*dt is the exact dx -> 0 limit of the
+            # exponential update, not a fallback.
+            logger.debug(
+                f"d{x.state.name}/dt does not depend on {x.state.name}; "
+                "the exponential update reduces to forward Euler"
+            )
             eqs.append(
                 printer(
                     values[i],
@@ -343,6 +398,10 @@ def generalized_rush_larsen(
             )
             i += 1
             continue
+
+        replacements, expr_diff = _linearized_assignments(x.name, expr_diff, taken)
+        for symbol, sub_expr in replacements:
+            eqs.append(printer(symbol, sub_expr, use_variable_prefix=True))
 
         linearized_name = x.name + "_linearized"
         linearized = sympy.Symbol(linearized_name)
