@@ -53,3 +53,27 @@ Affected states in the bundled models, as a guide to the scale of the change:
 - `gotranx.linearization.diagonal_jacobian(ode, remove_unused=False)`, which
   returns `∂f_i/∂y_i` for every state by forward-mode automatic differentiation
   over the assignment graph.
+
+### Notes for the generated code
+
+Deep linearization makes the generated scheme measurably bigger and slower to
+generate. Measured on `ToRORd_dyn_chloride`'s Python `generalized_rush_larsen`:
+
+- Generated source: **1052 → 2754 lines**; zero-division guards **54 → 66**.
+  New `_<derivative>_linearized_<k>` locals appear per state, relevant if you
+  post-process generated sources.
+- Code generation time: **~3.6x slower** (0.79 s → 2.87 s: 0.59 s AD sweep,
+  0.81 s per-state CSE). Fine for a one-off codegen step, but CI benchmarks
+  that time code generation itself will notice.
+- **Peak live temporaries on the plain-numpy backend.** CSE is done per state
+  rather than jointly, on the reasoning that each state's temporaries die
+  after its own update. That holds for C, Julia and JAX-under-`jit`, where the
+  compiler reuses buffers, but **not for CPython**, which keeps every local
+  bound until the function returns and where no `del` is emitted for these
+  temporaries. Measured: distinct locals in the generated ToRORd function go
+  **595 → 1011** (+70%). For vectorized use over many cells (see
+  `docs/vectorized_computations.md`) that is a real memory increase, roughly
+  the same order as joint CSE would have cost. Per-state CSE remains the right
+  choice — it is still correct for C/Julia/JAX, and it keeps emission ordering
+  simple — but emitting `del` statements from the Python/JAX generators to
+  realize the same benefit there is follow-up work, not done in this release.
