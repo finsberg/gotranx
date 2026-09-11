@@ -111,12 +111,10 @@ def test_lorentz_scheme_is_unchanged(loaded):
     assert generated == EXPECTED_LORENTZ_SCHEME
 
 
-def _generated_module(ode, name):
+def _generated_module(ode, name, schemes=(gotranx.schemes.Scheme.generalized_rush_larsen,)):
     import gotranx.cli.gotran2py
 
-    code = gotranx.cli.gotran2py.get_code(
-        ode, scheme=[gotranx.schemes.Scheme.generalized_rush_larsen]
-    )
+    code = gotranx.cli.gotran2py.get_code(ode, scheme=list(schemes))
     namespace: dict = {}
     exec(compile(code, f"<{name}>", "exec"), namespace)
     return namespace
@@ -194,7 +192,14 @@ def test_derivatives_match_central_differences_through_rhs(name, loaded):
             worst = max(worst, abs(symbolic - numeric) / max(1e-6, abs(numeric)))
             comparisons += 1
 
-    assert comparisons >= len(ode.states), "too few states resolved to be meaningful"
+    # Measured: every one of the 3 sample points resolves for every state, with
+    # zero skips (the `any(s not in env for s in expr.free_symbols)` guard
+    # never trips for these two models). Tightened from a `>=` floor -- which
+    # could pass with only 1 of 3 points resolving per state -- to the exact
+    # count, so the assertion says what it means.
+    assert comparisons == 3 * len(ode.states), (
+        f"expected {3 * len(ode.states)} comparisons with zero skips, got {comparisons}"
+    )
     assert worst < 1e-4, f"worst relative disagreement {worst:.2e} over {comparisons} comparisons"
 
 
@@ -258,3 +263,66 @@ def test_linearization_block_stays_within_twice_the_rhs(loaded):
         ]
     )
     assert scheme_lines < 4 * rhs_lines, f"{scheme_lines} vs {rhs_lines} rhs lines"
+
+
+@pytest.mark.parametrize("name", ["ToRORd_dyn_chloride", "tentusscher_panfilov_2006_M_cell"])
+def test_generated_scheme_executes_and_agrees_with_explicit_euler(name, loaded):
+    """Actually *run* the generated `generalized_rush_larsen` stepper.
+
+    Every other test in this module either inspects `diagonal_jacobian(ode)`
+    directly (pre-CSE, never generated) or `exec`s the generated module without
+    calling anything in it. `exec` only compiles the scheme function -- it
+    does not execute its body, so a use-before-definition among the CSE
+    temporaries (`fresh()` colliding with a real symbol, or a temporary
+    emitted after the expression that uses it) would raise `NameError` only
+    when the function is actually *called*, and no existing test calls it.
+    This test closes that gap: it steps the generated stepper for real, from
+    real initial conditions, thousands of times.
+
+    dt and tolerance were chosen empirically (see the sweep in the PR
+    description / final-fix-report): at dt = 1e-3 ms both
+    `generalized_rush_larsen` and `explicit_euler` are comfortably inside
+    their stability region for these two models (explicit Euler already goes
+    unstable by dt = 3e-3..5e-3 on both), so at dt = 1e-3 they sit in the
+    shared asymptotic O(dt) regime where the two schemes must agree, and the
+    comparison is meaningful rather than trivially close because both are
+    tiny steps. atol=rtol=1e-2 comfortably covers the measured worst-case
+    drift (~5.5e-3 absolute on ToRORd's largest-magnitude state over 2000
+    steps) while still being tight enough to catch a genuinely wrong
+    linearized derivative.
+    """
+    ode = loaded[name]
+    mod = _generated_module(
+        ode,
+        name,
+        schemes=(
+            gotranx.schemes.Scheme.generalized_rush_larsen,
+            gotranx.schemes.Scheme.explicit_euler,
+        ),
+    )
+
+    np.seterr(all="ignore")
+    parameters = mod["init_parameter_values"]()
+    y_grl = mod["init_state_values"]()
+    y_euler = y_grl.copy()
+
+    dt = 1e-3
+    n_steps = 2000
+    t = 0.0
+    for _ in range(n_steps):
+        y_grl = mod["generalized_rush_larsen"](y_grl, t, dt, parameters)
+        y_euler = mod["explicit_euler"](y_euler, t, dt, parameters)
+        assert np.all(np.isfinite(y_grl)), f"non-finite state at t={t}"
+        assert np.all(np.isfinite(y_euler)), f"non-finite explicit_euler state at t={t}"
+        t += dt
+
+    np.testing.assert_allclose(
+        y_grl,
+        y_euler,
+        atol=1e-2,
+        rtol=1e-2,
+        err_msg=(
+            f"generalized_rush_larsen disagrees with explicit_euler for {name} "
+            f"at dt={dt} after {n_steps} steps"
+        ),
+    )

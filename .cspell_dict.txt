@@ -1,4 +1,5 @@
 afterload
+allclose
 arange
 autouse
 beeler
@@ -91,6 +92,7 @@ relop
 reorderable
 reversal_potentials
 rhoz
+rtol
 scalarparam
 scipy
 sdpt
