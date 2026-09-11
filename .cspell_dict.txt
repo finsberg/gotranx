@@ -1,6 +1,7 @@
 afterload
 arange
 autouse
+beeler
 betaz
 boolalg
 Cais
@@ -33,6 +34,7 @@ fenics
 fgrl
 figsize
 Finsberg
+fitzhughnagumo
 funcname
 gammasu
 gotran
@@ -46,6 +48,7 @@ jupytext
 kernelspec
 Kristian
 lalr
+lambdify
 LIBFILE
 linalg
 linearizable
@@ -71,6 +74,7 @@ odefiles
 ordmm
 outname
 pandoc
+panfilov
 pdst
 pdts
 psdt
@@ -91,6 +95,7 @@ scalarparam
 scipy
 sdpt
 sdtp
+seterr
 sharex
 Simula
 spdt
@@ -105,6 +110,7 @@ sympy
 sympytools
 tdps
 tdsp
+tentusscher
 timesteps
 tols
 tpsd
