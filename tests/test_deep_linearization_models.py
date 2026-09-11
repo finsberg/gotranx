@@ -7,6 +7,7 @@ correctly.
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -118,6 +119,39 @@ def _generated_module(ode, name, schemes=(gotranx.schemes.Scheme.generalized_rus
     namespace: dict = {}
     exec(compile(code, f"<{name}>", "exec"), namespace)
     return namespace
+
+
+def _call_capturing_locals(func, *args):
+    """Call a generated scheme function and return `(result, locals_at_return)`.
+
+    A generated scheme function computes many local temporaries -- among them
+    the post-CSE `d<state>_dt_linearized` that backs each Rush-Larsen update --
+    but returns only `values`. `sys.settrace` with a return-hook on the
+    function's own code object is the only way to see those temporaries
+    without changing codegen: it snapshots `frame.f_locals` right before the
+    function returns, without altering what the function computes or returns.
+    """
+    target_code = func.__code__
+    captured: dict = {}
+
+    def tracer(frame, event, arg):
+        if event == "call" and frame.f_code is target_code:
+
+            def local_tracer(frame, event, arg):
+                if event == "return":
+                    captured.update(frame.f_locals)
+                return local_tracer
+
+            return local_tracer
+        return None
+
+    old_trace = sys.gettrace()
+    sys.settrace(tracer)
+    try:
+        result = func(*args)
+    finally:
+        sys.settrace(old_trace)
+    return result, captured
 
 
 @pytest.mark.parametrize("name", ["tentusscher_panfilov_2006_M_cell", "ToRORd_dyn_chloride"])
@@ -277,19 +311,29 @@ def test_generated_scheme_executes_and_agrees_with_explicit_euler(name, loaded):
     emitted after the expression that uses it) would raise `NameError` only
     when the function is actually *called*, and no existing test calls it.
     This test closes that gap: it steps the generated stepper for real, from
-    real initial conditions, thousands of times.
+    real initial conditions, thousands of times, and checks that it runs to
+    completion and stays finite.
 
-    dt and tolerance were chosen empirically (see the sweep in the PR
-    description / final-fix-report): at dt = 1e-3 ms both
-    `generalized_rush_larsen` and `explicit_euler` are comfortably inside
-    their stability region for these two models (explicit Euler already goes
-    unstable by dt = 3e-3..5e-3 on both), so at dt = 1e-3 they sit in the
-    shared asymptotic O(dt) regime where the two schemes must agree, and the
-    comparison is meaningful rather than trivially close because both are
-    tiny steps. atol=rtol=1e-2 comfortably covers the measured worst-case
-    drift (~5.5e-3 absolute on ToRORd's largest-magnitude state over 2000
-    steps) while still being tight enough to catch a genuinely wrong
-    linearized derivative.
+    What this test does NOT show: that the emitted `d<state>_dt_linearized`
+    has the *correct value*. GRL and explicit Euler differ by O(g * dt**2) per
+    step, and at the dt = 1e-3 ms used here -- small enough to keep explicit
+    Euler itself stable, which both models require to make the comparison
+    below meaningful at all -- that error term is negligible regardless of
+    whether `g` is right, wrong, or sign-flipped. Measured: negating
+    `diagonal_jacobian` entirely, or scaling it by 2x, both still pass the
+    `atol=rtol=1e-2` check below (worst-case observed drift unchanged to 3
+    significant figures). So this test's agreement assertion is a "did the
+    scheme run and stay in a physiologically sane basin" smoke check, not a
+    correctness check on the linearization -- that numeric burden is carried
+    by `test_emitted_linearized_expression_matches_diagonal_jacobian` below,
+    which was demonstrated (see the fix-report) to fail hard when `g` is
+    perturbed the same way.
+
+    dt = 1e-3 ms / 2000 steps was chosen because it is small enough that both
+    schemes are comfortably inside explicit Euler's stability region for
+    these two models (explicit Euler already goes unstable by dt =
+    3e-3..5e-3 on both) -- a prerequisite for this smoke check, not evidence
+    of numerical agreement between the two update rules' linearization terms.
     """
     ode = loaded[name]
     mod = _generated_module(
@@ -325,4 +369,92 @@ def test_generated_scheme_executes_and_agrees_with_explicit_euler(name, loaded):
             f"generalized_rush_larsen disagrees with explicit_euler for {name} "
             f"at dt={dt} after {n_steps} steps"
         ),
+    )
+
+
+@pytest.mark.parametrize("name", ["tentusscher_panfilov_2006_M_cell", "ToRORd_dyn_chloride"])
+def test_emitted_linearized_expression_matches_diagonal_jacobian(name, loaded):
+    """The post-CSE `d<state>_dt_linearized` value the generated code actually
+    computes must equal `diagonal_jacobian`'s pre-CSE symbolic value, at the
+    same point.
+
+    This is the numeric link nothing else in this module checks.
+    `test_generated_scheme_executes_and_agrees_with_explicit_euler` proves the
+    generated code runs to completion without a `NameError`, but its agreement
+    check against `explicit_euler` is *not* sensitive to the value of the
+    linearization -- GRL and forward Euler differ by O(g * dt**2) per step,
+    negligible at the dt small enough to keep forward Euler itself stable.
+    Verified by hand: negating `diagonal_jacobian` everywhere, or doubling it,
+    both still pass that test's `atol=rtol=1e-2` check (see the fix-report for
+    the actual before/after numbers). This test closes that gap directly by
+    comparing the value CSE and emission actually produced against the
+    untouched symbolic diagonal, so it is sensitive to exactly the class of
+    bug the other test cannot see.
+
+    Captures the emitted `d<state>_dt_linearized` locals via
+    `_call_capturing_locals` (the function returns only `values`, not its
+    temporaries) and compares each one against `sympy.lambdify` of
+    `diagonal_jacobian(ode)[state]` evaluated at the same
+    state/parameter/monitor values. Uses the bundled `init_state_values()` at
+    three different `t` (the models are time-dependent only through an
+    externally supplied stimulus protocol, so varying `t` alone still
+    exercises different code paths) rather than randomly perturbed states:
+    perturbing states by the +-3% used elsewhere in this module pushes some
+    of ToRORd's concentration-like states into a domain where an unrelated
+    monitored quantity (not the linearization) legitimately evaluates to NaN
+    on both the symbolic and the emitted side alike, which is a property of
+    the sampling point, not of this test's comparison -- the unperturbed
+    initial state has no such issue for either model, so this test uses that
+    instead. Measured worst-case agreement at these points, in the correct
+    (unpatched) case, is machine precision (~1e-16 relative) for both models
+    -- see the fix-report for the perturbed-`diagonal_jacobian`
+    failing-then-restored-passing demonstration.
+    """
+    ode = loaded[name]
+    mod = _generated_module(ode, name)
+    jac = diagonal_jacobian(ode)
+
+    np.seterr(all="ignore")
+    parameters = mod["init_parameter_values"]()
+    base = mod["init_state_values"]()
+
+    dt = 1e-3
+    symbolic_values = []
+    emitted_values = []
+    for t in (0.0, 5.0, 10.0):
+        values = base.copy()
+        _, captured = _call_capturing_locals(
+            mod["generalized_rush_larsen"], values.copy(), t, dt, parameters
+        )
+        monitor = mod["monitor_values"](t, values, parameters)
+        env = {s.symbol: np.float64(values[mod["state_index"](s.name)]) for s in ode.states}
+        env.update(
+            {
+                p.symbol: np.float64(parameters[mod["parameter_index"](p.name)])
+                for p in ode.parameters
+            }
+        )
+        for a in ode.sorted_assignments():
+            try:
+                env[a.symbol] = np.float64(monitor[mod["monitor_index"](a.name)])
+            except KeyError:
+                pass
+        env[sympy.Symbol("time", real=True)] = np.float64(t)
+
+        for x in ode.state_derivatives:
+            expr = jac[x.state.name]
+            if any(s not in env for s in expr.free_symbols):
+                continue
+            symbolic_values.append(float(sympy.lambdify(list(env), expr, "numpy")(*env.values())))
+            emitted_values.append(float(captured[f"{x.name}_linearized"]))
+
+    assert len(symbolic_values) == 3 * len(ode.states), (
+        f"expected {3 * len(ode.states)} comparisons with zero skips, got {len(symbolic_values)}"
+    )
+    np.testing.assert_allclose(
+        emitted_values,
+        symbolic_values,
+        atol=1e-9,
+        rtol=1e-9,
+        err_msg=(f"emitted d<state>_dt_linearized disagrees with diagonal_jacobian for {name}"),
     )

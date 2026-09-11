@@ -27,16 +27,16 @@ expressions
 .. automodule:: gotranx.expressions
     :members:
 
-load
-----
-
-.. automodule:: gotranx.load
-    :members:
-
 linearization
 -------------
 
 .. automodule:: gotranx.linearization
+    :members:
+
+load
+----
+
+.. automodule:: gotranx.load
     :members:
 
 
