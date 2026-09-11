@@ -163,6 +163,51 @@ def _linearized_assignments(
     return replacements, reduced[0]
 
 
+def _rush_larsen_update(
+    x: atoms.StateDerivative,
+    expr_diff: sympy.Expr,
+    dt: sympy.Symbol,
+    target: sympy.Symbol | sympy.Expr,
+    printer: printer_func,
+    delta: float,
+    taken: set[str],
+) -> list[str]:
+    """Emit the CSE temporaries, the linearized assignment, and the Rush-Larsen update.
+
+    Shared by every scheme that reaches this point for a state whose diagonal
+    Jacobian entry ``expr_diff`` is non-zero. The zero-derivative case is each
+    caller's own forward-Euler fallback, decided before this is called, since
+    the two schemes reach it under different conditions.
+    """
+    eqs = []
+    replacements, expr_diff = _linearized_assignments(x.name, expr_diff, taken)
+    for symbol, sub_expr in replacements:
+        eqs.append(printer(symbol, sub_expr, use_variable_prefix=True))
+
+    linearized_name = x.name + "_linearized"
+    linearized = sympy.Symbol(linearized_name)
+    eqs.append(printer(linearized, expr_diff, use_variable_prefix=True))
+
+    # `expr_diff` is the post-CSE reduced expression, so this check runs on
+    # the CSE'd form: if a provably-nonzero factor is hidden behind an
+    # opaque temporary, the check can't see through it and conservatively
+    # asks for a zero-division guard that a pre-CSE check would have
+    # skipped. That's an accepted cost of factoring first, not a bug.
+    need_zero_div_check = not fraction_numerator_is_nonzero(expr_diff)
+    if not need_zero_div_check:
+        logger.debug(f"{linearized_name} cannot be zero. Skipping zero division check")
+
+    RL_term = x.symbol / linearized * (sympy.exp(linearized * dt) - 1)
+    if need_zero_div_check:
+        RL_term = sympytools.Conditional(
+            abs(linearized) > delta,
+            RL_term,
+            dt * x.symbol,
+        )
+    eqs.append(printer(target, x.state.symbol + RL_term))
+    return eqs
+
+
 def explicit_euler(
     ode: ODE,
     dt: sympy.Symbol,
@@ -263,9 +308,11 @@ def hybrid_rush_larsen(
     stiff_states : list[str] | None, optional
         States to integrate with the Rush-Larsen update; all others use forward
         Euler. By default None, which makes this scheme equivalent to explicit
-        Euler. Every state has a usable linearization, so this is a cost/accuracy
-        trade-off rather than a statement about which states can be linearized:
-        the Rush-Larsen update costs an exponential per state per step.
+        Euler. For a state that can be linearized, this is a cost/accuracy
+        trade-off, not a capability gate: the Rush-Larsen update costs an
+        exponential per state per step. The exception is a state whose
+        derivative does not depend on itself; it gets forward Euler regardless
+        (the exact g -> 0 limit), and a warning is logged.
 
     Returns
     -------
@@ -313,36 +360,7 @@ def hybrid_rush_larsen(
             continue
 
         logger.debug(f"State {x.state.name} is stiff")
-        replacements, expr_diff = _linearized_assignments(x.name, expr_diff, taken)
-        for symbol, sub_expr in replacements:
-            eqs.append(printer(symbol, sub_expr, use_variable_prefix=True))
-
-        linearized_name = x.name + "_linearized"
-        linearized = sympy.Symbol(linearized_name)
-        eqs.append(printer(linearized, expr_diff, use_variable_prefix=True))
-
-        # `expr_diff` is the post-CSE reduced expression, so this check runs on
-        # the CSE'd form: if a provably-nonzero factor is hidden behind an
-        # opaque temporary, the check can't see through it and conservatively
-        # asks for a zero-division guard that a pre-CSE check would have
-        # skipped. That's an accepted cost of factoring first, not a bug.
-        need_zero_div_check = not fraction_numerator_is_nonzero(expr_diff)
-        if not need_zero_div_check:
-            logger.debug(f"{linearized_name} cannot be zero. Skipping zero division check")
-
-        RL_term = x.symbol / linearized * (sympy.exp(linearized * dt) - 1)
-        if need_zero_div_check:
-            RL_term = sympytools.Conditional(
-                abs(linearized) > delta,
-                RL_term,
-                dt * x.symbol,
-            )
-        eqs.append(
-            printer(
-                values[i],
-                x.state.symbol + RL_term,
-            )
-        )
+        eqs.extend(_rush_larsen_update(x, expr_diff, dt, values[i], printer, delta, taken))
         i += 1
 
     if not_linearizable:
@@ -435,35 +453,6 @@ def generalized_rush_larsen(
             i += 1
             continue
 
-        replacements, expr_diff = _linearized_assignments(x.name, expr_diff, taken)
-        for symbol, sub_expr in replacements:
-            eqs.append(printer(symbol, sub_expr, use_variable_prefix=True))
-
-        linearized_name = x.name + "_linearized"
-        linearized = sympy.Symbol(linearized_name)
-        eqs.append(printer(linearized, expr_diff, use_variable_prefix=True))
-
-        # `expr_diff` is the post-CSE reduced expression, so this check runs on
-        # the CSE'd form: if a provably-nonzero factor is hidden behind an
-        # opaque temporary, the check can't see through it and conservatively
-        # asks for a zero-division guard that a pre-CSE check would have
-        # skipped. That's an accepted cost of factoring first, not a bug.
-        need_zero_div_check = not fraction_numerator_is_nonzero(expr_diff)
-        if not need_zero_div_check:
-            logger.debug(f"{linearized_name} cannot be zero. Skipping zero division check")
-
-        RL_term = x.symbol / linearized * (sympy.exp(linearized * dt) - 1)
-        if need_zero_div_check:
-            RL_term = sympytools.Conditional(
-                abs(linearized) > delta,
-                RL_term,
-                dt * x.symbol,
-            )
-        eqs.append(
-            printer(
-                values[i],
-                x.state.symbol + RL_term,
-            )
-        )
+        eqs.extend(_rush_larsen_update(x, expr_diff, dt, values[i], printer, delta, taken))
         i += 1
     return eqs
