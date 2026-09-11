@@ -131,6 +131,7 @@ def _taken_names(ode: ODE) -> set[str]:
     """
     names = {s.name for s in ode.states} | {p.name for p in ode.parameters}
     names |= {a.name for a in ode.sorted_assignments()}
+    names |= set(ode.missing_variables)
     return names
 
 

@@ -60,6 +60,13 @@ def diagonal_jacobian(ode: ODE, remove_unused: bool = False) -> dict[str, sympy.
             ):
                 jacobian[state.name] = derivative
 
+        # `check_components` guarantees every state has a matching
+        # `StateDerivative`, so the inner loop above always finds one. Enforce
+        # the promise made in the docstring rather than relying on that
+        # invariant holding forever: a caller indexing this dict by state name
+        # (schemes.py) should get a defined zero, not a bare `KeyError`.
+        jacobian.setdefault(state.name, sympy.Integer(0))
+
     logger.debug(
         "Computed diagonal Jacobian",
         num_states=len(jacobian),
