@@ -133,3 +133,59 @@ def test_generalized_rush_larsen_is_invariant_to_naming_a_subexpression(parser, 
     inlined, via_intermediate = _invariance_case(parser, trans, schemes.generalized_rush_larsen)
     assert inlined == via_intermediate
     assert "dV_dt_linearized = -g" in inlined
+
+
+def test_generalized_rush_larsen_emits_shared_subexpression_as_temporary(parser, trans):
+    """A Jacobian diagonal entry with a genuine repeated subexpression must be
+    factored by per-state CSE.
+
+    ``d/dx[sin(x**2)*cos(x**2)]`` is ``2*x*cos(x**2)**2 - 2*x*sin(x**2)**2``,
+    in which ``x**2`` occurs four times; confirmed with a standalone
+    ``sympy.cse`` call before writing this test. Every Jacobian entry reached
+    by the other scheme tests is a single symbol, so none of them exercise the
+    temporary-emission loop or the `fresh()` name generator in
+    `_linearized_assignments` -- this test is the one that does.
+    """
+    expr = """
+    states(x=0.5)
+    dx_dt = sin(x**2)*cos(x**2)
+    """
+    ode = make_ode(*trans.transform(parser.parse(expr)))
+    dt = sympy.Symbol("dt")
+    eqs = [str(e) for e in schemes.generalized_rush_larsen(ode, dt)]
+
+    temp_indices = [i for i, e in enumerate(eqs) if e.startswith("_dx_dt_linearized_")]
+    assert temp_indices, f"expected at least one CSE temporary, got none: eqs={eqs}"
+
+    state_derivative_index = next(i for i, e in enumerate(eqs) if e.startswith("dx_dt = "))
+    linearized_index = next(i for i, e in enumerate(eqs) if e.startswith("dx_dt_linearized = "))
+
+    # Per-state CSE is only safe to emit inline if it comes after the state
+    # derivative it was factored out of, and before the `_linearized` line
+    # that consumes it.
+    assert state_derivative_index < min(temp_indices)
+    assert max(temp_indices) < linearized_index
+
+    temp_names = [eqs[i].split(" = ")[0] for i in temp_indices]
+    assert any(temp_name in eqs[linearized_index] for temp_name in temp_names)
+
+
+def test_linearized_assignments_skips_taken_names():
+    """`_linearized_assignments`'s `fresh()` generator must skip names already
+    in `taken`, not merely start counting past them.
+
+    `sympy.cse(..., symbols=...)` consumes the generator lazily, one name per
+    membership check, so "start past the taken count" and "skip taken names"
+    only coincide when `taken` is contiguous from `_0`. Reusing the same
+    repeated-subexpression case as
+    `test_generalized_rush_larsen_emits_shared_subexpression_as_temporary`,
+    but calling the helper directly and pre-seeding `_dx_dt_linearized_0` as
+    taken.
+    """
+    x = sympy.Symbol("x")
+    expr = -2 * x * sympy.sin(x**2) ** 2 + 2 * x * sympy.cos(x**2) ** 2
+
+    replacements, _ = schemes._linearized_assignments("dx_dt", expr, taken={"_dx_dt_linearized_0"})
+
+    assert replacements
+    assert replacements[0][0].name == "_dx_dt_linearized_1"

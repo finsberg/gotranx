@@ -407,6 +407,11 @@ def generalized_rush_larsen(
         linearized = sympy.Symbol(linearized_name)
         eqs.append(printer(linearized, expr_diff, use_variable_prefix=True))
 
+        # `expr_diff` is the post-CSE reduced expression, so this check runs on
+        # the CSE'd form: if a provably-nonzero factor is hidden behind an
+        # opaque temporary, the check can't see through it and conservatively
+        # asks for a zero-division guard that a pre-CSE check would have
+        # skipped. That's an accepted cost of factoring first, not a bug.
         need_zero_div_check = not fraction_numerator_is_nonzero(expr_diff)
         if not need_zero_div_check:
             logger.debug(f"{linearized_name} cannot be zero. Skipping zero division check")
