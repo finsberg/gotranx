@@ -207,6 +207,85 @@ def test_linearized_assignments_skips_taken_names():
     assert replacements[0][0].name == "_dx_dt_linearized_1"
 
 
+def test_joint_linearized_assignments_skips_taken_names():
+    """The direct analogue of `test_linearized_assignments_skips_taken_names`
+    for the joint temporary pool: `_joint_linearized_assignments`'s `fresh()`
+    generator (`_linearization_temp_{i}`) must skip names already in `taken`,
+    not merely start counting past them. Same reasoning as the per-state
+    version: `sympy.cse(..., symbols=...)` consumes the generator lazily, one
+    name per membership check, so "start past the taken count" and "skip
+    taken names" only coincide when `taken` is contiguous from `_0`.
+    """
+    x = sympy.Symbol("x")
+    expr = -2 * x * sympy.sin(x**2) ** 2 + 2 * x * sympy.cos(x**2) ** 2
+
+    plan = schemes._joint_linearized_assignments([("dx_dt", expr)], taken={"_linearization_temp_0"})
+    replacements, _ = plan["dx_dt"]
+
+    assert replacements
+    assert replacements[0][0].name == "_linearization_temp_1"
+
+
+def test_hybrid_rush_larsen_restricts_joint_cse_to_stiff_linearizable_states(
+    parser, trans, monkeypatch
+):
+    """Nothing else pins that `hybrid_rush_larsen` feeds only stiff,
+    non-zero-diagonal states into the joint CSE plan -- a state that falls
+    back to forward Euler must contribute no temporary and no linearized
+    line, even when its own (unused) derivative happens to share the exact
+    subexpression the stiff states' diagonal entries share.
+
+    Three states: `x` and `y` are stiff and their diagonal Jacobian entries
+    both reduce to the same expression (as in
+    `test_generalized_rush_larsen_joint_cse_shares_temporary_across_states`),
+    so joint CSE must factor one shared temporary for them. `z` is *not*
+    stiff, but its derivative is written with the identical subexpression
+    `sin(x + y)*cos(x + y)` -- the shape the reviewer used to try to break the
+    stiff-subset restriction. If a future change fed all linearizable states
+    (not just the stiff ones) into the joint plan, `z` could end up claiming
+    the shared temporary's emission slot instead of `x`/`y` -- `z`'s branch
+    never emits the plan's replacements (it takes the forward-Euler path), so
+    the temporary `x`/`y` need would silently vanish. A `monkeypatch` spy on
+    `_linearization_plan` pins the actual restriction directly, rather than
+    relying on that failure mode reproducing reliably through output alone.
+    """
+    expr = """
+    states(x=1.0, y=1.0, z=1.0)
+    dx_dt = sin(x + y)*cos(x + y) - x
+    dy_dt = sin(x + y)*cos(x + y) - y
+    dz_dt = sin(x + y)*cos(x + y) - z
+    """
+    ode = make_ode(*trans.transform(parser.parse(expr)))
+    dt = sympy.Symbol("dt")
+
+    seen_items = []
+    real_linearization_plan = schemes._linearization_plan
+
+    def spy(items, taken, cse):
+        seen_items.append([name for name, _ in items])
+        return real_linearization_plan(items, taken, cse)
+
+    monkeypatch.setattr(schemes, "_linearization_plan", spy)
+
+    eqs = [str(e) for e in schemes.hybrid_rush_larsen(ode, dt, stiff_states=["x", "y"])]
+
+    assert seen_items == [["dx_dt", "dy_dt"]], (
+        f"expected only the stiff, linearizable states fed into the joint plan: {seen_items}"
+    )
+
+    assert not [e for e in eqs if e.startswith("dz_dt_linearized")]
+    assert "values[2] = dt*dz_dt + z" in eqs
+
+    temp_lines = [e for e in eqs if e.startswith("_linearization_temp_")]
+    assert temp_lines, f"expected a joint CSE temporary shared by x and y: eqs={eqs}"
+
+    dx_linearized = next(e for e in eqs if e.startswith("dx_dt_linearized = "))
+    dy_linearized = next(e for e in eqs if e.startswith("dy_dt_linearized = "))
+    temp_names = [e.split(" = ")[0] for e in temp_lines]
+    assert any(name in dx_linearized for name in temp_names)
+    assert any(name in dy_linearized for name in temp_names)
+
+
 def test_generalized_rush_larsen_default_cse_is_joint():
     """Joint is the new default: it costs the same or fewer operations than
     per-state on every backend measured (see schemes.py background), so it
