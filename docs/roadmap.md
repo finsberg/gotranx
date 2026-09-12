@@ -25,5 +25,17 @@ The plan is to have all the features from the old [gotran](https://github.com/Co
     - [x] CellML (supported via MyoKit)
 - [ ] Add support for lookup tables. A master student has currently implemented support for this in legacy gotran, see https://www.mn.uio.no/ifi/studier/masteroppgaver/bmi/automated-code-generation-for-simulating-cardiac-c.html
 - [ ] Better handling of singularities, see ongoing work here https://github.com/finsberg/gotranx/pull/68
+    - The Rush-Larsen schemes linearize by differentiating through intermediates,
+      which multiplies removable singularities in terms like `x/(exp(x) - 1)`.
+      `remove_singularities` should be extended over the linearized block.
+    - `sympy.cse` additionally **hoists** subexpressions out of `Piecewise`
+      branches, so a guarded singular term can become an unconditionally
+      evaluated temporary (verified on the pinned sympy 1.14: the derivative of
+      `Piecewise((0, V < -40), ((V+40)/(exp(-(V+40)/10)-1), True))` CSEs to a
+      temporary `1/(1 - x0)` that is singular at `V = -40` and is now evaluated
+      unconditionally) -- harmless today, since numpy's `where` evaluates both
+      branches anyway and in C the IEEE-754 `inf` is discarded by the ternary
+      unless the user traps FP exceptions, but it is a second, distinct
+      interaction with CSE worth recording alongside the one above.
 
 If you have additional feature requests, please [open an issue](https://github.com/finsberg/gotranx/issues)

@@ -13,6 +13,7 @@ def add_schemes(
     scheme: list[Scheme] | None = None,
     delta: float = 1e-8,
     stiff_states: list[str] | None = None,
+    cse: bool = True,
 ) -> list[str]:
     comp = []
     if scheme is not None:
@@ -20,6 +21,7 @@ def add_schemes(
             kwargs: dict[str, Any] = {}
             if "rush_larsen" in s.value:
                 kwargs["delta"] = delta
+                kwargs["cse"] = cse
             if s.value == "hybrid_rush_larsen":
                 kwargs["stiff_states"] = stiff_states
 
@@ -67,6 +69,24 @@ def read_config(path: Path | None) -> dict[str, Any]:
         return {}
     else:
         return config.get("tool", {}).get("gotranx", {})
+
+
+def validate_cse(cse: Any) -> bool:
+    """Reject a non-boolean `cse`, which can only reach here from a config file.
+
+    `cse` used to name a strategy (`"joint"` / `"per_state"` / `"none"`).
+    Every non-empty string is truthy, so a stale `cse = "none"` -- the
+    spelling that used to ask for *no* CSE -- would otherwise silently turn
+    CSE on, the exact opposite of what it says.
+    """
+    if not isinstance(cse, bool):
+        raise typer.BadParameter(
+            f"cse must be true or false, got {cse!r}. "
+            "It was previously a strategy name; use true for the old "
+            "'joint' or 'per_state', and false for the old 'none'.",
+            param_hint="cse",
+        )
+    return cse
 
 
 def validate_scheme(scheme: list[Scheme] | list[str]) -> list[Scheme]:

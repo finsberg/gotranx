@@ -29,6 +29,7 @@ def get_code(
     missing_values: dict[str, int] | None = None,
     delta: float = 1e-8,
     stiff_states: list[str] | None = None,
+    cse: bool = True,
     backend: Backend = Backend.numpy,
     shape: Shape = Shape.dynamic,
 ) -> str:
@@ -51,6 +52,10 @@ def get_code(
     stiff_states : list[str] | None, optional
         Stiff states, by default None. Only applicable for
         the hybrid rush larsen scheme
+    cse : bool, optional
+        Factor out subexpressions shared by the linearized expressions in
+        the rush larsen schemes, by default True. False inlines them
+        instead, emitting no temporaries
     backend : Backend, optional
         The backend, by default Backend.numpy
     shape : Shape, optional
@@ -97,6 +102,7 @@ def get_code(
         scheme=scheme,
         delta=delta,
         stiff_states=stiff_states,
+        cse=cse,
     )
     code = codegen._format("\n".join(comp))
 
@@ -115,6 +121,7 @@ def main(
     remove_unused: bool = False,
     verbose: bool = True,
     stiff_states: list[str] | None = None,
+    cse: bool = True,
     delta: float = 1e-8,
     suffix: str = ".py",
     backend: Backend = Backend.numpy,
@@ -133,6 +140,7 @@ def main(
         format=format,
         remove_unused=remove_unused,
         stiff_states=stiff_states,
+        cse=cse,
         delta=delta,
         backend=backend,
         shape=shape,

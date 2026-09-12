@@ -29,5 +29,6 @@ parts:
     chapters:
     - file: "docs/api.rst"
     - file: "docs/roadmap"
+    - file: CHANGELOG
     - file: CONTRIBUTING
     - file: CODE_OF_CONDUCT

@@ -10,6 +10,7 @@ from . import codegen
 from . import transformer
 from . import units
 from . import sympytools
+from . import linearization
 from . import schemes
 from . import templates
 from . import myokit
@@ -44,6 +45,7 @@ __all__ = [
     "ODE",
     "units",
     "sympytools",
+    "linearization",
     "schemes",
     "templates",
     "myokit",

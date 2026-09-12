@@ -21,6 +21,7 @@ def get_code(
     missing_values: dict[str, int] | None = None,
     delta: float = 1e-8,
     stiff_states: list[str] | None = None,
+    cse: bool = True,
     type_stable: bool = False,
 ) -> str:
     """Generate the Julia code for the ODE
@@ -42,6 +43,10 @@ def get_code(
     stiff_states : list[str] | None, optional
         Stiff states, by default None. Only applicable for
         the hybrid rush larsen scheme
+    cse : bool, optional
+        Factor out subexpressions shared by the linearized expressions in
+        the rush larsen schemes, by default True. False inlines them
+        instead, emitting no temporaries
     type_stable : bool, optional
         Add TYPE to the function signature, by default False
 
@@ -79,6 +84,7 @@ def get_code(
         scheme=scheme,
         delta=delta,
         stiff_states=stiff_states,
+        cse=cse,
     )
 
     code = codegen._format("\n".join(comp))
@@ -95,6 +101,7 @@ def main(
     missing_values: dict[str, int] | None = None,
     delta: float = 1e-8,
     stiff_states: list[str] | None = None,
+    cse: bool = True,
     type_stable: bool = False,
 ) -> None:
     loglevel = logging.DEBUG if verbose else logging.INFO
@@ -110,6 +117,7 @@ def main(
         missing_values=missing_values,
         delta=delta,
         stiff_states=stiff_states,
+        cse=cse,
         type_stable=type_stable,
     )
     out = fname if outname is None else Path(outname)

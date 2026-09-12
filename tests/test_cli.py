@@ -329,6 +329,140 @@ def test_cli_ode2mtk(odefile):
     outfile.unlink()
 
 
+# CSE only shows up in the generated code as the temporaries it factors out.
+# lorentz is too small to share anything, so the `--cse/--no-cse` tests use a
+# model whose linearized expressions actually overlap.
+CSE_TEMPORARY = "_linearization_temp_"
+
+
+@pytest.fixture(scope="module")
+def sharing_odefile():
+    """A bundled model whose states share subexpressions after linearization."""
+    return here / "odefiles" / "beeler_reuter_1977.ode"
+
+
+@pytest.mark.parametrize("flag, expect_temporaries", [("--cse", True), ("--no-cse", False)])
+def test_ode2py_cse_flag_controls_the_temporaries(
+    flag, expect_temporaries, sharing_odefile, tmp_path
+):
+    outfile = tmp_path / "beeler_reuter.py"
+    result = runner.invoke(
+        gotranx.cli.app,
+        [
+            "ode2py",
+            str(sharing_odefile),
+            "-v",
+            "-o",
+            str(outfile),
+            "--scheme",
+            "generalized_rush_larsen",
+            flag,
+            "-f",
+            "none",
+        ],
+    )
+    assert result.exit_code == 0, result.stdout
+    assert f"cse={expect_temporaries}" in result.stdout
+
+    code = outfile.read_text()
+    assert (CSE_TEMPORARY in code) is expect_temporaries, (
+        f"{flag} emitted the wrong temporaries: "
+        f"{CSE_TEMPORARY} {'present' if CSE_TEMPORARY in code else 'absent'}"
+    )
+
+
+def test_ode2py_cse_is_on_by_default(sharing_odefile, tmp_path):
+    outfile = tmp_path / "beeler_reuter.py"
+    result = runner.invoke(
+        gotranx.cli.app,
+        [
+            "ode2py",
+            str(sharing_odefile),
+            "-o",
+            str(outfile),
+            "--scheme",
+            "generalized_rush_larsen",
+            "-f",
+            "none",
+        ],
+    )
+    assert result.exit_code == 0, result.stdout
+    assert CSE_TEMPORARY in outfile.read_text()
+
+
+@pytest.mark.parametrize(
+    "command, suffix", [("ode2c", ".h"), ("ode2julia", ".jl"), ("ode2ufl", ".py")]
+)
+def test_cse_flag_reaches_the_other_backends(command, suffix, sharing_odefile, tmp_path):
+    outfile = tmp_path / f"beeler_reuter{suffix}"
+    result = runner.invoke(
+        gotranx.cli.app,
+        [
+            command,
+            str(sharing_odefile),
+            "-v",
+            "-o",
+            str(outfile),
+            "--scheme",
+            "generalized_rush_larsen",
+            "--no-cse",
+        ],
+    )
+    assert result.exit_code == 0, result.stdout
+    assert "cse=False" in result.stdout
+    assert CSE_TEMPORARY not in outfile.read_text()
+
+
+def test_cse_can_be_set_from_the_config_file(sharing_odefile, tmp_path):
+    config = tmp_path / "pyproject.toml"
+    config.write_text(
+        dedent(
+            """
+            [tool.gotranx]
+            scheme = ["generalized_rush_larsen"]
+            cse = false
+
+            [tool.gotranx.python]
+            format = "none"
+            """
+        )
+    )
+    outfile = tmp_path / "beeler_reuter.py"
+    result = runner.invoke(
+        gotranx.cli.app,
+        ["ode2py", str(sharing_odefile), "-c", str(config), "-o", str(outfile)],
+    )
+    assert result.exit_code == 0, result.stdout
+    assert CSE_TEMPORARY not in outfile.read_text()
+
+
+@pytest.mark.parametrize("bad", ['"none"', '"joint"', '"per_state"', "1"])
+def test_a_non_boolean_cse_in_the_config_file_is_rejected(bad, sharing_odefile, tmp_path):
+    """`cse` used to name a strategy (`"joint"` / `"per_state"` / `"none"`).
+    Config values bypass typer's own validation, so a stale `cse = "none"` --
+    the spelling that used to mean *no* CSE -- would otherwise be truthy and
+    silently turn CSE on, which is the opposite of what it asks for. It has to
+    fail loudly instead.
+    """
+    config = tmp_path / "pyproject.toml"
+    config.write_text(
+        dedent(
+            f"""
+            [tool.gotranx]
+            scheme = ["generalized_rush_larsen"]
+            cse = {bad}
+            """
+        )
+    )
+    result = runner.invoke(
+        gotranx.cli.app,
+        ["ode2py", str(sharing_odefile), "-c", str(config), "-o", str(tmp_path / "out.py")],
+    )
+    assert result.exit_code != 0
+    # The message goes to stderr, which `result.output` includes.
+    assert "Invalid value for cse" in result.output
+
+
 @pytest.mark.parametrize("format", gotranx.codegen.PythonFormat)
 def test_gotran2ufl(format, odefile, all_schemes):
     outfile = odefile.with_suffix(".py")

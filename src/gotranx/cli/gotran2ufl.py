@@ -23,6 +23,7 @@ def get_code(
     missing_values: dict[str, int] | None = None,
     delta: float = 1e-8,
     stiff_states: list[str] | None = None,
+    cse: bool = True,
     shape: Shape = Shape.dynamic,
 ) -> str:
     """Generate the UFL code for the ODE"""
@@ -54,6 +55,7 @@ def get_code(
         scheme=scheme,
         delta=delta,
         stiff_states=stiff_states,
+        cse=cse,
     )
     code = codegen._format("\n".join(comp))
 
@@ -72,6 +74,7 @@ def main(
     remove_unused: bool = False,
     verbose: bool = True,
     stiff_states: list[str] | None = None,
+    cse: bool = True,
     delta: float = 1e-8,
     suffix: str = ".py",
     shape: Shape = Shape.dynamic,
@@ -89,6 +92,7 @@ def main(
         format=format,
         remove_unused=remove_unused,
         stiff_states=stiff_states,
+        cse=cse,
         delta=delta,
         shape=shape,
     )
