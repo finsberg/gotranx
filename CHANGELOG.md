@@ -60,11 +60,14 @@ Deep linearization makes the generated scheme measurably bigger and slower to
 generate. Measured on `ToRORd_dyn_chloride`'s Python `generalized_rush_larsen`:
 
 - Generated source: **1052 → 2754 lines**; zero-division guards **54 → 66**.
-  New `_<derivative>_linearized_<k>` locals appear per state, relevant if you
-  post-process generated sources.
-- Code generation time: **~3.6x slower** (0.79 s → 2.87 s: 0.59 s AD sweep,
-  0.81 s per-state CSE). Fine for a one-off codegen step, but CI benchmarks
-  that time code generation itself will notice.
+  A `d<state>_dt_linearized` local now appears for every state, alongside CSE
+  temporaries named according to the `cse` strategy below
+  (`_linearization_temp_<k>` under the default). Relevant if you post-process
+  generated sources.
+- Code generation time: **~3.6x slower** (0.79 s → 2.84 s under the default
+  `cse="joint"`; 0.59 s of that is the AD sweep and most of the rest is CSE).
+  Fine for a one-off codegen step, but CI benchmarks that time code
+  generation itself will notice.
 - **Peak live temporaries on the plain-numpy backend.** CSE introduces named
   locals for every factored-out subexpression, and CPython keeps every local
   bound until the function returns (unlike C, Julia, and JAX-under-`jit`,
