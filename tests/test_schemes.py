@@ -144,23 +144,18 @@ def test_generalized_rush_larsen_is_invariant_to_naming_a_subexpression(parser, 
     assert "dV_dt_linearized = -g" in inlined
 
 
-def test_generalized_rush_larsen_emits_shared_subexpression_as_temporary(parser, trans):
+def test_generalized_rush_larsen_emits_repeated_subexpression_as_temporary(parser, trans):
     """A Jacobian diagonal entry with a genuine repeated subexpression must be
-    factored by per-state CSE.
+    factored into a temporary, even for a lone state with nothing to share with.
 
     ``d/dx[sin(x**2)*cos(x**2)]`` is ``2*x*cos(x**2)**2 - 2*x*sin(x**2)**2``,
     in which ``x**2`` occurs four times; confirmed with a standalone
     ``sympy.cse`` call before writing this test. Every Jacobian entry reached
     by the other scheme tests is a single symbol, so none of them exercise the
-    temporary-emission loop or the `fresh()` name generator in
-    `_linearized_assignments` -- this test is the one that does.
-
-    Passes ``cse="per_state"`` explicitly: this test's whole point is the
-    per-state naming (`_dx_dt_linearized_N`) produced by
-    `_linearized_assignments`, which is no longer what the default strategy
-    (joint) does -- joint uses the shared `_linearization_temp_N` pool
-    instead. See `test_generalized_rush_larsen_joint_cse_shares_temporary_across_states`
-    for the joint-naming equivalent.
+    temporary-emission loop or the `fresh()` name generator -- this test is
+    the one that does, and it is the single-state counterpart to
+    `test_generalized_rush_larsen_cse_shares_temporary_across_states`, which
+    covers factoring *between* states.
     """
     expr = """
     states(x=0.5)
@@ -168,15 +163,15 @@ def test_generalized_rush_larsen_emits_shared_subexpression_as_temporary(parser,
     """
     ode = make_ode(*trans.transform(parser.parse(expr)))
     dt = sympy.Symbol("dt")
-    eqs = [str(e) for e in schemes.generalized_rush_larsen(ode, dt, cse="per_state")]
+    eqs = [str(e) for e in schemes.generalized_rush_larsen(ode, dt)]
 
-    temp_indices = [i for i, e in enumerate(eqs) if e.startswith("_dx_dt_linearized_")]
+    temp_indices = [i for i, e in enumerate(eqs) if e.startswith("_linearization_temp_")]
     assert temp_indices, f"expected at least one CSE temporary, got none: eqs={eqs}"
 
     state_derivative_index = next(i for i, e in enumerate(eqs) if e.startswith("dx_dt = "))
     linearized_index = next(i for i, e in enumerate(eqs) if e.startswith("dx_dt_linearized = "))
 
-    # Per-state CSE is only safe to emit inline if it comes after the state
+    # A temporary is only safe to emit inline if it comes after the state
     # derivative it was factored out of, and before the `_linearized` line
     # that consumes it.
     assert state_derivative_index < min(temp_indices)
@@ -187,62 +182,38 @@ def test_generalized_rush_larsen_emits_shared_subexpression_as_temporary(parser,
 
 
 def test_linearized_assignments_skips_taken_names():
-    """`_linearized_assignments`'s `fresh()` generator must skip names already
-    in `taken`, not merely start counting past them.
+    """`_linearized_assignments`'s `fresh()` generator (`_linearization_temp_{i}`)
+    must skip names already in `taken`, not merely start counting past them.
 
     `sympy.cse(..., symbols=...)` consumes the generator lazily, one name per
     membership check, so "start past the taken count" and "skip taken names"
-    only coincide when `taken` is contiguous from `_0`. Reusing the same
-    repeated-subexpression case as
-    `test_generalized_rush_larsen_emits_shared_subexpression_as_temporary`,
-    but calling the helper directly and pre-seeding `_dx_dt_linearized_0` as
-    taken.
+    only coincide when `taken` is contiguous from `_0`.
     """
     x = sympy.Symbol("x")
     expr = -2 * x * sympy.sin(x**2) ** 2 + 2 * x * sympy.cos(x**2) ** 2
 
-    replacements, _ = schemes._linearized_assignments("dx_dt", expr, taken={"_dx_dt_linearized_0"})
-
-    assert replacements
-    assert replacements[0][0].name == "_dx_dt_linearized_1"
-
-
-def test_joint_linearized_assignments_skips_taken_names():
-    """The direct analogue of `test_linearized_assignments_skips_taken_names`
-    for the joint temporary pool: `_joint_linearized_assignments`'s `fresh()`
-    generator (`_linearization_temp_{i}`) must skip names already in `taken`,
-    not merely start counting past them. Same reasoning as the per-state
-    version: `sympy.cse(..., symbols=...)` consumes the generator lazily, one
-    name per membership check, so "start past the taken count" and "skip
-    taken names" only coincide when `taken` is contiguous from `_0`.
-    """
-    x = sympy.Symbol("x")
-    expr = -2 * x * sympy.sin(x**2) ** 2 + 2 * x * sympy.cos(x**2) ** 2
-
-    plan = schemes._joint_linearized_assignments([("dx_dt", expr)], taken={"_linearization_temp_0"})
+    plan = schemes._linearized_assignments([("dx_dt", expr)], taken={"_linearization_temp_0"})
     replacements, _ = plan["dx_dt"]
 
     assert replacements
     assert replacements[0][0].name == "_linearization_temp_1"
 
 
-def test_hybrid_rush_larsen_restricts_joint_cse_to_stiff_linearizable_states(
-    parser, trans, monkeypatch
-):
+def test_hybrid_rush_larsen_restricts_cse_to_stiff_linearizable_states(parser, trans, monkeypatch):
     """Nothing else pins that `hybrid_rush_larsen` feeds only stiff,
-    non-zero-diagonal states into the joint CSE plan -- a state that falls
+    non-zero-diagonal states into the CSE plan -- a state that falls
     back to forward Euler must contribute no temporary and no linearized
     line, even when its own (unused) derivative happens to share the exact
     subexpression the stiff states' diagonal entries share.
 
     Three states: `x` and `y` are stiff and their diagonal Jacobian entries
     both reduce to the same expression (as in
-    `test_generalized_rush_larsen_joint_cse_shares_temporary_across_states`),
-    so joint CSE must factor one shared temporary for them. `z` is *not*
+    `test_generalized_rush_larsen_cse_shares_temporary_across_states`),
+    so CSE must factor one shared temporary for them. `z` is *not*
     stiff, but its derivative is written with the identical subexpression
     `sin(x + y)*cos(x + y)` -- the shape the reviewer used to try to break the
     stiff-subset restriction. If a future change fed all linearizable states
-    (not just the stiff ones) into the joint plan, `z` could end up claiming
+    (not just the stiff ones) into the plan, `z` could end up claiming
     the shared temporary's emission slot instead of `x`/`y` -- `z`'s branch
     never emits the plan's replacements (it takes the forward-Euler path), so
     the temporary `x`/`y` need would silently vanish. A `monkeypatch` spy on
@@ -270,14 +241,14 @@ def test_hybrid_rush_larsen_restricts_joint_cse_to_stiff_linearizable_states(
     eqs = [str(e) for e in schemes.hybrid_rush_larsen(ode, dt, stiff_states=["x", "y"])]
 
     assert seen_items == [["dx_dt", "dy_dt"]], (
-        f"expected only the stiff, linearizable states fed into the joint plan: {seen_items}"
+        f"expected only the stiff, linearizable states fed into the plan: {seen_items}"
     )
 
     assert not [e for e in eqs if e.startswith("dz_dt_linearized")]
     assert "values[2] = dt*dz_dt + z" in eqs
 
     temp_lines = [e for e in eqs if e.startswith("_linearization_temp_")]
-    assert temp_lines, f"expected a joint CSE temporary shared by x and y: eqs={eqs}"
+    assert temp_lines, f"expected a CSE temporary shared by x and y: eqs={eqs}"
 
     dx_linearized = next(e for e in eqs if e.startswith("dx_dt_linearized = "))
     dy_linearized = next(e for e in eqs if e.startswith("dy_dt_linearized = "))
@@ -286,59 +257,42 @@ def test_hybrid_rush_larsen_restricts_joint_cse_to_stiff_linearizable_states(
     assert any(name in dy_linearized for name in temp_names)
 
 
-def test_generalized_rush_larsen_default_cse_is_joint():
-    """Joint is the new default: it costs the same or fewer operations than
-    per-state on every backend measured (see schemes.py background), so it
-    should not need to be opted into."""
+def test_generalized_rush_larsen_cse_is_on_by_default():
+    """CSE costs fewer operations than not doing it on every model measured,
+    so it should not need to be opted into. `cse=False` exists for the one
+    thing CSE costs: a named local per factored subexpression, which on the
+    vectorized numpy backend is a live array."""
     import inspect
 
     sig = inspect.signature(schemes.generalized_rush_larsen)
-    assert sig.parameters["cse"].default == schemes.CSEStrategy.joint
+    assert sig.parameters["cse"].default is True
 
 
-def test_hybrid_rush_larsen_default_cse_is_joint():
+def test_hybrid_rush_larsen_cse_is_on_by_default():
     import inspect
 
     sig = inspect.signature(schemes.hybrid_rush_larsen)
-    assert sig.parameters["cse"].default == schemes.CSEStrategy.joint
+    assert sig.parameters["cse"].default is True
 
 
-def test_cse_strategy_accepts_plain_strings(ode):
-    """Schemes are invoked with `**kwargs` from `CodeGenerator.scheme`, so a
-    plain string (e.g. from a config file) must work exactly like the enum
-    member."""
-    dt = sympy.Symbol("dt")
-    from_enum = schemes.generalized_rush_larsen(ode, dt, cse=schemes.CSEStrategy.none)
-    from_string = schemes.generalized_rush_larsen(ode, dt, cse="none")
-    assert [str(e) for e in from_enum] == [str(e) for e in from_string]
-
-
-def test_invalid_cse_strategy_raises_a_clear_error(ode):
-    dt = sympy.Symbol("dt")
-    with pytest.raises(ValueError, match="not-a-real-strategy"):
-        schemes.generalized_rush_larsen(ode, dt, cse="not-a-real-strategy")
-
-
-def test_cse_none_inlines_the_full_expression_with_no_temporaries(parser, trans):
-    """`cse="none"` must not factor anything: `d<state>_dt_linearized` is one
-    inlined expression, with no `_linearization_temp_*` or per-state
-    temporaries at all."""
+def test_cse_false_inlines_the_full_expression_with_no_temporaries(parser, trans):
+    """`cse=False` must not factor anything: `d<state>_dt_linearized` is one
+    inlined expression, with no temporaries at all."""
     expr = """
     states(x=0.5)
     dx_dt = sin(x**2)*cos(x**2)
     """
     ode = make_ode(*trans.transform(parser.parse(expr)))
     dt = sympy.Symbol("dt")
-    eqs = [str(e) for e in schemes.generalized_rush_larsen(ode, dt, cse="none")]
+    eqs = [str(e) for e in schemes.generalized_rush_larsen(ode, dt, cse=False)]
 
-    assert not [e for e in eqs if e.startswith("_dx_dt_linearized_")]
     assert not [e for e in eqs if e.startswith("_linearization_temp_")]
     linearized = next(e for e in eqs if e.startswith("dx_dt_linearized = "))
     # The raw, un-factored diagonal Jacobian entry.
     assert linearized == "dx_dt_linearized = -2*x*math.sin(x**2)**2 + 2*x*math.cos(x**2)**2"
 
 
-JOINT_SHARED_SUBEXPRESSION = """
+SHARED_SUBEXPRESSION = """
 states(x=1.0, y=1.0)
 q = sin(x + y)*cos(x + y)
 dx_dt = q - x
@@ -346,8 +300,8 @@ dy_dt = q - y
 """
 
 
-def test_generalized_rush_larsen_joint_cse_shares_temporary_across_states(parser, trans):
-    """The crux of joint CSE: a subexpression shared *between* two states'
+def test_generalized_rush_larsen_cse_shares_temporary_across_states(parser, trans):
+    """The crux of CSE here: a subexpression shared *between* two states'
     linearized derivatives must be computed once, as a `_linearization_temp_*`
     temporary emitted immediately before the first state that needs it (here,
     x), and simply reused (not recomputed) for the second (y).
@@ -358,12 +312,12 @@ def test_generalized_rush_larsen_joint_cse_shares_temporary_across_states(parser
     returns one temporary for `x+y` and a second temporary, identical for
     both states, for the whole reduced expression.
     """
-    ode = make_ode(*trans.transform(parser.parse(JOINT_SHARED_SUBEXPRESSION)))
+    ode = make_ode(*trans.transform(parser.parse(SHARED_SUBEXPRESSION)))
     dt = sympy.Symbol("dt")
-    eqs = [str(e) for e in schemes.generalized_rush_larsen(ode, dt)]  # default: joint
+    eqs = [str(e) for e in schemes.generalized_rush_larsen(ode, dt)]  # default: cse on
 
     temp_indices = [i for i, e in enumerate(eqs) if e.startswith("_linearization_temp_")]
-    assert temp_indices, f"expected joint CSE temporaries, got none: eqs={eqs}"
+    assert temp_indices, f"expected CSE temporaries, got none: eqs={eqs}"
 
     dx_linearized_index = next(i for i, e in enumerate(eqs) if e.startswith("dx_dt_linearized = "))
     dy_linearized_index = next(i for i, e in enumerate(eqs) if e.startswith("dy_dt_linearized = "))
@@ -385,7 +339,7 @@ def test_every_temporary_is_emitted_before_its_first_use(parser, trans):
     """No generated line may reference a name that has not appeared as the
     left-hand side of an earlier line in the same list -- this would be a
     `NameError` at run time in the generated code."""
-    ode = make_ode(*trans.transform(parser.parse(JOINT_SHARED_SUBEXPRESSION)))
+    ode = make_ode(*trans.transform(parser.parse(SHARED_SUBEXPRESSION)))
     dt = sympy.Symbol("dt")
     eqs = [str(e) for e in schemes.generalized_rush_larsen(ode, dt)]
 

@@ -7,7 +7,7 @@ from ..codegen.base import Shape
 from ..codegen.ufl import UFLCodeGenerator
 from ..codegen.python import get_formatter, Format
 from ..load import load_ode
-from ..schemes import CSEStrategy, Scheme
+from ..schemes import Scheme
 from ..ode import ODE
 
 from .utils import add_schemes
@@ -23,7 +23,7 @@ def get_code(
     missing_values: dict[str, int] | None = None,
     delta: float = 1e-8,
     stiff_states: list[str] | None = None,
-    cse: CSEStrategy | str = CSEStrategy.joint,
+    cse: bool = True,
     shape: Shape = Shape.dynamic,
 ) -> str:
     """Generate the UFL code for the ODE"""
@@ -74,7 +74,7 @@ def main(
     remove_unused: bool = False,
     verbose: bool = True,
     stiff_states: list[str] | None = None,
-    cse: CSEStrategy | str = CSEStrategy.joint,
+    cse: bool = True,
     delta: float = 1e-8,
     suffix: str = ".py",
     shape: Shape = Shape.dynamic,

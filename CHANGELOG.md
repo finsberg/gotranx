@@ -60,14 +60,12 @@ Deep linearization makes the generated scheme measurably bigger and slower to
 generate. Measured on `ToRORd_dyn_chloride`'s Python `generalized_rush_larsen`:
 
 - Generated source: **1052 → 2754 lines**; zero-division guards **54 → 66**.
-  A `d<state>_dt_linearized` local now appears for every state, alongside CSE
-  temporaries named according to the `cse` strategy below
-  (`_linearization_temp_<k>` under the default). Relevant if you post-process
+  A `d<state>_dt_linearized` local now appears for every state, alongside
+  `_linearization_temp_<k>` CSE temporaries. Relevant if you post-process
   generated sources.
-- Code generation time: **~3.6x slower** (0.79 s → 2.84 s under the default
-  `cse="joint"`; 0.59 s of that is the AD sweep and most of the rest is CSE).
-  Fine for a one-off codegen step, but CI benchmarks that time code
-  generation itself will notice.
+- Code generation time: **~3.6x slower** (0.79 s → 2.84 s; 0.59 s of that is
+  the AD sweep and most of the rest is CSE). Fine for a one-off codegen step,
+  but CI benchmarks that time code generation itself will notice.
 - **Peak live temporaries on the plain-numpy backend.** CSE introduces named
   locals for every factored-out subexpression, and CPython keeps every local
   bound until the function returns (unlike C, Julia, and JAX-under-`jit`,
@@ -75,52 +73,42 @@ generate. Measured on `ToRORd_dyn_chloride`'s Python `generalized_rush_larsen`:
   dead). Measured: distinct locals in the generated ToRORd function go
   **595 → 1011** (+70%) once deep linearization's CSE'd temporaries are
   added. For vectorized use over many cells (see
-  `docs/vectorized_computations.md`) that is a real memory increase. The
-  `cse` parameter below controls how many of those locals there are; `"none"`
-  avoids the increase entirely, at the cost of far more operations.
-- **CSE strategy is now selectable, and joint is the default.** Both
-  `generalized_rush_larsen` and `hybrid_rush_larsen` take a `cse` parameter
-  (`gotranx.schemes.CSEStrategy`: `"joint"`, `"per_state"`, `"none"`; plain
-  strings work too), exposed on the CLI as `--cse` for `ode2py`, `ode2c`,
-  `ode2julia` and `ode2ufl`, and as `cse` under `[tool.gotranx]` in
-  `pyproject.toml`.
+  `docs/vectorized_computations.md`) that is a real memory increase, and
+  `cse=False` below is the way out of it.
+- **CSE can now be turned off.** Both `generalized_rush_larsen` and
+  `hybrid_rush_larsen` take a `cse` parameter, default `True`, exposed on the
+  CLI as `--cse` / `--no-cse` for `ode2py`, `ode2c`, `ode2julia` and
+  `ode2ufl`, and as `cse` under `[tool.gotranx]` in `pyproject.toml`.
 
-  - `"joint"` (**new default**) runs one `sympy.cse` across every state being
-    linearized at once, so a subexpression shared *between* states is
-    computed once rather than once per state. It replaces `"per_state"` as
-    the default because it costs the same or fewer operations on every
-    backend measured, for essentially the same number of live temporaries —
-    the reasoning that made per-state CSE the previous default (that its
-    temporaries die at the end of each state's own update) turned out not to
-    pay off in practice: none of C, Julia, JAX-under-`jit`, or CPython itself
-    actually frees a temporary early based on emission order, so per-state
-    bought nothing over joint except a higher operation count.
-  - `"per_state"` is the previous default, kept working. It is the better
-    choice again if a future change starts emitting `del` for a temporary
-    once it is dead, since a per-state temporary is provably dead at the end
-    of that state's own update, where a joint one may still be needed by a
-    later state.
-  - `"none"` performs no CSE at all: every `d<state>_dt_linearized` is one
-    fully inlined expression. It costs the most operations but produces the
-    fewest named locals, which is what the peak-live-temporaries concern
-    above actually tracks — this is the option that avoids that memory cost
-    on the vectorized numpy backend.
+  `True` runs one `sympy.cse` across every state being linearized at once, so
+  a subexpression shared *between* states is computed once. `False` performs
+  no CSE at all: every `d<state>_dt_linearized` becomes one fully inlined
+  expression, which emits no temporaries whatsoever — the option that avoids
+  the memory cost described above — at the price of far more arithmetic.
 
-  Measured operation count relative to the plain rhs, and number of
-  temporaries, on `ToRORd_dyn_chloride` and on `base_model_IM.ode`:
+  Measured operation count for the linearization block relative to the plain
+  rhs, and number of temporaries:
 
-  | strategy | ToRORd ops/rhs | ToRORd temporaries | base_model_IM ops/rhs | base_model_IM temporaries |
-  |---|---|---|---|---|
-  | `joint` (default) | 1.077x | 430 | 0.583x | 55 |
-  | `per_state` | 1.352x | 405 | 0.686x | 49 |
-  | `none` | 9.426x | 0 | 1.049x | 0 |
+  | model | `cse=True` ops / temps | `cse=False` ops / temps |
+  |---|---|---|
+  | `fitzhughnagumo` | 0.51x / 2 | 0.62x / 0 |
+  | `lorentz` | 0.38x / 0 | 0.38x / 0 |
+  | `beeler_reuter_1977` | 0.34x / 7 | 0.59x / 0 |
+  | `tentusscher_panfilov_2006_M_cell` | 0.67x / 74 | 1.38x / 0 |
+  | `ORdmm_Land` | 1.23x / 381 | 12.65x / 0 |
+  | `ToRORd_dyn_chloride` | 1.08x / 430 | 9.43x / 0 |
 
-  Joint and per-state have essentially the same temporary count (see table
-  above), so switching the default from one to the other does not change the
-  595 → 1011 peak-live-temporaries measurement above.
+  Note that 1.8.0 already ran CSE, but one pass per state rather than one
+  across all of them. That per-state strategy was briefly kept as a third
+  option and then dropped: it never saved more than 11% of the temporaries
+  and always cost 18–31% more operations than a joint pass, so no preference
+  selected it. If a future change starts emitting `del` for a temporary once
+  it is dead — which nothing does today, in any backend — per-state becomes
+  worth reconsidering, since a per-state temporary is provably dead at the
+  end of that state's own update where a shared one may not be.
 
   If you diff generated output across gotranx versions: regenerating an
-  existing model now produces different temporary names than before (joint's
-  shared pool is named `_linearization_temp_<k>`, not
-  `_<derivative>_linearized_<k>`), and the different factoring reassociates
-  floating-point operations, which can shift results at the ~1e-14 level.
+  existing model now produces different temporary names than 1.8.0 (the
+  shared pool is `_linearization_temp_<k>`, not `_<derivative>_linearized_<k>`),
+  and the different factoring reassociates floating-point operations, which
+  can shift results at the ~1e-14 level.

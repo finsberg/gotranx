@@ -329,15 +329,10 @@ def test_cli_ode2mtk(odefile):
     outfile.unlink()
 
 
-# A CSE strategy only shows up in the generated code as the names of the
-# temporaries it factors out. lorentz is too small to share anything, so the
-# `--cse` tests use a model whose linearized expressions actually overlap.
-# ``_linearization_temp_`` is the joint pool; ``_d<state>_dt_linearized_<k>``
-# is the per-state one; ``none`` emits neither.
-CSE_MARKER = {
-    "joint": "_linearization_temp_",
-    "per_state": "_linearized_0",
-}
+# CSE only shows up in the generated code as the temporaries it factors out.
+# lorentz is too small to share anything, so the `--cse/--no-cse` tests use a
+# model whose linearized expressions actually overlap.
+CSE_TEMPORARY = "_linearization_temp_"
 
 
 @pytest.fixture(scope="module")
@@ -346,8 +341,10 @@ def sharing_odefile():
     return here / "odefiles" / "beeler_reuter_1977.ode"
 
 
-@pytest.mark.parametrize("strategy", [s.value for s in gotranx.schemes.CSEStrategy])
-def test_ode2py_cse_flag_selects_the_strategy(strategy, sharing_odefile, tmp_path):
+@pytest.mark.parametrize("flag, expect_temporaries", [("--cse", True), ("--no-cse", False)])
+def test_ode2py_cse_flag_controls_the_temporaries(
+    flag, expect_temporaries, sharing_odefile, tmp_path
+):
     outfile = tmp_path / "beeler_reuter.py"
     result = runner.invoke(
         gotranx.cli.app,
@@ -359,24 +356,22 @@ def test_ode2py_cse_flag_selects_the_strategy(strategy, sharing_odefile, tmp_pat
             str(outfile),
             "--scheme",
             "generalized_rush_larsen",
-            "--cse",
-            strategy,
+            flag,
             "-f",
             "none",
         ],
     )
     assert result.exit_code == 0, result.stdout
-    assert f"cse={strategy}" in result.stdout
+    assert f"cse={expect_temporaries}" in result.stdout
 
     code = outfile.read_text()
-    for name, marker in CSE_MARKER.items():
-        assert (marker in code) is (name == strategy), (
-            f"--cse {strategy} emitted the wrong temporaries: "
-            f"{marker} {'present' if marker in code else 'absent'}"
-        )
+    assert (CSE_TEMPORARY in code) is expect_temporaries, (
+        f"{flag} emitted the wrong temporaries: "
+        f"{CSE_TEMPORARY} {'present' if CSE_TEMPORARY in code else 'absent'}"
+    )
 
 
-def test_ode2py_cse_defaults_to_joint(sharing_odefile, tmp_path):
+def test_ode2py_cse_is_on_by_default(sharing_odefile, tmp_path):
     outfile = tmp_path / "beeler_reuter.py"
     result = runner.invoke(
         gotranx.cli.app,
@@ -392,22 +387,7 @@ def test_ode2py_cse_defaults_to_joint(sharing_odefile, tmp_path):
         ],
     )
     assert result.exit_code == 0, result.stdout
-    assert CSE_MARKER["joint"] in outfile.read_text()
-
-
-def test_cse_flag_rejects_an_unknown_strategy(sharing_odefile, tmp_path):
-    result = runner.invoke(
-        gotranx.cli.app,
-        [
-            "ode2py",
-            str(sharing_odefile),
-            "-o",
-            str(tmp_path / "out.py"),
-            "--cse",
-            "aggressive",
-        ],
-    )
-    assert result.exit_code != 0
+    assert CSE_TEMPORARY in outfile.read_text()
 
 
 @pytest.mark.parametrize(
@@ -425,15 +405,12 @@ def test_cse_flag_reaches_the_other_backends(command, suffix, sharing_odefile, t
             str(outfile),
             "--scheme",
             "generalized_rush_larsen",
-            "--cse",
-            "per_state",
+            "--no-cse",
         ],
     )
     assert result.exit_code == 0, result.stdout
-    assert "cse=per_state" in result.stdout
-    code = outfile.read_text()
-    assert CSE_MARKER["per_state"] in code
-    assert CSE_MARKER["joint"] not in code
+    assert "cse=False" in result.stdout
+    assert CSE_TEMPORARY not in outfile.read_text()
 
 
 def test_cse_can_be_set_from_the_config_file(sharing_odefile, tmp_path):
@@ -443,7 +420,7 @@ def test_cse_can_be_set_from_the_config_file(sharing_odefile, tmp_path):
             """
             [tool.gotranx]
             scheme = ["generalized_rush_larsen"]
-            cse = "none"
+            cse = false
 
             [tool.gotranx.python]
             format = "none"
@@ -456,9 +433,34 @@ def test_cse_can_be_set_from_the_config_file(sharing_odefile, tmp_path):
         ["ode2py", str(sharing_odefile), "-c", str(config), "-o", str(outfile)],
     )
     assert result.exit_code == 0, result.stdout
-    code = outfile.read_text()
-    assert CSE_MARKER["joint"] not in code
-    assert CSE_MARKER["per_state"] not in code
+    assert CSE_TEMPORARY not in outfile.read_text()
+
+
+@pytest.mark.parametrize("bad", ['"none"', '"joint"', '"per_state"', "1"])
+def test_a_non_boolean_cse_in_the_config_file_is_rejected(bad, sharing_odefile, tmp_path):
+    """`cse` used to name a strategy (`"joint"` / `"per_state"` / `"none"`).
+    Config values bypass typer's own validation, so a stale `cse = "none"` --
+    the spelling that used to mean *no* CSE -- would otherwise be truthy and
+    silently turn CSE on, which is the opposite of what it asks for. It has to
+    fail loudly instead.
+    """
+    config = tmp_path / "pyproject.toml"
+    config.write_text(
+        dedent(
+            f"""
+            [tool.gotranx]
+            scheme = ["generalized_rush_larsen"]
+            cse = {bad}
+            """
+        )
+    )
+    result = runner.invoke(
+        gotranx.cli.app,
+        ["ode2py", str(sharing_odefile), "-c", str(config), "-o", str(tmp_path / "out.py")],
+    )
+    assert result.exit_code != 0
+    # The message goes to stderr, which `result.output` includes.
+    assert "Invalid value for cse" in result.output
 
 
 @pytest.mark.parametrize("format", gotranx.codegen.PythonFormat)

@@ -124,9 +124,8 @@ def _generated_module(ode, name, schemes=(gotranx.schemes.Scheme.generalized_rus
 def _generated_module_with_cse(ode, name, cse):
     """Like `_generated_module`, but reaches `PythonCodeGenerator.scheme`
     directly so a `cse` kwarg can be threaded through to
-    `generalized_rush_larsen` -- `gotranx.cli.gotran2py.get_code` does not
-    expose arbitrary scheme kwargs, only the ones it names explicitly
-    (`delta`, `stiff_states`).
+    `generalized_rush_larsen` without going through the CLI layer that
+    `_generated_module` uses.
     """
     from gotranx.codegen.python import Format
 
@@ -288,12 +287,11 @@ def test_linearization_block_stays_within_twice_the_rhs(loaded):
     A whole-*scheme* 2x bound is unachievable for ToRORd, structurally: a
     scheme necessarily contains the entire rhs plus this block, so
     scheme/rhs = 1 + block/rhs. Getting the whole function under 2x needs the
-    block itself at <= 1.0x the rhs; per-state CSE (chosen over joint CSE on
-    liveness grounds, see `_linearized_assignments`) gets to 1.35x on ToRORd,
-    and even joint CSE only reaches 1.08x. So the block, not the whole
-    function, is the thing this test bounds. The whole-scheme assertion below
-    is a deliberately loose line-count ceiling kept only as an explosion
-    guard for a future change in emission strategy -- not a quality bar.
+    block itself at <= 1.0x the rhs, and CSE only reaches 1.08x on ToRORd. So
+    the block, not the whole function, is the thing this test bounds. The
+    whole-scheme assertion below is a deliberately loose line-count ceiling
+    kept only as an explosion guard for a future change in emission strategy
+    -- not a quality bar.
 
     Measured at the time of writing:
         ToRORd_dyn_chloride:              block 1.35x; whole 2.35x by ops, 3.13x by lines
@@ -491,16 +489,15 @@ def test_emitted_linearized_expression_matches_diagonal_jacobian(name, loaded):
 @pytest.mark.parametrize("name", ["tentusscher_panfilov_2006_M_cell", "ToRORd_dyn_chloride"])
 def test_cse_strategies_agree_on_emitted_linearized_values(name, loaded):
     """CSE is a factoring of the same expression, so it must not change the
-    result: `joint`, `per_state`, and `none` must all emit numerically
-    identical `d<state>_dt_linearized` values, at the same state/parameter
-    vector.
+    result: `cse=True` and `cse=False` must emit numerically identical
+    `d<state>_dt_linearized` values, at the same state/parameter vector.
 
     Reuses `_call_capturing_locals` (see
     `test_emitted_linearized_expression_matches_diagonal_jacobian` above) to
     read the post-CSE locals straight out of each generated module, rather
     than re-deriving expected values from `diagonal_jacobian` a second time --
     that comparison against the untouched symbolic diagonal is already made
-    once, for the default strategy, by that other test.
+    once, for the default, by that other test.
     """
     ode = loaded[name]
     jac = diagonal_jacobian(ode)
@@ -511,7 +508,7 @@ def test_cse_strategies_agree_on_emitted_linearized_values(name, loaded):
 
     np.seterr(all="ignore")
     values_by_strategy = {}
-    for cse in ("joint", "per_state", "none"):
+    for cse in (True, False):
         mod = _generated_module_with_cse(ode, name, cse)
         parameters = mod["init_parameter_values"]()
         base = mod["init_state_values"]()
@@ -521,35 +518,26 @@ def test_cse_strategies_agree_on_emitted_linearized_values(name, loaded):
         values_by_strategy[cse] = np.array([captured[n] for n in linearized_names], dtype=float)
 
     np.testing.assert_allclose(
-        values_by_strategy["per_state"],
-        values_by_strategy["joint"],
+        values_by_strategy[False],
+        values_by_strategy[True],
         atol=1e-9,
         rtol=1e-9,
-        err_msg=f"per_state disagrees with joint for {name}",
-    )
-    np.testing.assert_allclose(
-        values_by_strategy["none"],
-        values_by_strategy["joint"],
-        atol=1e-9,
-        rtol=1e-9,
-        err_msg=f"none disagrees with joint for {name}",
+        err_msg=f"cse=False disagrees with cse=True for {name}",
     )
 
 
 def _linearization_block_ops(ode, cse):
-    """Total `sympy.count_ops` of everything the given `CSEStrategy` emits for
-    the linearization block: every temporary's rhs, plus every state's
-    reduced `d<state>_dt_linearized` expression. Mirrors what
+    """Total `sympy.count_ops` of everything the linearization block emits at
+    the given `cse` setting: every temporary's rhs, plus every state's reduced
+    `d<state>_dt_linearized` expression. Mirrors what
     `test_linearization_block_stays_within_twice_the_rhs` measures for the
-    (formerly default) per-state strategy, generalized to all three."""
-    from gotranx.schemes import CSEStrategy, _linearization_plan, _taken_names
+    default, generalized to both settings."""
+    from gotranx.schemes import _linearization_plan, _taken_names
 
     jac = diagonal_jacobian(ode)
     to_linearize = [x for x in ode.state_derivatives if not jac[x.state.name].is_zero]
     taken = _taken_names(ode)
-    plan = _linearization_plan(
-        [(x.name, jac[x.state.name]) for x in to_linearize], taken, CSEStrategy(cse)
-    )
+    plan = _linearization_plan([(x.name, jac[x.state.name]) for x in to_linearize], taken, cse)
     ops = 0
     for replacements, reduced in plan.values():
         for _, sub_expr in replacements:
@@ -558,16 +546,15 @@ def _linearization_block_ops(ode, cse):
     return ops
 
 
-def test_cse_strategy_operation_count_ordering_on_ToRORd(loaded):
-    """Measured background for this change: joint gives the fewest operations,
-    per_state (the old default) more, and none (fully inlined) far more --
-    joint 1.08x the rhs, per_state 1.35x, none 9.43x, on ToRORd_dyn_chloride.
-    This test pins the ordering, not the exact multiples, so it stays robust
-    to incidental sympy version changes in how aggressively `cse`/`count_ops`
-    simplify."""
+def test_cse_saves_operations_on_ToRORd(loaded):
+    """Measured background for the default: CSE costs far fewer operations
+    than inlining -- 1.08x the rhs against 9.43x, on ToRORd_dyn_chloride. That
+    gap is why `cse=True` is the default and `cse=False` is reserved for the
+    one thing it buys, namely no named temporaries at all. This test pins the
+    direction, not the exact multiples, so it stays robust to incidental sympy
+    version changes in how aggressively `cse`/`count_ops` simplify."""
     ode = loaded["ToRORd_dyn_chloride"]
-    joint_ops = _linearization_block_ops(ode, "joint")
-    per_state_ops = _linearization_block_ops(ode, "per_state")
-    none_ops = _linearization_block_ops(ode, "none")
+    cse_ops = _linearization_block_ops(ode, True)
+    inlined_ops = _linearization_block_ops(ode, False)
 
-    assert joint_ops < per_state_ops < none_ops, (joint_ops, per_state_ops, none_ops)
+    assert cse_ops < inlined_ops, (cse_ops, inlined_ops)

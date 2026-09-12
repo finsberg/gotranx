@@ -5,7 +5,7 @@ import warnings
 
 import typer
 
-from ..schemes import CSEStrategy, Scheme, get_scheme
+from ..schemes import Scheme, get_scheme
 from ..codegen import PythonFormat, CFormat
 from ..codegen.base import Shape
 from . import gotran2c, gotran2py, gotran2julia, gotran2md, gotran2mtk, gotran2ufl
@@ -115,12 +115,13 @@ def convert(
         1e-8,
         help="Delta value for the rush larsen schemes",
     ),
-    cse: CSEStrategy = typer.Option(
-        CSEStrategy.joint,
-        "--cse",
+    cse: bool = typer.Option(
+        True,
+        "--cse/--no-cse",
         help=(
-            "How to factor out subexpressions shared by the linearized "
-            "expressions in the rush larsen schemes"
+            "Factor out subexpressions shared by the linearized expressions "
+            "in the rush larsen schemes. --no-cse inlines them instead, "
+            "emitting no temporaries"
         ),
     ),
 ):
@@ -285,12 +286,13 @@ def ode2py(
         1e-8,
         help="Delta value for the rush larsen schemes",
     ),
-    cse: CSEStrategy = typer.Option(
-        CSEStrategy.joint,
-        "--cse",
+    cse: bool = typer.Option(
+        True,
+        "--cse/--no-cse",
         help=(
-            "How to factor out subexpressions shared by the linearized "
-            "expressions in the rush larsen schemes"
+            "Factor out subexpressions shared by the linearized expressions "
+            "in the rush larsen schemes. --no-cse inlines them instead, "
+            "emitting no temporaries"
         ),
     ),
     format: PythonFormat = typer.Option(
@@ -319,7 +321,7 @@ def ode2py(
     verbose = config_data.get("verbose", verbose)
     delta = config_data.get("delta", delta)
     stiff_states = config_data.get("stiff_states", stiff_states)
-    cse = CSEStrategy(config_data.get("cse", cse))
+    cse = utils.validate_cse(config_data.get("cse", cse))
     scheme = config_data.get("scheme", scheme)
     shape = Shape(config_data.get("shape", shape))
     scheme = utils.validate_scheme(scheme)
@@ -407,12 +409,13 @@ def ode2c(
         1e-8,
         help="Delta value for the rush larsen schemes",
     ),
-    cse: CSEStrategy = typer.Option(
-        CSEStrategy.joint,
-        "--cse",
+    cse: bool = typer.Option(
+        True,
+        "--cse/--no-cse",
         help=(
-            "How to factor out subexpressions shared by the linearized "
-            "expressions in the rush larsen schemes"
+            "Factor out subexpressions shared by the linearized expressions "
+            "in the rush larsen schemes. --no-cse inlines them instead, "
+            "emitting no temporaries"
         ),
     ),
     format: CFormat = typer.Option(
@@ -429,7 +432,7 @@ def ode2c(
     verbose = config_data.get("verbose", verbose)
     delta = config_data.get("delta", delta)
     stiff_states = config_data.get("stiff_states", stiff_states)
-    cse = CSEStrategy(config_data.get("cse", cse))
+    cse = utils.validate_cse(config_data.get("cse", cse))
     scheme = config_data.get("scheme", scheme)
     scheme = utils.validate_scheme(scheme)
     c_config = config_data.get("c", {})
@@ -509,12 +512,13 @@ def ode2julia(
         1e-8,
         help="Delta value for the rush larsen schemes",
     ),
-    cse: CSEStrategy = typer.Option(
-        CSEStrategy.joint,
-        "--cse",
+    cse: bool = typer.Option(
+        True,
+        "--cse/--no-cse",
         help=(
-            "How to factor out subexpressions shared by the linearized "
-            "expressions in the rush larsen schemes"
+            "Factor out subexpressions shared by the linearized expressions "
+            "in the rush larsen schemes. --no-cse inlines them instead, "
+            "emitting no temporaries"
         ),
     ),
     type_stable: bool = typer.Option(
@@ -536,7 +540,7 @@ def ode2julia(
     verbose = config_data.get("verbose", verbose)
     delta = config_data.get("delta", delta)
     stiff_states = config_data.get("stiff_states", stiff_states)
-    cse = CSEStrategy(config_data.get("cse", cse))
+    cse = utils.validate_cse(config_data.get("cse", cse))
     scheme = config_data.get("scheme", scheme)
     scheme = utils.validate_scheme(scheme)
     # c_config = config_data.get("c", {})
@@ -759,12 +763,13 @@ def ode2ufl(
         1e-8,
         help="Delta value for the rush larsen schemes",
     ),
-    cse: CSEStrategy = typer.Option(
-        CSEStrategy.joint,
-        "--cse",
+    cse: bool = typer.Option(
+        True,
+        "--cse/--no-cse",
         help=(
-            "How to factor out subexpressions shared by the linearized "
-            "expressions in the rush larsen schemes"
+            "Factor out subexpressions shared by the linearized expressions "
+            "in the rush larsen schemes. --no-cse inlines them instead, "
+            "emitting no temporaries"
         ),
     ),
     format: PythonFormat = typer.Option(
@@ -787,7 +792,7 @@ def ode2ufl(
     verbose = config_data.get("verbose", verbose)
     delta = config_data.get("delta", delta)
     stiff_states = config_data.get("stiff_states", stiff_states)
-    cse = CSEStrategy(config_data.get("cse", cse))
+    cse = utils.validate_cse(config_data.get("cse", cse))
     scheme = config_data.get("scheme", scheme)
     shape = Shape(config_data.get("shape", shape))
     scheme = utils.validate_scheme(scheme)

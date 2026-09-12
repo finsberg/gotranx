@@ -8,7 +8,7 @@ from ..codegen.base import Shape
 from ..codegen.jax import JaxCodeGenerator
 from ..codegen.python import PythonCodeGenerator, get_formatter, Format
 from ..load import load_ode
-from ..schemes import CSEStrategy, Scheme
+from ..schemes import Scheme
 from ..ode import ODE
 
 from .utils import add_schemes
@@ -29,7 +29,7 @@ def get_code(
     missing_values: dict[str, int] | None = None,
     delta: float = 1e-8,
     stiff_states: list[str] | None = None,
-    cse: CSEStrategy | str = CSEStrategy.joint,
+    cse: bool = True,
     backend: Backend = Backend.numpy,
     shape: Shape = Shape.dynamic,
 ) -> str:
@@ -52,10 +52,10 @@ def get_code(
     stiff_states : list[str] | None, optional
         Stiff states, by default None. Only applicable for
         the hybrid rush larsen scheme
-    cse : gotranx.schemes.CSEStrategy | str, optional
-        How to factor out subexpressions shared by the linearized
-        expressions in the rush larsen schemes, by default
-        CSEStrategy.joint. See gotranx.schemes.CSEStrategy
+    cse : bool, optional
+        Factor out subexpressions shared by the linearized expressions in
+        the rush larsen schemes, by default True. False inlines them
+        instead, emitting no temporaries
     backend : Backend, optional
         The backend, by default Backend.numpy
     shape : Shape, optional
@@ -121,7 +121,7 @@ def main(
     remove_unused: bool = False,
     verbose: bool = True,
     stiff_states: list[str] | None = None,
-    cse: CSEStrategy | str = CSEStrategy.joint,
+    cse: bool = True,
     delta: float = 1e-8,
     suffix: str = ".py",
     backend: Backend = Backend.numpy,
