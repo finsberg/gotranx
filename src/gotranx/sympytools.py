@@ -43,7 +43,14 @@ def rhs_matrix(ode, max_tries: int = 20) -> sympy.Matrix:
 
     num_tries = 0
     while (any([rhs.has(k) for k in intermediates.keys()])) and num_tries < max_tries:
-        rhs = rhs.xreplace(intermediates)
+        # xreplace() rebuilds every ancestor of a substituted symbol using the
+        # default (evaluate=True) constructor, which auto-distributes numeric
+        # coefficients over sums - e.g. (x - 4.823)/51.12 would silently
+        # become 0.0195618153364632*x - 0.0943466353677621 if an intermediate
+        # substituted here happens to sit inside such a division. Matches the
+        # same fix applied in myokit.gotran_to_myokit.
+        with sympy.core.parameters.evaluate(False):
+            rhs = rhs.xreplace(intermediates)
         num_tries += 1
 
     if num_tries == max_tries:

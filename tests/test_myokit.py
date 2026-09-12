@@ -1,6 +1,7 @@
 from pathlib import Path
 import math
 import pytest
+import sympy as sp
 import gotranx.myokit
 
 try:
@@ -68,3 +69,138 @@ def test_myokit_to_gotran_and_back(cellml_file):
         var = myokit_model.get(qname)
         assert var.unit() == orig_var.unit()
         assert math.isclose(var.value(), orig_var.value(), abs_tol=1e-12)
+
+
+@pytest.mark.skipif(myokit is None, reason="myokit not installed")
+def test_gotran_to_myokit_cross_component_reference():
+    # A state derivative in one component referencing an intermediate
+    # defined in a *different* component used to raise a KeyError, because
+    # the symbol substitution map in gotran_to_myokit was built from plain
+    # sp.Symbol(name) objects while gotranx atoms use sp.Symbol(name,
+    # real=True, ...) - the two are never equal, so xreplace silently did
+    # nothing for any cross-component reference.
+    ode = gotranx.load.ode_from_string(
+        """
+        states("membrane", V=ScalarParam(-87, unit="mV", description=""))
+
+        parameters("leak",
+        E_L=ScalarParam(-60.0, unit="mV", description=""),
+        g_L=ScalarParam(75.0, unit="uS", description="")
+        )
+
+        parameters("membrane",
+        Cm=ScalarParam(12.0, unit="uF", description="")
+        )
+
+        expressions("leak")
+        i_Leak = g_L*(-E_L + V) # nA
+
+        expressions("membrane")
+        dV_dt = -i_Leak/Cm # mV
+        """
+    )
+    myokit_model = gotranx.myokit.gotran_to_myokit(ode)
+    v = myokit_model.get("membrane.V")
+    # The right-hand side must reference the *qualified* leak.i_Leak variable,
+    # not the bare (and therefore unresolved) name "i_Leak".
+    assert "leak.i_Leak" in v.rhs().code()
+
+
+@pytest.mark.skipif(myokit is None, reason="myokit not installed")
+def test_gotran_to_myokit_does_not_distribute_coefficients():
+    # gotran_to_myokit substitutes local symbol names for their fully
+    # qualified myokit.qname() equivalent via xreplace(). Without wrapping
+    # that call in `with sp.core.parameters.evaluate(False)`, sympy rebuilds
+    # every ancestor of a substituted symbol using its default (evaluate=True)
+    # constructor, which auto-distributes numeric coefficients over sums -
+    # e.g. (v - 4.823)/51.12 silently became 0.0195618153364632*v -
+    # 0.0943466353677621. This must not happen: the qualified expression
+    # should have the same *structure* as the original, just with `v`
+    # replaced by `membrane.v`.
+    ode = gotranx.load.ode_from_string(
+        """
+        states("membrane", v=-91.33918)
+        expressions("membrane")
+        dv_dt = -v
+        expressions("other")
+        tm = 0.06487*exp(-((v - 1*4.823)/51.12)**2)
+        """
+    )
+    myokit_model = gotranx.myokit.gotran_to_myokit(ode)
+    tm = myokit_model.get("other.tm")
+    code = tm.rhs().code()
+    assert "membrane.v" in code
+    # The distributed form would contain a decimal coefficient in front of
+    # membrane.v (e.g. "1.95618...e-2 * membrane.v"); the un-distributed
+    # form keeps "membrane.v" appearing on its own next to the literal 51.12.
+    assert "51.12" in code
+
+
+@pytest.mark.skipif(myokit is None, reason="myokit not installed")
+@pytest.mark.parametrize(
+    "component_name",
+    ["", "My component", "environment"],
+    ids=["unnamed", "with-space", "reserved"],
+)
+def test_gotran_to_myokit_sanitizes_component_names(component_name):
+    # Component names in gotranx are free-form strings: they default to the
+    # empty string when not given explicitly, and may contain spaces or other
+    # characters that are not valid myokit/CellML identifiers. Both used to
+    # raise myokit.InvalidNameError.
+    if component_name:
+        text = f'states("{component_name}", x=1.0)\nexpressions("{component_name}")\ndx_dt = -x\n'
+    else:
+        text = "states(x=1.0)\ndx_dt = -x\n"
+    ode = gotranx.load.ode_from_string(text)
+
+    myokit_model = gotranx.myokit.gotran_to_myokit(ode)
+    myokit_model.validate()
+
+
+def _pow_unevaluated(base, exponent):
+    # Build a Pow node the same way myokit.formats.sympy.write() does: with
+    # evaluate=False, so Python/sympy never gets a chance to auto-simplify
+    # the exponent (e.g. collapsing a double reciprocal) before our own
+    # normalization runs.
+    with sp.core.parameters.evaluate(False):
+        return sp.Pow(base, exponent, evaluate=False)
+
+
+@pytest.mark.skipif(myokit is None, reason="myokit not installed")
+@pytest.mark.parametrize(
+    "expr, expected",
+    [
+        # myokit's sympy writer represents 1/x as x**Float(-1.0), which the
+        # sympy printer can't recognize as a reciprocal (unlike x**Integer(-1)),
+        # so it used to print as "1.0/x**1.0" instead of "1.0/x".
+        (
+            sp.Mul(sp.Float(1.0), _pow_unevaluated(sp.Symbol("x"), sp.Float(-1.0)), evaluate=False),
+            "1.0/x",
+        ),
+        # A bare power of 1.0 should collapse to just the base.
+        (_pow_unevaluated(sp.Symbol("x"), sp.Float(1.0)), "x"),
+        # Integer-valued float exponents elsewhere should become clean integers.
+        (_pow_unevaluated(sp.Symbol("x"), sp.Float(4.0)), "x**4"),
+        # Non-integer exponents must be left untouched.
+        (_pow_unevaluated(sp.Symbol("x"), sp.Float(1.5)), "x**1.5"),
+    ],
+)
+def test_normalize_integer_powers(expr, expected):
+    normalized = gotranx.myokit._normalize_integer_powers(expr)
+    assert str(normalized) == expected
+
+
+@pytest.mark.skipif(myokit is None, reason="myokit not installed")
+def test_cellml_to_gotran_has_no_redundant_float_powers(tmp_path):
+    # Regression test: myokit's sympy writer used to leave expressions such
+    # as divisions (1/x) with a *float* exponent (x**-1.0 rather than
+    # x**-1), which the sympy printer renders as "1.0/x**1.0" - a redundant
+    # "**1.0" that should never appear in generated .ode files.
+    ode = gotranx.myokit.cellml_to_gotran(
+        filename=here / "cellml_files" / "ToRORd_dynCl_mid.cellml",
+    )
+    out_odefile = tmp_path / "ToRORd_dynCl_mid.ode"
+    ode.save(out_odefile)
+    text = out_odefile.read_text()
+    assert "**1.0" not in text
+    assert "**-1.0" not in text
