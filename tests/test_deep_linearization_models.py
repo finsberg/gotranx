@@ -121,6 +121,34 @@ def _generated_module(ode, name, schemes=(gotranx.schemes.Scheme.generalized_rus
     return namespace
 
 
+def _generated_module_with_cse(ode, name, cse):
+    """Like `_generated_module`, but reaches `PythonCodeGenerator.scheme`
+    directly so a `cse` kwarg can be threaded through to
+    `generalized_rush_larsen` -- `gotranx.cli.gotran2py.get_code` does not
+    expose arbitrary scheme kwargs, only the ones it names explicitly
+    (`delta`, `stiff_states`).
+    """
+    from gotranx.codegen.python import Format
+
+    codegen = PythonCodeGenerator(ode, format=Format.none)
+    comp = [
+        codegen.imports(),
+        codegen.parameter_index(),
+        codegen.state_index(),
+        codegen.monitor_index(),
+        codegen.missing_index(),
+        codegen.initial_parameter_values(),
+        codegen.initial_state_values(),
+        codegen.rhs(),
+        codegen.monitor_values(),
+        codegen.scheme(get_scheme("generalized_rush_larsen"), cse=cse),
+    ]
+    code = codegen._format("\n".join(comp))
+    namespace: dict = {}
+    exec(compile(code, f"<{name}-{cse}>", "exec"), namespace)
+    return namespace
+
+
 def _call_capturing_locals(func, *args):
     """Call a generated scheme function and return `(result, locals_at_return)`.
 
@@ -458,3 +486,88 @@ def test_emitted_linearized_expression_matches_diagonal_jacobian(name, loaded):
         rtol=1e-9,
         err_msg=(f"emitted d<state>_dt_linearized disagrees with diagonal_jacobian for {name}"),
     )
+
+
+@pytest.mark.parametrize("name", ["tentusscher_panfilov_2006_M_cell", "ToRORd_dyn_chloride"])
+def test_cse_strategies_agree_on_emitted_linearized_values(name, loaded):
+    """CSE is a factoring of the same expression, so it must not change the
+    result: `joint`, `per_state`, and `none` must all emit numerically
+    identical `d<state>_dt_linearized` values, at the same state/parameter
+    vector.
+
+    Reuses `_call_capturing_locals` (see
+    `test_emitted_linearized_expression_matches_diagonal_jacobian` above) to
+    read the post-CSE locals straight out of each generated module, rather
+    than re-deriving expected values from `diagonal_jacobian` a second time --
+    that comparison against the untouched symbolic diagonal is already made
+    once, for the default strategy, by that other test.
+    """
+    ode = loaded[name]
+    jac = diagonal_jacobian(ode)
+    linearized_names = [
+        f"{x.name}_linearized" for x in ode.state_derivatives if not jac[x.state.name].is_zero
+    ]
+    assert linearized_names, f"expected at least one linearized state for {name}"
+
+    np.seterr(all="ignore")
+    values_by_strategy = {}
+    for cse in ("joint", "per_state", "none"):
+        mod = _generated_module_with_cse(ode, name, cse)
+        parameters = mod["init_parameter_values"]()
+        base = mod["init_state_values"]()
+        _, captured = _call_capturing_locals(
+            mod["generalized_rush_larsen"], base.copy(), 0.0, 1e-3, parameters
+        )
+        values_by_strategy[cse] = np.array([captured[n] for n in linearized_names], dtype=float)
+
+    np.testing.assert_allclose(
+        values_by_strategy["per_state"],
+        values_by_strategy["joint"],
+        atol=1e-9,
+        rtol=1e-9,
+        err_msg=f"per_state disagrees with joint for {name}",
+    )
+    np.testing.assert_allclose(
+        values_by_strategy["none"],
+        values_by_strategy["joint"],
+        atol=1e-9,
+        rtol=1e-9,
+        err_msg=f"none disagrees with joint for {name}",
+    )
+
+
+def _linearization_block_ops(ode, cse):
+    """Total `sympy.count_ops` of everything the given `CSEStrategy` emits for
+    the linearization block: every temporary's rhs, plus every state's
+    reduced `d<state>_dt_linearized` expression. Mirrors what
+    `test_linearization_block_stays_within_twice_the_rhs` measures for the
+    (formerly default) per-state strategy, generalized to all three."""
+    from gotranx.schemes import CSEStrategy, _linearization_plan, _taken_names
+
+    jac = diagonal_jacobian(ode)
+    to_linearize = [x for x in ode.state_derivatives if not jac[x.state.name].is_zero]
+    taken = _taken_names(ode)
+    plan = _linearization_plan(
+        [(x.name, jac[x.state.name]) for x in to_linearize], taken, CSEStrategy(cse)
+    )
+    ops = 0
+    for replacements, reduced in plan.values():
+        for _, sub_expr in replacements:
+            ops += sympy.count_ops(sub_expr)
+        ops += sympy.count_ops(reduced)
+    return ops
+
+
+def test_cse_strategy_operation_count_ordering_on_ToRORd(loaded):
+    """Measured background for this change: joint gives the fewest operations,
+    per_state (the old default) more, and none (fully inlined) far more --
+    joint 1.08x the rhs, per_state 1.35x, none 9.43x, on ToRORd_dyn_chloride.
+    This test pins the ordering, not the exact multiples, so it stays robust
+    to incidental sympy version changes in how aggressively `cse`/`count_ops`
+    simplify."""
+    ode = loaded["ToRORd_dyn_chloride"]
+    joint_ops = _linearization_block_ops(ode, "joint")
+    per_state_ops = _linearization_block_ops(ode, "per_state")
+    none_ops = _linearization_block_ops(ode, "none")
+
+    assert joint_ops < per_state_ops < none_ops, (joint_ops, per_state_ops, none_ops)

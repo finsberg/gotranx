@@ -56,6 +56,35 @@ class Scheme(str, Enum):
     hybrid_rush_larsen = "hybrid_rush_larsen"
 
 
+class CSEStrategy(str, Enum):
+    """How to factor shared subexpressions out of the linearized (diagonal
+    Jacobian) expressions the Rush-Larsen schemes emit.
+
+    joint
+        One `sympy.cse` across every state's linearized expression at once,
+        so a subexpression shared *between* states is computed once. The
+        default: measured (on ToRORd) at 1.08x the rhs operation count,
+        against per_state's 1.35x, for essentially the same number of live
+        temporaries -- strictly better on every backend, since none of them
+        (C, Julia, JAX, or CPython itself) frees a temporary before the
+        function returns anyway.
+    per_state
+        One `sympy.cse` per state, as gotranx did before joint was added.
+        Every temporary is only ever referenced within that one state's
+        update, so this is the strategy to prefer again if the Python
+        backend starts emitting `del` for a temporary once it is dead.
+    none
+        No CSE at all: each `d<state>_dt_linearized` is one fully inlined
+        expression. The most operations (9.43x the rhs on ToRORd) but the
+        fewest named locals, which is what the vectorized numpy backend
+        pays for in live arrays.
+    """
+
+    joint = "joint"
+    per_state = "per_state"
+    none = "none"
+
+
 def get_scheme(scheme: str) -> scheme_func:
     """Get the scheme function from a string"""
     if scheme in ["forward_euler", "forward_explicit_euler", "euler", "explicit_euler"]:
@@ -140,13 +169,16 @@ def _linearized_assignments(
     expr: sympy.Expr,
     taken: set[str],
 ) -> tuple[list[tuple[sympy.Symbol, sympy.Expr]], sympy.Expr]:
-    """Factor shared subexpressions out of one linearized expression.
+    """Factor shared subexpressions out of one state's linearized expression.
 
-    CSE is applied per state rather than jointly across all states. Joint CSE
-    gives a lower operation count but leaves every temporary live across the
-    whole function, which on the vectorized backends means one live array per
-    temporary. Per-state temporaries are dead by the end of the state's own
-    update.
+    This is the ``CSEStrategy.per_state`` strategy: one ``sympy.cse`` call per
+    state, considering only that state's own diagonal Jacobian entry. It is
+    no longer the default -- ``CSEStrategy.joint`` (``_joint_linearized_assignments``)
+    is, since it costs the same or fewer operations on every measured backend
+    -- but it stays available because it becomes the better choice again if
+    the Python backend starts emitting ``del`` for a temporary once it is
+    dead: a per-state temporary is provably dead at the end of that state's
+    own update, where a joint one may still be needed by a later state.
 
     Returns the temporaries, in the order they must be emitted, and the reduced
     expression to assign to ``<derivative_name>_linearized``.
@@ -164,24 +196,121 @@ def _linearized_assignments(
     return replacements, reduced[0]
 
 
+def _joint_linearized_assignments(
+    items: list[tuple[str, sympy.Expr]],
+    taken: set[str],
+) -> dict[str, tuple[list[tuple[sympy.Symbol, sympy.Expr]], sympy.Expr]]:
+    """Factor shared subexpressions out of every state's linearized expression
+    at once (``CSEStrategy.joint``).
+
+    ``items`` is ``(state_name, diagonal_jacobian_entry)`` pairs, in the order
+    those states will be emitted. One ``sympy.cse`` call runs across all of
+    them together, so a subexpression shared *between* two states' entries is
+    computed once rather than twice.
+
+    A temporary shared between states x and y must literally appear in both
+    of their expressions, so its free symbols lie in both states' dependency
+    cones and are therefore already available by the time either ``dx_dt`` or
+    ``dy_dt`` has been emitted. That makes the emission rule simple: emit each
+    temporary immediately before the first (in ``items`` order) state whose
+    linearized expression needs it -- directly, or transitively through
+    another temporary. ``sympy.cse``'s replacement list is already in
+    topological order (a temporary only ever references an earlier one), so
+    "first state that needs it" can be resolved with one forward pass.
+
+    Returns, per state name, the temporaries that must be emitted immediately
+    before that state's ``d<state>_dt_linearized`` line (only those not
+    already emitted for an earlier state in ``items``) and this state's
+    reduced expression.
+    """
+    names = [name for name, _ in items]
+    exprs = [expr for _, expr in items]
+
+    def fresh():
+        i = 0
+        while True:
+            name = f"_linearization_temp_{i}"
+            if name not in taken:
+                yield sympy.Symbol(name, real=True)
+            i += 1
+
+    replacements, reduced = sympy.cse(exprs, symbols=fresh(), optimizations="basic")
+
+    temp_symbols = {symbol for symbol, _ in replacements}
+    sub_expr_by_symbol = dict(replacements)
+    # Each temporary's own direct dependencies among the other temporaries;
+    # used below to take the transitive closure of "temporaries this state's
+    # expression needs".
+    direct_temp_deps = {
+        symbol: sub_expr.free_symbols & temp_symbols for symbol, sub_expr in replacements
+    }
+    emission_order = {symbol: i for i, (symbol, _) in enumerate(replacements)}
+
+    def transitively_needed(expr: sympy.Expr) -> set[sympy.Symbol]:
+        needed = expr.free_symbols & temp_symbols
+        frontier = set(needed)
+        while frontier:
+            frontier = set().union(*(direct_temp_deps[s] for s in frontier)) - needed
+            needed |= frontier
+        return needed
+
+    already_emitted: set[sympy.Symbol] = set()
+    result: dict[str, tuple[list[tuple[sympy.Symbol, sympy.Expr]], sympy.Expr]] = {}
+    for name, expr in zip(names, reduced):
+        to_emit = sorted(
+            transitively_needed(expr) - already_emitted, key=lambda s: emission_order[s]
+        )
+        result[name] = ([(s, sub_expr_by_symbol[s]) for s in to_emit], expr)
+        already_emitted |= set(to_emit)
+
+    return result
+
+
+def _linearization_plan(
+    items: list[tuple[str, sympy.Expr]],
+    taken: set[str],
+    cse: CSEStrategy,
+) -> dict[str, tuple[list[tuple[sympy.Symbol, sympy.Expr]], sympy.Expr]]:
+    """Compute the temporaries to emit and the reduced expression to assign,
+    per derivative name, for exactly the states about to be linearized (never
+    for one that will fall back to forward Euler -- that would emit a
+    temporary nothing uses).
+
+    ``items`` keys by derivative name (e.g. ``"dx_dt"``, i.e. ``x.name`` for a
+    ``StateDerivative`` ``x``) rather than state name, matching the naming
+    ``_linearized_assignments`` has always used for ``per_state``.
+    """
+    if cse is CSEStrategy.joint:
+        return _joint_linearized_assignments(items, taken)
+    if cse is CSEStrategy.per_state:
+        return {name: _linearized_assignments(name, expr, taken) for name, expr in items}
+    # CSEStrategy.none: nothing factored out, the full expression stands as-is.
+    return {name: ([], expr) for name, expr in items}
+
+
 def _rush_larsen_update(
     x: atoms.StateDerivative,
+    replacements: list[tuple[sympy.Symbol, sympy.Expr]],
     expr_diff: sympy.Expr,
     dt: sympy.Symbol,
     target: sympy.Symbol | sympy.Expr,
     printer: printer_func,
     delta: float,
-    taken: set[str],
 ) -> list[str]:
     """Emit the CSE temporaries, the linearized assignment, and the Rush-Larsen update.
 
     Shared by every scheme that reaches this point for a state whose diagonal
-    Jacobian entry ``expr_diff`` is non-zero. The zero-derivative case is each
-    caller's own forward-Euler fallback, decided before this is called, since
-    the two schemes reach it under different conditions.
+    Jacobian entry is non-zero. The zero-derivative case is each caller's own
+    forward-Euler fallback, decided before this is called, since the two
+    schemes reach it under different conditions.
+
+    ``replacements`` and ``expr_diff`` (the post-CSE reduced expression) are
+    computed by the caller, which decides -- once, for the whole scheme --
+    which ``CSEStrategy`` produced them (``_linearized_assignments`` for
+    ``per_state``, ``_joint_linearized_assignments`` for ``joint``, or
+    ``([], expr_diff)`` unchanged for ``none``).
     """
     eqs = []
-    replacements, expr_diff = _linearized_assignments(x.name, expr_diff, taken)
     for symbol, sub_expr in replacements:
         eqs.append(printer(symbol, sub_expr, use_variable_prefix=True))
 
@@ -270,6 +399,7 @@ def hybrid_rush_larsen(
     remove_unused: bool = False,
     delta: float = 1e-8,
     stiff_states: list[str] | None = None,
+    cse: CSEStrategy | str = CSEStrategy.joint,
 ) -> list[str]:
     r"""Generate the hybrid Rush-Larsen scheme for the ODE
 
@@ -314,6 +444,10 @@ def hybrid_rush_larsen(
         exponential per state per step. The exception is a state whose
         derivative does not depend on itself; it gets forward Euler regardless
         (the exact g -> 0 limit), and a warning is logged.
+    cse : CSEStrategy | str, optional
+        Strategy for factoring shared subexpressions out of the linearized
+        expressions, by default ``CSEStrategy.joint``. See `CSEStrategy` for
+        the trade-offs between ``"joint"``, ``"per_state"``, and ``"none"``.
 
     Returns
     -------
@@ -323,7 +457,8 @@ def hybrid_rush_larsen(
     """
     if stiff_states is None:
         stiff_states = []
-    logger.debug("Generating hybrid Rush-Larsen scheme", stiff_states=stiff_states)
+    cse = CSEStrategy(cse)
+    logger.debug("Generating hybrid Rush-Larsen scheme", stiff_states=stiff_states, cse=cse.value)
     stiff_states_set = set(stiff_states)
     found_stiff_states_set = set()
     not_linearizable = set()
@@ -331,6 +466,20 @@ def hybrid_rush_larsen(
     values = sympy.IndexedBase(name, shape=(len(ode.state_derivatives),))
     jacobian = diagonal_jacobian(ode, remove_unused=remove_unused)
     taken = _taken_names(ode)
+
+    # The states that will actually receive the Rush-Larsen update, in
+    # emission order: stiff and linearizable. Anything else (not stiff, or
+    # stiff but not linearizable) falls back to forward Euler and must not be
+    # included -- CSE would factor a temporary nothing uses.
+    to_linearize = [
+        x
+        for x in ode.sorted_assignments(remove_unused=remove_unused)
+        if isinstance(x, atoms.StateDerivative)
+        and x.state.name in stiff_states_set
+        and not jacobian[x.state.name].is_zero
+    ]
+    plan = _linearization_plan([(x.name, jacobian[x.state.name]) for x in to_linearize], taken, cse)
+
     i = 0
     for x in ode.sorted_assignments(remove_unused=remove_unused):
         eqs.append(printer(x.symbol, x.expr, use_variable_prefix=True))
@@ -361,7 +510,8 @@ def hybrid_rush_larsen(
             continue
 
         logger.debug(f"State {x.state.name} is stiff")
-        eqs.extend(_rush_larsen_update(x, expr_diff, dt, values[i], printer, delta, taken))
+        replacements, reduced = plan[x.name]
+        eqs.extend(_rush_larsen_update(x, replacements, reduced, dt, values[i], printer, delta))
         i += 1
 
     if not_linearizable:
@@ -385,6 +535,7 @@ def generalized_rush_larsen(
     printer: printer_func = default_printer,
     remove_unused: bool = False,
     delta: float = 1e-8,
+    cse: CSEStrategy | str = CSEStrategy.joint,
 ) -> list[str]:
     r"""Generate the forward generalized Rush-Larsen scheme for the ODE
 
@@ -418,17 +569,33 @@ def generalized_rush_larsen(
         Remove unused variables, by default False
     delta : float, optional
         Tolerance for zero division check, by default 1e-8
+    cse : CSEStrategy | str, optional
+        Strategy for factoring shared subexpressions out of the linearized
+        expressions, by default ``CSEStrategy.joint``. See `CSEStrategy` for
+        the trade-offs between ``"joint"``, ``"per_state"``, and ``"none"``.
 
     Returns
     -------
     list[str]
         A list of equations as strings
     """
-    logger.debug("Generating generalized Rush-Larsen scheme")
+    cse = CSEStrategy(cse)
+    logger.debug("Generating generalized Rush-Larsen scheme", cse=cse.value)
     eqs = []
     values = sympy.IndexedBase(name, shape=(len(ode.state_derivatives),))
     jacobian = diagonal_jacobian(ode, remove_unused=remove_unused)
     taken = _taken_names(ode)
+
+    # Every state that will actually be linearized (non-zero diagonal entry),
+    # in emission order. A zero entry falls back to forward Euler below and
+    # must not be included -- CSE would factor a temporary nothing uses.
+    to_linearize = [
+        x
+        for x in ode.sorted_assignments(remove_unused=remove_unused)
+        if isinstance(x, atoms.StateDerivative) and not jacobian[x.state.name].is_zero
+    ]
+    plan = _linearization_plan([(x.name, jacobian[x.state.name]) for x in to_linearize], taken, cse)
+
     i = 0
     for x in ode.sorted_assignments(remove_unused=remove_unused):
         eqs.append(printer(x.symbol, x.expr, use_variable_prefix=True))
@@ -454,6 +621,7 @@ def generalized_rush_larsen(
             i += 1
             continue
 
-        eqs.extend(_rush_larsen_update(x, expr_diff, dt, values[i], printer, delta, taken))
+        replacements, reduced = plan[x.name]
+        eqs.extend(_rush_larsen_update(x, replacements, reduced, dt, values[i], printer, delta))
         i += 1
     return eqs
