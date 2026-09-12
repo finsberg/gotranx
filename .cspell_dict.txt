@@ -43,6 +43,7 @@ gotranx
 hprint
 Hustad
 inds
+inlines
 Istim
 Johan
 jupytext
@@ -91,6 +92,7 @@ Rdmm
 relop
 reorderable
 reversal_potentials
+reuter
 rhoz
 rtol
 scalarparam
