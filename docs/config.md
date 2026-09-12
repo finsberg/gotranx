@@ -40,6 +40,7 @@ stiff_states = [
     "h",
     "j",
 ]
+cse = "joint"
 
 [tool.gotranx.python]
 format = "ruff"
@@ -66,6 +67,12 @@ gotranx ode2py file.ode -c folder/pyproject.toml
 ```
 - `delta` (float, default: 1e-8): Tolerance for zero division check in Rush-Larsen schemes
 - `stiff_states`: (list[str], default: []): List of states where to apply the Rush-Larsen scheme for Hybrid Rush Larsen
+- `cse` (str, default: `joint`): How to factor out subexpressions shared by the
+  linearized expressions in the Rush-Larsen schemes. One of `joint` (one
+  common-subexpression elimination pass across all states at once — the fewest
+  operations), `per_state` (one pass per state) or `none` (no elimination, so no
+  temporaries at all, at the cost of far more operations). See
+  `gotranx.schemes.CSEStrategy`
 
 ### Python specific options (under `tool.gotranx.python`)
 

@@ -81,7 +81,9 @@ generate. Measured on `ToRORd_dyn_chloride`'s Python `generalized_rush_larsen`:
 - **CSE strategy is now selectable, and joint is the default.** Both
   `generalized_rush_larsen` and `hybrid_rush_larsen` take a `cse` parameter
   (`gotranx.schemes.CSEStrategy`: `"joint"`, `"per_state"`, `"none"`; plain
-  strings work too).
+  strings work too), exposed on the CLI as `--cse` for `ode2py`, `ode2c`,
+  `ode2julia` and `ode2ufl`, and as `cse` under `[tool.gotranx]` in
+  `pyproject.toml`.
 
   - `"joint"` (**new default**) runs one `sympy.cse` across every state being
     linearized at once, so a subexpression shared *between* states is

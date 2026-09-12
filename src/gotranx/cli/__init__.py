@@ -5,7 +5,7 @@ import warnings
 
 import typer
 
-from ..schemes import Scheme, get_scheme
+from ..schemes import CSEStrategy, Scheme, get_scheme
 from ..codegen import PythonFormat, CFormat
 from ..codegen.base import Shape
 from . import gotran2c, gotran2py, gotran2julia, gotran2md, gotran2mtk, gotran2ufl
@@ -115,6 +115,14 @@ def convert(
         1e-8,
         help="Delta value for the rush larsen schemes",
     ),
+    cse: CSEStrategy = typer.Option(
+        CSEStrategy.joint,
+        "--cse",
+        help=(
+            "How to factor out subexpressions shared by the linearized "
+            "expressions in the rush larsen schemes"
+        ),
+    ),
 ):
     warnings.warn(
         "convert command is deprecated, use ode2c, ode2py, ode2julia or cellml2ode instead",
@@ -142,6 +150,7 @@ def convert(
             verbose=verbose,
             stiff_states=stiff_states,
             delta=delta,
+            cse=cse,
         )
     if to in {".py", "python", "py"}:
         gotran2py.main(
@@ -153,6 +162,7 @@ def convert(
             verbose=verbose,
             stiff_states=stiff_states,
             delta=delta,
+            cse=cse,
         )
 
     if to in {".ode"}:
@@ -275,6 +285,14 @@ def ode2py(
         1e-8,
         help="Delta value for the rush larsen schemes",
     ),
+    cse: CSEStrategy = typer.Option(
+        CSEStrategy.joint,
+        "--cse",
+        help=(
+            "How to factor out subexpressions shared by the linearized "
+            "expressions in the rush larsen schemes"
+        ),
+    ),
     format: PythonFormat = typer.Option(
         PythonFormat.black,
         "--format",
@@ -301,6 +319,7 @@ def ode2py(
     verbose = config_data.get("verbose", verbose)
     delta = config_data.get("delta", delta)
     stiff_states = config_data.get("stiff_states", stiff_states)
+    cse = CSEStrategy(config_data.get("cse", cse))
     scheme = config_data.get("scheme", scheme)
     shape = Shape(config_data.get("shape", shape))
     scheme = utils.validate_scheme(scheme)
@@ -316,6 +335,7 @@ def ode2py(
         verbose=verbose,
         stiff_states=stiff_states,
         delta=delta,
+        cse=cse,
         format=format,
         backend=backend,
         shape=shape,
@@ -387,6 +407,14 @@ def ode2c(
         1e-8,
         help="Delta value for the rush larsen schemes",
     ),
+    cse: CSEStrategy = typer.Option(
+        CSEStrategy.joint,
+        "--cse",
+        help=(
+            "How to factor out subexpressions shared by the linearized "
+            "expressions in the rush larsen schemes"
+        ),
+    ),
     format: CFormat = typer.Option(
         CFormat.clang_format,
         "--format",
@@ -401,6 +429,7 @@ def ode2c(
     verbose = config_data.get("verbose", verbose)
     delta = config_data.get("delta", delta)
     stiff_states = config_data.get("stiff_states", stiff_states)
+    cse = CSEStrategy(config_data.get("cse", cse))
     scheme = config_data.get("scheme", scheme)
     scheme = utils.validate_scheme(scheme)
     c_config = config_data.get("c", {})
@@ -416,6 +445,7 @@ def ode2c(
         verbose=verbose,
         stiff_states=stiff_states,
         delta=delta,
+        cse=cse,
     )
 
 
@@ -479,6 +509,14 @@ def ode2julia(
         1e-8,
         help="Delta value for the rush larsen schemes",
     ),
+    cse: CSEStrategy = typer.Option(
+        CSEStrategy.joint,
+        "--cse",
+        help=(
+            "How to factor out subexpressions shared by the linearized "
+            "expressions in the rush larsen schemes"
+        ),
+    ),
     type_stable: bool = typer.Option(
         False,
         "--type-stable",
@@ -498,6 +536,7 @@ def ode2julia(
     verbose = config_data.get("verbose", verbose)
     delta = config_data.get("delta", delta)
     stiff_states = config_data.get("stiff_states", stiff_states)
+    cse = CSEStrategy(config_data.get("cse", cse))
     scheme = config_data.get("scheme", scheme)
     scheme = utils.validate_scheme(scheme)
     # c_config = config_data.get("c", {})
@@ -511,6 +550,7 @@ def ode2julia(
         verbose=verbose,
         stiff_states=stiff_states,
         delta=delta,
+        cse=cse,
         type_stable=type_stable,
     )
 
@@ -719,6 +759,14 @@ def ode2ufl(
         1e-8,
         help="Delta value for the rush larsen schemes",
     ),
+    cse: CSEStrategy = typer.Option(
+        CSEStrategy.joint,
+        "--cse",
+        help=(
+            "How to factor out subexpressions shared by the linearized "
+            "expressions in the rush larsen schemes"
+        ),
+    ),
     format: PythonFormat = typer.Option(
         PythonFormat.black,
         "--format",
@@ -739,6 +787,7 @@ def ode2ufl(
     verbose = config_data.get("verbose", verbose)
     delta = config_data.get("delta", delta)
     stiff_states = config_data.get("stiff_states", stiff_states)
+    cse = CSEStrategy(config_data.get("cse", cse))
     scheme = config_data.get("scheme", scheme)
     shape = Shape(config_data.get("shape", shape))
     scheme = utils.validate_scheme(scheme)
@@ -753,6 +802,7 @@ def ode2ufl(
         verbose=verbose,
         stiff_states=stiff_states,
         delta=delta,
+        cse=cse,
         format=format,
         shape=shape,
     )

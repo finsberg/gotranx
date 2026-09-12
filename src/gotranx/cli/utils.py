@@ -5,7 +5,7 @@ from pathlib import Path
 import typer
 
 from ..codegen import CodeGenerator
-from ..schemes import Scheme, get_scheme
+from ..schemes import CSEStrategy, Scheme, get_scheme
 
 
 def add_schemes(
@@ -13,6 +13,7 @@ def add_schemes(
     scheme: list[Scheme] | None = None,
     delta: float = 1e-8,
     stiff_states: list[str] | None = None,
+    cse: CSEStrategy | str = CSEStrategy.joint,
 ) -> list[str]:
     comp = []
     if scheme is not None:
@@ -20,6 +21,7 @@ def add_schemes(
             kwargs: dict[str, Any] = {}
             if "rush_larsen" in s.value:
                 kwargs["delta"] = delta
+                kwargs["cse"] = cse
             if s.value == "hybrid_rush_larsen":
                 kwargs["stiff_states"] = stiff_states
 

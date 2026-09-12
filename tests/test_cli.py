@@ -329,6 +329,138 @@ def test_cli_ode2mtk(odefile):
     outfile.unlink()
 
 
+# A CSE strategy only shows up in the generated code as the names of the
+# temporaries it factors out. lorentz is too small to share anything, so the
+# `--cse` tests use a model whose linearized expressions actually overlap.
+# ``_linearization_temp_`` is the joint pool; ``_d<state>_dt_linearized_<k>``
+# is the per-state one; ``none`` emits neither.
+CSE_MARKER = {
+    "joint": "_linearization_temp_",
+    "per_state": "_linearized_0",
+}
+
+
+@pytest.fixture(scope="module")
+def sharing_odefile():
+    """A bundled model whose states share subexpressions after linearization."""
+    return here / "odefiles" / "beeler_reuter_1977.ode"
+
+
+@pytest.mark.parametrize("strategy", [s.value for s in gotranx.schemes.CSEStrategy])
+def test_ode2py_cse_flag_selects_the_strategy(strategy, sharing_odefile, tmp_path):
+    outfile = tmp_path / "beeler_reuter.py"
+    result = runner.invoke(
+        gotranx.cli.app,
+        [
+            "ode2py",
+            str(sharing_odefile),
+            "-v",
+            "-o",
+            str(outfile),
+            "--scheme",
+            "generalized_rush_larsen",
+            "--cse",
+            strategy,
+            "-f",
+            "none",
+        ],
+    )
+    assert result.exit_code == 0, result.stdout
+    assert f"cse={strategy}" in result.stdout
+
+    code = outfile.read_text()
+    for name, marker in CSE_MARKER.items():
+        assert (marker in code) is (name == strategy), (
+            f"--cse {strategy} emitted the wrong temporaries: "
+            f"{marker} {'present' if marker in code else 'absent'}"
+        )
+
+
+def test_ode2py_cse_defaults_to_joint(sharing_odefile, tmp_path):
+    outfile = tmp_path / "beeler_reuter.py"
+    result = runner.invoke(
+        gotranx.cli.app,
+        [
+            "ode2py",
+            str(sharing_odefile),
+            "-o",
+            str(outfile),
+            "--scheme",
+            "generalized_rush_larsen",
+            "-f",
+            "none",
+        ],
+    )
+    assert result.exit_code == 0, result.stdout
+    assert CSE_MARKER["joint"] in outfile.read_text()
+
+
+def test_cse_flag_rejects_an_unknown_strategy(sharing_odefile, tmp_path):
+    result = runner.invoke(
+        gotranx.cli.app,
+        [
+            "ode2py",
+            str(sharing_odefile),
+            "-o",
+            str(tmp_path / "out.py"),
+            "--cse",
+            "aggressive",
+        ],
+    )
+    assert result.exit_code != 0
+
+
+@pytest.mark.parametrize(
+    "command, suffix", [("ode2c", ".h"), ("ode2julia", ".jl"), ("ode2ufl", ".py")]
+)
+def test_cse_flag_reaches_the_other_backends(command, suffix, sharing_odefile, tmp_path):
+    outfile = tmp_path / f"beeler_reuter{suffix}"
+    result = runner.invoke(
+        gotranx.cli.app,
+        [
+            command,
+            str(sharing_odefile),
+            "-v",
+            "-o",
+            str(outfile),
+            "--scheme",
+            "generalized_rush_larsen",
+            "--cse",
+            "per_state",
+        ],
+    )
+    assert result.exit_code == 0, result.stdout
+    assert "cse=per_state" in result.stdout
+    code = outfile.read_text()
+    assert CSE_MARKER["per_state"] in code
+    assert CSE_MARKER["joint"] not in code
+
+
+def test_cse_can_be_set_from_the_config_file(sharing_odefile, tmp_path):
+    config = tmp_path / "pyproject.toml"
+    config.write_text(
+        dedent(
+            """
+            [tool.gotranx]
+            scheme = ["generalized_rush_larsen"]
+            cse = "none"
+
+            [tool.gotranx.python]
+            format = "none"
+            """
+        )
+    )
+    outfile = tmp_path / "beeler_reuter.py"
+    result = runner.invoke(
+        gotranx.cli.app,
+        ["ode2py", str(sharing_odefile), "-c", str(config), "-o", str(outfile)],
+    )
+    assert result.exit_code == 0, result.stdout
+    code = outfile.read_text()
+    assert CSE_MARKER["joint"] not in code
+    assert CSE_MARKER["per_state"] not in code
+
+
 @pytest.mark.parametrize("format", gotranx.codegen.PythonFormat)
 def test_gotran2ufl(format, odefile, all_schemes):
     outfile = odefile.with_suffix(".py")

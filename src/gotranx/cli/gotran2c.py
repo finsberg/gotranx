@@ -5,7 +5,7 @@ import structlog
 
 from ..codegen.c import CCodeGenerator, Format, get_formatter
 from ..load import load_ode
-from ..schemes import Scheme
+from ..schemes import CSEStrategy, Scheme
 from ..ode import ODE
 
 from .utils import add_schemes
@@ -21,6 +21,7 @@ def get_code(
     missing_values: dict[str, int] | None = None,
     delta: float = 1e-8,
     stiff_states: list[str] | None = None,
+    cse: CSEStrategy | str = CSEStrategy.joint,
 ) -> str:
     """Generate the Python code for the ODE
 
@@ -41,6 +42,10 @@ def get_code(
     stiff_states : list[str] | None, optional
         Stiff states, by default None. Only applicable for
         the hybrid rush larsen scheme
+    cse : gotranx.schemes.CSEStrategy | str, optional
+        How to factor out subexpressions shared by the linearized
+        expressions in the rush larsen schemes, by default
+        CSEStrategy.joint. See gotranx.schemes.CSEStrategy
 
     Returns
     -------
@@ -74,6 +79,7 @@ def get_code(
         scheme=scheme,
         delta=delta,
         stiff_states=stiff_states,
+        cse=cse,
     )
 
     code = codegen._format("\n".join(comp))
@@ -96,6 +102,7 @@ def main(
     missing_values: dict[str, int] | None = None,
     delta: float = 1e-8,
     stiff_states: list[str] | None = None,
+    cse: CSEStrategy | str = CSEStrategy.joint,
 ) -> None:
     loglevel = logging.DEBUG if verbose else logging.INFO
     structlog.configure(
@@ -110,6 +117,7 @@ def main(
         missing_values=missing_values,
         delta=delta,
         stiff_states=stiff_states,
+        cse=cse,
     )
     out = fname if outname is None else Path(outname)
     out_name = out.with_suffix(suffix=suffix)
