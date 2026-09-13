@@ -30,12 +30,39 @@ Two sympy entry points are deliberately *not* used here:
 
 from __future__ import annotations
 
+from typing import Mapping
+
 import sympy
 
 __all__ = [
+    "MAX_INLINE_OPS",
     "denominator_factors",
     "factor_roots",
+    "inline",
+    "is_removable",
+    "taylor",
 ]
+
+#: Exceptions the sympy series machinery raises on an expression it cannot
+#: expand. Caught rather than propagated: a pole we cannot classify is simply
+#: left unguarded, which is what gotranx did for every pole before this module
+#: existed.
+_SERIES_ERRORS = (
+    ValueError,
+    NotImplementedError,
+    TypeError,
+    AttributeError,
+    sympy.PoleError,
+    RecursionError,
+)
+
+MAX_INLINE_OPS = 5000
+"""Give up inlining past this many operations.
+
+ToRORd_dyn_chloride's largest candidate reaches 939 operations, so this is
+loose. It exists to bound the worst case on a model nobody has tried yet, not
+to exclude anything in the bundled set.
+"""
 
 
 def denominator_factors(expr: sympy.Expr) -> tuple[sympy.Expr, ...]:
@@ -146,3 +173,165 @@ def factor_roots(
         return []
     root = _linear_root(exponent - sympy.log(ratio), var)
     return [] if root is None else [root]
+
+
+def inline(
+    expr: sympy.Expr,
+    definitions: Mapping[sympy.Symbol, sympy.Expr],
+    var: sympy.Symbol,
+) -> sympy.Expr | None:
+    """Rewrite ``expr`` in terms of ``var``, expanding only what depends on it.
+
+    A pole's removability is only visible after inlining: ToRORd's ``INab`` is
+    ``PNab*vffrt*(...)/(exp(vfrt) - 1)``, and it is ``vffrt = v*F*F/(R*T)``
+    that makes the numerator vanish as ``v -> 0``. Held as a separate named
+    symbol, that vanishing factor is invisible and the removable pole looks
+    essential -- which is why gotranx discarded every GHK pole as infinite
+    before this module existed.
+
+    Only intermediates that *transitively depend on* ``var`` are expanded.
+    Inlining the rest as well costs a great deal and buys nothing: on ToRORd,
+    expanding ``PhiCaL_ss``'s whole cone pulls in the ionic-strength terms
+    ``gamma_cass`` and ``gamma_cao``, which do not mention ``v``, and grows the
+    generated rhs from 32,499 to 74,662 characters and scheme generation from
+    2.75 s to 130.68 s. Restricted to ``v``-dependent intermediates the same
+    guard costs 35,766 characters and 4.10 s.
+
+    Leaving a ``var``-independent intermediate in place is also correct for the
+    forward-mode sweep in :mod:`gotranx.linearization`: it carries its own
+    tangent, exactly as it does in an unguarded assignment.
+
+    Parameters
+    ----------
+    expr : sympy.Expr
+        The expression to rewrite.
+    definitions : Mapping[sympy.Symbol, sympy.Expr]
+        Every intermediate symbol in the model and its defining expression.
+    var : sympy.Symbol
+        The state variable the pole lives in.
+
+    Returns
+    -------
+    sympy.Expr | None
+        The rewritten expression, or None if it grew past
+        :data:`MAX_INLINE_OPS`.
+    """
+    dependent = _depending_on(definitions, {var})
+    while True:
+        substitutions = {
+            symbol: definitions[symbol] for symbol in expr.free_symbols if symbol in dependent
+        }
+        if not substitutions:
+            return expr
+        expr = expr.xreplace(substitutions)
+        if sympy.count_ops(expr) > MAX_INLINE_OPS:
+            return None
+
+
+def _depending_on(
+    definitions: Mapping[sympy.Symbol, sympy.Expr],
+    seeds: set[sympy.Symbol],
+) -> set[sympy.Symbol]:
+    """Symbols in ``definitions`` that transitively depend on any of ``seeds``.
+
+    ``definitions`` is not guaranteed to be topologically sorted, so this
+    iterates to a fixed point rather than assuming one pass suffices.
+    """
+    dependent: set[sympy.Symbol] = set()
+    changed = True
+    while changed:
+        changed = False
+        for symbol, definition in definitions.items():
+            if symbol in dependent:
+                continue
+            if (definition.free_symbols & seeds) or (definition.free_symbols & dependent):
+                dependent.add(symbol)
+                changed = True
+    return dependent
+
+
+def is_removable(expr: sympy.Expr, var: sympy.Symbol, value: sympy.Expr) -> bool:
+    """Whether ``expr``'s singularity at ``var = value`` is removable.
+
+    Decided by the leading exponent of the Laurent expansion: removable means
+    no negative powers of ``var - value``.
+
+    Testing instead whether the truncated series contains ``oo``, ``zoo`` or
+    ``nan`` does not work, because the Laurent expansion around a *genuine*
+    simple pole contains none of them -- it contains a ``1/(var - value)``
+    term. Measured on ToRORd, that test classifies all 40 pole candidates as
+    removable, including ``IpCa`` at ``cai = -KmCap``, whose "replacement"
+    would be ``-GpCa*KmCap/(KmCap + cai) + GpCa``.
+
+    Parameters
+    ----------
+    expr : sympy.Expr
+        The expression, already inlined in ``var``.
+    var : sympy.Symbol
+        The variable the pole lives in.
+    value : sympy.Expr
+        Where the pole is.
+
+    Returns
+    -------
+    bool
+        True if the singularity is removable. False when sympy cannot decide,
+        which leaves the pole unguarded rather than guarded wrongly.
+    """
+    offset = sympy.Dummy("offset", positive=True)
+    try:
+        _, exponent = expr.subs(var, value + offset).leadterm(offset)
+    except _SERIES_ERRORS:
+        return False
+    return bool(exponent >= 0)
+
+
+def taylor(
+    expr: sympy.Expr,
+    var: sympy.Symbol,
+    value: sympy.Expr,
+    order: int,
+) -> sympy.Expr | None:
+    """Truncated Taylor series of ``expr`` about ``var = value``.
+
+    ``order`` must be at least 1. A constant replacement -- the limit, which is
+    what gotranx emitted before this module existed -- differentiates to zero,
+    so an assignment guarded that way contributes nothing to the Jacobian
+    diagonal and the linearization is silently wrong. With order >= 1 the
+    guard differentiates correctly and
+    :func:`gotranx.linearization.diagonal_jacobian` needs no singularity
+    awareness of its own.
+
+    Parameters
+    ----------
+    expr : sympy.Expr
+        The expression, already inlined in ``var``.
+    var : sympy.Symbol
+        The variable to expand in.
+    value : sympy.Expr
+        The point to expand about.
+    order : int
+        Highest power of ``var - value`` to keep. Order 3 costs the same as
+        order 2 for the canonical gate-rate kernel, whose third Bernoulli
+        number is zero.
+
+    Returns
+    -------
+    sympy.Expr | None
+        The expanded polynomial, or None if sympy could not produce a finite
+        series.
+
+    Raises
+    ------
+    ValueError
+        If ``order`` is less than 1.
+    """
+    if order < 1:
+        raise ValueError(f"order must be at least 1, got {order}")
+    try:
+        series = sympy.series(expr, var, value, order + 1).removeO()
+    except _SERIES_ERRORS:
+        return None
+    if series.has(sympy.oo, -sympy.oo, sympy.zoo, sympy.nan):
+        return None
+    return sympy.expand(series)

@@ -62,3 +62,75 @@ def test_factor_roots_skips_a_high_degree_polynomial():
 
 def test_factor_roots_skips_a_factor_free_of_the_variable():
     assert singularities.factor_roots(sympy.exp(a) - 1, V) == []
+
+
+F, R, T, PNab, nai, nao = sympy.symbols("F R T PNab nai nao", real=True)
+v = sympy.Symbol("v", real=True)
+cai, KmCap, GpCa = sympy.symbols("cai KmCap GpCa", real=True)
+gamma = sympy.Symbol("gamma", real=True)
+
+VFRT = sympy.Symbol("vfrt", real=True)
+VFFRT = sympy.Symbol("vffrt", real=True)
+GHK_DEFINITIONS = {VFRT: v * F / (R * T), VFFRT: v * F * F / (R * T)}
+GHK = PNab * VFFRT * (nai * sympy.exp(VFRT) - nao) / (sympy.exp(VFRT) - 1)
+
+
+def test_inline_expands_only_what_depends_on_the_variable():
+    """`gamma` does not depend on v, so it must stay an opaque symbol --
+    inlining it is what made the generated ToRORd rhs 2.3x larger."""
+    definitions = dict(GHK_DEFINITIONS)
+    definitions[gamma] = sympy.exp(sympy.sqrt(cai))
+    inlined = singularities.inline(gamma * GHK, definitions, v)
+    assert gamma in inlined.free_symbols
+    assert VFRT not in inlined.free_symbols
+    assert VFFRT not in inlined.free_symbols
+    assert v in inlined.free_symbols
+
+
+def test_inline_gives_up_past_the_operation_budget():
+    """Ten distinct 600-operation summands cannot collapse into each other, so
+    inlining them really does grow the tree past the budget. (A single
+    definition used twice would not: `big*big` is `big**2`, one node.)"""
+    parts = {
+        sympy.Symbol(f"part{i}", real=True): sum(sympy.sin(i * k * v) ** k for k in range(1, 200))
+        for i in range(10)
+    }
+    expr = sum(parts)
+    assert sympy.count_ops(expr) < singularities.MAX_INLINE_OPS
+    assert singularities.inline(expr, parts, v) is None
+
+
+def test_is_removable_accepts_the_ghk_pole():
+    inlined = singularities.inline(GHK, GHK_DEFINITIONS, v)
+    assert singularities.is_removable(inlined, v, sympy.Integer(0))
+
+
+def test_is_removable_rejects_a_genuine_simple_pole():
+    """ToRORd's IpCa at cai = -KmCap. Deciding removability by scanning the
+    truncated series for oo/zoo/nan calls this removable and would emit
+    -GpCa*KmCap/(KmCap + cai) + GpCa as the replacement -- itself infinite at
+    exactly the guarded point."""
+    IpCa = GpCa * cai / (KmCap + cai)
+    assert not singularities.is_removable(IpCa, cai, -KmCap)
+
+
+def test_is_removable_rejects_a_double_pole():
+    assert not singularities.is_removable(1 / (v - 3) ** 2, v, sympy.Integer(3))
+
+
+def test_taylor_of_a_float_coefficient_gate_rate_is_right():
+    """Design document F5: sympy.limit returns 0 here. The series does not."""
+    rate = 0.2 * (V + 23) / (1 - sympy.exp(-0.04 * (V + 23)))
+    replacement = singularities.taylor(rate, V, sympy.Integer(-23), 3)
+    assert abs(float(replacement.subs(V, -23)) - 5.0) < 1e-12
+
+
+def test_taylor_of_the_toy_gate_rate_is_the_expected_polynomial():
+    """Design document F4: order >= 1 is what makes differentiation through
+    the guard correct. Order 0 (`10`) differentiates to zero, which is the
+    entire bug."""
+    rate = (V + 10) / (sympy.exp((V + 10) / 10) - 1)
+    replacement = singularities.taylor(rate, V, sympy.Integer(-10), 3)
+    assert sympy.simplify(replacement - (V**2 / 120 - V / 3 + sympy.Rational(35, 6))) == 0
+    assert float(replacement.subs(V, -10)) == 10.0
+    assert float(sympy.diff(replacement, V).subs(V, -10)) == -0.5
