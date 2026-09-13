@@ -142,3 +142,84 @@ def ContinuousConditional(cond, true_value, false_value, sigma=1.0):
         return true_value * (1 - H) + false_value * H
 
     return true_value * H + false_value * (1 - H)
+
+
+def cse_hiding_piecewise(exprs, **kwargs):
+    """``sympy.cse``, with ``Piecewise`` subtrees held opaque.
+
+    ``sympy.cse`` happily hoists a subexpression out of a ``Piecewise`` branch
+    and computes it unconditionally. That is harmless for a branch chosen for
+    convenience and fatal for one chosen to avoid a singularity: the whole
+    point of ``Piecewise((taylor, Abs(V - v0) < delta), (expr, True))`` is that
+    ``expr`` is never evaluated near ``v0``, and a hoisted temporary evaluates
+    it everywhere. The same hoist breaks model conditionals that were already
+    written defensively -- given two guards sharing
+    ``(V + 40)/(exp(-(V + 40)/10) - 1)``, ``cse`` emits it as a temporary that
+    is nan at exactly ``V = -40``.
+
+    Every ``Piecewise`` is replaced by a fresh ``Dummy`` before the call, so
+    nothing inside one can be factored out. Afterwards, a ``Piecewise`` that
+    ended up used more than once becomes a temporary of its own -- ``cse``
+    will not do that for us, because by then it is looking at a bare symbol
+    and sees nothing worth naming -- and one used exactly once is restored
+    inline. So a guard shared between two expressions is still computed once,
+    which is most of what CSE was buying here.
+
+    ``hide`` does not descend into a ``Piecewise``, so a nested guard is
+    always part of its enclosing guard's subtree and never a temporary of its
+    own. That is what makes it safe to emit every guard temporary ahead of
+    ``cse``'s own: a guard's expression references only model symbols, never
+    another temporary.
+
+    Note that under numpy both branches of the emitted ``where`` are still
+    evaluated. That is ``where`` semantics, not a hoist; what this function
+    guarantees is that no temporary computed *outside* a guard divides by zero
+    at the guarded value.
+
+    Parameters
+    ----------
+    exprs : list[sympy.Expr]
+        The expressions to factor.
+    **kwargs
+        Passed straight through to ``sympy.cse``.
+
+    Returns
+    -------
+    tuple[list, list]
+        Exactly what ``sympy.cse`` returns: the replacement pairs and the
+        reduced expressions.
+    """
+    holes: dict[sympy.Expr, sympy.Dummy] = {}
+
+    def hide(expr):
+        if isinstance(expr, sympy.Piecewise):
+            return holes.setdefault(expr, sympy.Dummy(f"_guard_{len(holes)}"))
+        if not expr.args:
+            return expr
+        return expr.func(*[hide(arg) for arg in expr.args])
+
+    hidden = [hide(expr) for expr in exprs]
+    replacements, reduced = sympy.cse(hidden, **kwargs)
+
+    uses: dict[sympy.Dummy, int] = {dummy: 0 for dummy in holes.values()}
+    for expr in [sub_expr for _, sub_expr in replacements] + list(reduced):
+        for dummy in expr.free_symbols:
+            if dummy in uses:
+                uses[dummy] += 1
+
+    names = kwargs.get("symbols") or sympy.numbered_symbols(prefix="_guard")
+    guard_temporaries = []
+    restore = {}
+    for expr, dummy in holes.items():
+        if uses[dummy] > 1:
+            symbol = next(names)
+            guard_temporaries.append((symbol, expr))
+            restore[dummy] = symbol
+        else:
+            restore[dummy] = expr
+
+    return (
+        guard_temporaries
+        + [(symbol, sub_expr.xreplace(restore)) for symbol, sub_expr in replacements],
+        [expr.xreplace(restore) for expr in reduced],
+    )

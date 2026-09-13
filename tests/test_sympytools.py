@@ -96,3 +96,83 @@ def test_jacobian_matrix(ode: ODE):
     assert str(jac[6]) == "y"
     assert str(jac[7]) == "x"
     assert str(jac[8]) == "-beta"
+
+
+def _piecewise_pair():
+    """Two guarded expressions that share a subexpression.
+
+    This is the shape a model produces once two assignments are guarded, and
+    it is the shape that provokes the hoist. A single Piecewise on its own
+    does not: `cse` shares the whole subtree and leaves its interior alone.
+    """
+    import sympy
+
+    V = sympy.Symbol("V", real=True)
+    inner = (V + 40) / (sympy.exp(-(V + 40) / 10) - 1)
+    return V, [
+        sympy.Piecewise((sympy.Integer(0), V < -40), (inner, True)),
+        sympy.Piecewise((sympy.Integer(1), V < -40), (inner * 2, True)),
+    ]
+
+
+def _hoisted_out_of_a_branch(replacements):
+    import sympy
+
+    return [
+        sub_expr
+        for _, sub_expr in replacements
+        if sub_expr.has(sympy.exp) and not sub_expr.has(sympy.Piecewise)
+    ]
+
+
+def test_cse_hoists_out_of_a_piecewise_branch():
+    """Pins the sympy behaviour that `cse_hiding_piecewise` exists to avoid.
+
+    Plain `sympy.cse` pulls `(V + 40)/(1 - exp(-V/10 - 4))` out of the
+    Piecewise branches below and computes it unconditionally. That temporary
+    is nan at exactly V = -40 -- 0/0 -- even though neither branch that uses
+    it is taken there.
+    """
+    import numpy
+    import sympy
+
+    V, exprs = _piecewise_pair()
+    replacements, _ = sympy.cse(exprs, optimizations="basic")
+    hoisted = _hoisted_out_of_a_branch(replacements)
+    assert hoisted, "expected plain sympy.cse to hoist out of the Piecewise"
+
+    numpy.seterr(all="ignore")
+    at_the_boundary = [
+        float(sympy.lambdify(V, sub_expr, "numpy")(numpy.float64(-40.0)))
+        for sub_expr in hoisted
+    ]
+    assert not all(numpy.isfinite(at_the_boundary)), at_the_boundary
+
+
+def test_cse_hiding_piecewise_does_not_hoist_out_of_a_branch():
+    import sympy
+
+    from gotranx import sympytools
+
+    V, exprs = _piecewise_pair()
+    replacements, reduced = sympytools.cse_hiding_piecewise(exprs, optimizations="basic")
+    assert _hoisted_out_of_a_branch(replacements) == []
+
+    restored = list(reduced)
+    for symbol, sub_expr in reversed(replacements):
+        restored = [expr.xreplace({symbol: sub_expr}) for expr in restored]
+    for got, want in zip(restored, exprs):
+        assert sympy.simplify(got - want) == 0
+
+
+def test_cse_hiding_piecewise_still_shares_whole_guards():
+    """Holding a Piecewise opaque must not stop cse from sharing the whole
+    subtree between two expressions -- that is where most of the saving is."""
+    import sympy
+
+    from gotranx import sympytools
+
+    V = sympy.Symbol("V", real=True)
+    guarded = sympy.Piecewise((sympy.Integer(1), sympy.Abs(V) < 0.01), (1 / V, True))
+    replacements, _ = sympytools.cse_hiding_piecewise([guarded * 2, guarded * 3])
+    assert any(sub_expr == guarded for _, sub_expr in replacements)
