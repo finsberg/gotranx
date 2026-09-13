@@ -11,11 +11,15 @@ from typing import cast
 from typing import Any
 from typing import NamedTuple
 
+import attr
 import sympy as sp
+from structlog import get_logger
 
 from . import atoms
 from . import exceptions
-from .ode_component import BaseComponent, Component
+from .ode_component import BaseComponent, Component, MyokitComponent
+
+logger = get_logger()
 
 T = TypeVar("T")
 U = TypeVar("U", bound=atoms.Assignment)
@@ -286,6 +290,32 @@ def sort_assignments(
     return static_order
 
 
+def _with_assignments(
+    component: BaseComponent, assignments: frozenset[atoms.Assignment]
+) -> BaseComponent:
+    """A copy of ``component`` holding ``assignments`` instead of its own.
+
+    The two component types take their assignments differently: a
+    ``Component`` takes them whole and splits them itself, while a
+    ``MyokitComponent`` takes the intermediates and state derivatives
+    separately.
+    """
+    if isinstance(component, Component):
+        return Component(
+            name=component.name,
+            states=component.states,
+            parameters=component.parameters,
+            assignments=assignments,
+        )
+    if not isinstance(component, MyokitComponent):
+        raise TypeError(f"Unsupported component type {type(component).__name__}")
+    return attr.evolve(
+        component,
+        intermediates=frozenset(a for a in assignments if isinstance(a, atoms.Intermediate)),
+        state_derivatives=frozenset(a for a in assignments if isinstance(a, atoms.StateDerivative)),
+    )
+
+
 class ODE:
     """A class representing an ODE
 
@@ -337,13 +367,59 @@ class ODE:
         self.comments = comments
         self.text = " ".join(comment.text for comment in comments)
 
-    def remove_singularities(self):
-        new_components: list[BaseComponent] = []
-        for component in self._components.values():
-            new_components.append(component.remove_singularities(self._lookup))
+    def remove_singularities(self, order: int = 3) -> ODE:
+        """Guard every removable singularity in the model's assignments.
 
+        A gate rate like ``x/(exp(x) - 1)`` has a removable pole that float64
+        cannot evaluate near, and whose *derivative* -- which the Rush-Larsen
+        linearized block forms by differentiating through intermediates -- has
+        a double pole there. Each affected assignment is rewritten in the
+        state variable its pole lives in and wrapped in a ``Piecewise`` whose
+        other branch is a truncated Taylor series. See
+        :mod:`gotranx.singularities` for how poles are found and classified.
+
+        Parameters
+        ----------
+        order : int, optional
+            Order of the Taylor replacement, by default 3. Must be at least 1:
+            a constant replacement differentiates to zero, which leaves the
+            linearization silently wrong.
+
+        Returns
+        -------
+        ODE
+            A new ODE. This one is unchanged.
+        """
+        from . import singularities
+
+        definitions = {a.symbol: a.expr for a in self.sorted_assignments()}
+        states = frozenset(state.symbol for state in self.states)
+        base = {p.symbol: float(p.value) for p in self.parameters}
+        base.update({s.symbol: float(s.value) for s in self.states})
+        defaults = singularities.default_values(definitions, base)
+
+        new_components: list[BaseComponent] = []
+        guarded_names = []
+        for component in self.components:
+            new_assignments = set()
+            for assignment in component.assignments:
+                expr = singularities.rewrite(
+                    assignment.expr, definitions, states, defaults, order=order
+                )
+                if expr is assignment.expr:
+                    new_assignments.add(assignment)
+                else:
+                    guarded_names.append(assignment.name)
+                    new_assignments.add(attr.evolve(assignment, expr=expr))
+            new_components.append(_with_assignments(component, frozenset(new_assignments)))
+
+        logger.debug("Guarded removable singularities", assignments=sorted(guarded_names))
+        if not guarded_names:
+            return self
         return ODE(
-            components=new_components,
+            # A tuple, as `make_ode` builds it: ODE equality compares
+            # `components` directly, and a list never equals a tuple.
+            components=tuple(new_components),
             t=self.t,
             name=self.name,
             comments=self.comments,

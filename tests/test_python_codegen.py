@@ -718,6 +718,10 @@ def test_codegen_rhs_singular_ode(singular_ode):
 
     new_ode = singular_ode.remove_singularities()
     codegen_fixed = PythonCodeGenerator(new_ode)
+    # Each guard's branch was checked by hand against the analytic value:
+    # y = x/(exp(x) - 1) is 1 - x/2 + x**2/12 (the x**3 term vanishes, B_3 = 0);
+    # z is 2/(e**2 - 1) + exp(-2) = 0.44837 at x = 2 and 1 + 2/(e**2 - 1) =
+    # 1.31304 at x = 0. dx_dt = b/x is a genuine pole and stays unguarded.
     assert codegen_fixed.rhs() == (
         "def rhs(t, states, parameters):"
         "\n"
@@ -731,25 +735,26 @@ def test_codegen_rhs_singular_ode(singular_ode):
         "\n    # Assign expressions"
         "\n"
         "\n    values = numpy.zeros_like(states, dtype=numpy.float64)"
-        "\n    y = numpy.where((x == 0), 1, x / (numpy.exp(x) - 1.0))"
+        "\n    y = numpy.where("
+        "\n        (numpy.abs(x) < 0.0019306977288832488),"
+        "\n        0.08333333333333334 * x**2 - 0.5 * x + 1.0,"
+        "\n        x / (numpy.exp(x) - 1.0),"
+        "\n    )"
         "\n    z = numpy.where("
-        "\n        numpy.logical_and((x == 0), (x == 2)),"
-        "\n        numpy.exp(-2) - 2 / (1 - numpy.exp(2)) + 2 / (-1 + numpy.exp(2)) + 1,"
+        "\n        (numpy.abs(x - 2.0) < 0.0013894954943731387),"
+        "\n        -0.007031819141601643 * x**3"
+        "\n        + 0.11013306730925485 * x**2"
+        "\n        - 0.6293312688895956 * x"
+        "\n        + 1.3227553904109288,"
         "\n        numpy.where("
-        "\n            (x == 0),"
-        "\n            x / (numpy.exp(x) - 1.0)"
-        "\n            + (x - 2) / (numpy.exp(x) - numpy.exp(2))"
-        "\n            - 2 / (1 - numpy.exp(2))"
-        "\n            + 1,"
-        "\n            numpy.where("
-        "\n                (x == 2),"
-        "\n                x / (numpy.exp(x) - 1.0)"
-        "\n                + (x - 2) / (numpy.exp(x) - numpy.exp(2))"
-        "\n                + numpy.exp(-2)"
-        "\n                + 2 / (-1 + numpy.exp(2)),"
-        "\n                2 * x / (numpy.exp(x) - 1.0)"
-        "\n                + 2 * (x - 2) / (numpy.exp(x) - numpy.exp(2)),"
+        "\n            numpy.logical_and("
+        "\n                (x > -0.0019306977288832488), (x < 0.0019306977288832488)"
         "\n            ),"
+        "\n            0.0009516532351972931 * x**3"
+        "\n            + 0.09100200053943668 * x**2"
+        "\n            - 0.6075220977658418 * x"
+        "\n            + 1.3130352854993312,"
+        "\n            x / (numpy.exp(x) - 1.0) + (x - 2) / (numpy.exp(x) - numpy.exp(2)),"
         "\n        ),"
         "\n    )"
         "\n    dx_dt = b / x"

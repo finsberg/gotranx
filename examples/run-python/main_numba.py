@@ -17,9 +17,7 @@ import matplotlib.pyplot as plt
 
 ode = gotranx.load_ode("ORdmm_Land.ode")
 
-# This set of ODEs also contains some singularities that we can remove by replacing the expressions with piecewise functions. This is particularly important if we want to jit compile it because, while e.g division by zero in `numpy` only yields a warning, `numba`  will crash if this happens. We can do this using the `remove_singularities` method
-
-ode = ode.remove_singularities()
+# This set of ODEs also contains removable singularities -- for example the GHK flux terms, which divide by `exp(vfrt) - 1` and so are 0/0 at `v = 0`. `load_ode` replaces a small neighborhood of each with a truncated Taylor series by default. This is particularly important if we want to jit compile it because, while e.g division by zero in `numpy` only yields a warning, `numba` will crash if this happens. (Pass `remove_singularities=False` to `load_ode` to get the expressions exactly as written.)
 
 # Now we can generate code in Python using the `cli` subpackage and the `gotran2py` module. We will also generate code for the Generalized Rush Larsen scheme, and here we also explicitly set the shape of the output arrays to be single.  By default, the function will check whether you run vectorized or not, and adapt the shape accordingly. However, such conditional statements are not supported by `numba`, so we need to explicitly set the shape to single.
 
