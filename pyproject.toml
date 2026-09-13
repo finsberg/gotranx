@@ -20,6 +20,7 @@ dependencies = [
     "lark",
     "pint",
     "rich-click",
+    "rich",
     "structlog",
     "sympy",
     "typer",
