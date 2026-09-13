@@ -31,11 +31,12 @@ def test_factor_roots_finds_the_ghk_root():
 def test_factor_roots_finds_a_gate_rate_root_with_float_coefficients():
     """The shape .ode files actually use -- see the design document's F5.
 
-    The root comes back as -23 to within float round-off rather than exactly:
-    sympy expands `-0.04*(V + 23)` to `-0.04*V - 0.92` and the root is
-    `-(-0.92)/(-0.04)`, which is 3.6e-15 away from -23 in float64. That is
-    immaterial next to a guard window of ~1e-2, so this asserts closeness
-    rather than pretending the arithmetic is exact.
+    Solved on the float expression as written, the root comes back 3.6e-15
+    away from -23: sympy expands `-0.04*(V + 23)` to `-0.04*V - 0.92` and the
+    root is `-(-0.92)/(-0.04)`. That offset is *not* harmless -- expanding a
+    series about it makes `sympy.series` return 0 -- which is why
+    `removable_poles` locates roots on a rationalized copy instead. This test
+    only pins the helper's behavior on the raw float form.
     """
     roots = singularities.factor_roots(1 - sympy.exp(-0.04 * (V + 23)), V)
     assert len(roots) == 1
@@ -151,15 +152,38 @@ def test_half_width_is_clamped_above():
     assert delta == singularities.MAX_HALF_WIDTH
 
 
-def test_half_width_beats_the_direct_formula_on_its_own_derivative():
-    """The linearized block uses the *derivative*, so that is what the window
-    must be calibrated on. Calibrating on the value returns 0.1 here, where
-    the series derivative is 4.9e-10 off a 50-digit reference and the direct
-    float64 derivative is only 3.0e-13 off -- a guard three orders of
-    magnitude worse than the formula it replaces."""
+def _worst_guarded_derivative_error(expr, var, center, delta):
+    """Worst relative error of the guarded derivative -- series inside the
+    window, direct float64 formula outside -- against a 50-digit reference,
+    over a geometric sweep from 1e-9 to 0.2 on both sides of the pole."""
     import mpmath
+    import numpy
 
     mpmath.mp.dps = 50
+    replacement = singularities.taylor(expr, var, sympy.Integer(int(center)), 3)
+    truth = sympy.lambdify(var, sympy.nsimplify(expr, rational=True), "mpmath")
+    series = sympy.lambdify(var, sympy.diff(replacement, var), "numpy")
+    direct = sympy.lambdify(var, sympy.diff(expr, var), "numpy")
+    worst = 0.0
+    with numpy.errstate(all="ignore"):
+        for offset in (float(o) for o in numpy.geomspace(1e-9, 0.2, 40)):
+            for point in (center - offset, center + offset):
+                branch = series if offset < delta else direct
+                got = mpmath.mpf(float(branch(numpy.float64(point))))
+                expected = mpmath.diff(truth, mpmath.mpf(repr(point)))
+                worst = max(worst, float(abs(got - expected) / abs(expected)))
+    return worst
+
+
+def test_half_width_minimizes_the_worst_case_derivative_error():
+    """The linearized block uses the *derivative*, so the window must be
+    placed where the guarded derivative is most accurate overall.
+
+    Measured on ToRORd's INab kernel, worst relative error over the sweep:
+    empirical crossover (delta = 0.037) 1.9e-11; the analytic
+    truncation-vs-round-off rule (delta = 0.0135) 4.2e-10; the
+    value-calibrated rule (delta = 0.1) 2.1e-10.
+    """
     F_, R_, T_, P_ = 96485.0, 8314.0, 310.0, 3.75e-10
     ghk = (
         P_
@@ -168,16 +192,14 @@ def test_half_width_beats_the_direct_formula_on_its_own_derivative():
         / (sympy.exp(v * F_ / (R_ * T_)) - 1)
     )
     delta = singularities.half_width(ghk, v, sympy.Integer(0), 3, {})
-    replacement = singularities.taylor(ghk, v, sympy.Integer(0), 3)
-
-    exact = sympy.lambdify(v, sympy.diff(sympy.nsimplify(ghk, rational=True), v), "mpmath")
-    series = sympy.lambdify(v, sympy.diff(replacement, v), "mpmath")
-    worst = max(
-        abs(series(mpmath.mpf(delta * f)) - exact(mpmath.mpf(delta * f)))
-        / abs(exact(mpmath.mpf(delta * f)))
-        for f in (1.0, 0.5, 0.1, 0.01)
+    chosen = _worst_guarded_derivative_error(ghk, v, 0.0, delta)
+    analytic = _worst_guarded_derivative_error(
+        ghk, v, 0.0, singularities._analytic_half_width(ghk, v, sympy.Integer(0), 3, {})
     )
-    assert float(worst) < 1e-11, float(worst)
+    value_calibrated = _worst_guarded_derivative_error(ghk, v, 0.0, 0.1)
+    assert chosen < 5e-11, chosen
+    assert chosen < analytic / 5, (chosen, analytic)
+    assert chosen < value_calibrated / 5, (chosen, value_calibrated)
 
 
 def test_agrees_numerically_accepts_a_correct_replacement():
@@ -208,12 +230,12 @@ GHK_DEFAULTS = {
 
 
 def test_removable_poles_finds_the_ghk_pole_and_nothing_else():
-    poles = singularities.removable_poles(
-        GHK, GHK_DEFINITIONS, frozenset({v}), GHK_DEFAULTS
-    )
+    poles = singularities.removable_poles(GHK, GHK_DEFINITIONS, frozenset({v}), GHK_DEFAULTS)
     assert len(poles) == 1
     assert poles[0].var == v
-    assert poles[0].value == 0
+    # `value` is emitted as a float so the generated condition reads
+    # naturally, so compare as one: sympy's Float(0) is not Integer(0).
+    assert float(poles[0].value) == 0.0
     assert poles[0].half_width > 0
 
 
@@ -228,7 +250,7 @@ def test_removable_poles_skips_a_genuine_pole():
 def test_removable_poles_skips_a_location_that_is_not_a_real_number():
     """tentusscher_panfilov's Ca_i buffering root is
     -K_buf_c +- sqrt(-Buf_c*K_buf_c), imaginary for positive parameters. A
-    guard window needs a real centre."""
+    guard window needs a real center."""
     Buf, K = sympy.symbols("Buf K", real=True)
     expr = cai / (cai**2 + 2 * K * cai + K**2 + Buf * K)
     poles = singularities.removable_poles(
@@ -241,9 +263,7 @@ def test_removable_poles_skips_an_expression_with_a_constant_denominator():
     """The pre-filter: a denominator that is a parameter or a literal cannot
     vanish for a state-dependent reason, so the cone is never inlined."""
     C = sympy.Symbol("C", real=True)
-    assert singularities.removable_poles(
-        (v + 3) / C, {}, frozenset({v}), {C: 1.0, v: -80.0}
-    ) == ()
+    assert singularities.removable_poles((v + 3) / C, {}, frozenset({v}), {C: 1.0, v: -80.0}) == ()
 
 
 def test_guard_emits_a_piecewise_on_the_window():
@@ -280,9 +300,128 @@ def test_rewrite_guards_the_ghk_expression_in_the_state_variable():
     numeric = sympy.lambdify(
         v,
         guarded.xreplace(
-            {symbol: sympy.Float(value) for symbol, value in GHK_DEFAULTS.items() if symbol is not v}
+            {
+                symbol: sympy.Float(value)
+                for symbol, value in GHK_DEFAULTS.items()
+                if symbol is not v
+            }
         ),
         "numpy",
     )
     numpy.seterr(all="ignore")
     assert numpy.isfinite(float(numeric(numpy.float64(0.0))))
+
+
+def test_default_values_resolves_intermediates_in_order():
+    """Intermediates that do not depend on the pole variable stay opaque
+    symbols in the guarded expression (see `inline`), so the window
+    half-width and the numeric check need a value for them as well."""
+    y, z = sympy.symbols("y z", real=True)
+    values = singularities.default_values({y: 2 * a, z: y + 1}, {a: 3.0})
+    assert values[y] == 6.0
+    assert values[z] == 7.0
+    assert values[a] == 3.0
+
+
+def test_default_values_skips_what_cannot_be_evaluated():
+    """ToRORd's bundled state has CaTrpn = 0 and an intermediate comparing
+    CaTrpn**(-ntm/2) against 100, which raises under exact arithmetic. That
+    must leave the intermediate without a default, not abort the model."""
+    y = sympy.Symbol("y", real=True)
+    expr = sympy.Piecewise((a**-2, a**-2 < 100), (100, True))
+    values = singularities.default_values({y: expr}, {a: 0.0})
+    assert y not in values
+
+
+def test_removable_poles_guards_through_an_opaque_intermediate():
+    """ToRORd's ICab keeps `gamma_cai` as a symbol after inlining in v; the
+    guard must still be emitted when its default is known."""
+    definitions = dict(GHK_DEFINITIONS)
+    definitions[gamma] = sympy.exp(sympy.sqrt(cai))
+    base = dict(GHK_DEFAULTS)
+    base[cai] = 1e-4
+    defaults = singularities.default_values(definitions, base)
+    poles = singularities.removable_poles(gamma * GHK, definitions, frozenset({v, cai}), defaults)
+    assert [str(p.var) for p in poles] == ["v"]
+
+
+def test_rewrite_guards_a_gate_rate_written_through_an_intermediate():
+    """`xreplace` rebuilds with evaluate=True, which folds
+    `exp(-0.04*(V + 23))` into `0.398519041084514*exp(-0.04*V)`. Once folded
+    the pole is no longer exactly at -23 in any arithmetic, so inlining must
+    not fold. The replacement's value and slope at the pole are checked
+    against the analytic limits 0.2/0.04 = 5 and 0.2/2 = 0.1.
+    """
+    shifted = sympy.Symbol("shifted", real=True)
+    with sympy.evaluate(False):
+        definitions = {shifted: V + 23}
+        rate = 0.2 * shifted / (1 - sympy.exp(-0.04 * shifted))
+    guarded = singularities.rewrite(rate, definitions, frozenset({V}), {V: -80.0})
+    assert guarded.has(sympy.Piecewise), "the pole was not guarded"
+    replacement = guarded.args[0][0]
+    assert abs(float(replacement.subs(V, -23)) - 5.0) < 1e-10
+    assert abs(float(sympy.diff(replacement, V).subs(V, -23)) - 0.1) < 1e-9
+
+
+def test_behavior_carried_over_from_the_previous_mechanism():
+    """The cases `tests/test_atoms.py::test_singularities` pinned for the
+    mechanism this module replaces, restated against the new one."""
+    b = sympy.Symbol("b", real=True)
+    states = frozenset({x})
+    defaults = {a: 1.0, b: 2.0, x: 1.0}
+
+    def poles(expr):
+        return singularities.removable_poles(expr, {}, states, defaults)
+
+    (z,) = poles(x / (sympy.exp(x) - 1.0))
+    assert float(z.value) == 0.0
+    assert abs(float(z.replacement.subs(x, 0)) - 1.0) < 1e-12
+
+    (z1,) = poles(x / (sympy.exp(x) - 1.0) + a)
+    assert abs(float(z1.replacement.subs({x: 0, a: 1.0})) - 2.0) < 1e-12
+
+    z2 = poles(x / (sympy.exp(x) - 1.0) + a + (x - 2) / (sympy.exp(x) - sympy.exp(2)))
+    assert sorted(float(p.value) for p in z2) == [0.0, 2.0]
+
+    assert poles(a / b) == ()  # denominator is not state-dependent
+    assert poles(x / b) == ()  # denominator is not state-dependent
+    assert poles(b / x) == ()  # a genuine pole, not a removable one
+
+
+def test_factor_roots_treats_a_constant_exponential_as_a_constant():
+    """`exp(2)` contains an `exp` but not the variable; it is the B in
+    A*exp(u) + B."""
+    assert singularities.factor_roots(sympy.exp(x) - sympy.exp(2), x) == [2]
+
+
+def test_denominator_factors_does_not_look_inside_a_denominator():
+    """Only outermost denominators are scanned. Looking inside finds the
+    buffering terms' removable singularities at negative concentrations,
+    triples ToRORd's guarded set, and does not terminate on ORdmm_Land."""
+    K, c = sympy.symbols("K c", real=True)
+    inner = K + x
+    factors = singularities.denominator_factors(1 / (1 + c / inner**2))
+    assert factors == (1 + c / inner**2,)
+    assert inner not in factors
+
+
+def test_removable_poles_skips_an_expression_too_large_to_expand():
+    """sympy.series has no bound of its own; on ToRORd's 267-operation E1_i it
+    did not finish in 100 s."""
+    big = sum(sympy.sin(k * x) ** k for k in range(1, 60))
+    expr = big * x / (sympy.exp(x) - 1)
+    assert sympy.count_ops(expr) > singularities.MAX_SERIES_OPS
+    assert singularities.removable_poles(expr, {}, frozenset({x}), {x: 1.0}) == ()
+
+
+def test_pole_screen_rejects_a_genuine_pole_but_never_a_removable_one():
+    """The numeric screen only ever rejects, so the failure that matters is a
+    false rejection -- which would silently drop a guard."""
+    IpCa = GpCa * cai / (KmCap + cai)
+    assert singularities._looks_like_a_genuine_pole(
+        IpCa, cai, -KmCap, {GpCa: 0.0005, KmCap: 0.0005}
+    )
+    ghk = singularities._exact(singularities.inline(GHK, GHK_DEFINITIONS, v))
+    assert not singularities._looks_like_a_genuine_pole(ghk, v, sympy.Integer(0), GHK_DEFAULTS)
+    gate = singularities._exact((V + 10) / (sympy.exp((V + 10) / 10) - 1))
+    assert not singularities._looks_like_a_genuine_pole(gate, V, sympy.Integer(-10), {})

@@ -6,7 +6,7 @@ exactly 0; *differentiated* -- which is what the Rush-Larsen linearized block
 does -- it has a double pole, and the wrong value it produces is O(1) and can
 have the wrong sign.
 
-This module finds such poles and replaces a neighbourhood of each with a
+This module finds such poles and replaces a neighborhood of each with a
 truncated Taylor series. It is sympy-only: it knows nothing about
 ``Assignment``, lark, or ``ODE``, so both the model layer and the schemes can
 use it.
@@ -40,9 +40,11 @@ __all__ = [
     "EPSILON",
     "MAX_HALF_WIDTH",
     "MAX_INLINE_OPS",
+    "MAX_SERIES_OPS",
     "MIN_HALF_WIDTH",
     "RemovablePole",
     "agrees_numerically",
+    "default_values",
     "denominator_factors",
     "factor_roots",
     "half_width",
@@ -69,26 +71,44 @@ _SERIES_ERRORS = (
     RecursionError,
 )
 
+#: Narrowest guard window allowed, in the guarded variable's own units.
 MIN_HALF_WIDTH = 1e-8
-"""Narrowest guard window allowed, in the guarded variable's own units."""
 
+#: Widest guard window allowed, in the guarded variable's own units.
 MAX_HALF_WIDTH = 1e-1
-"""Widest guard window allowed, in the guarded variable's own units."""
 
+#: float64 machine epsilon, the round-off scale the fallback window rule
+#: balances truncation against.
 EPSILON = 2.220446049250313e-16
-"""float64 machine epsilon, the round-off scale the window is balanced against."""
 
+#: Give up inlining past this many operations. ToRORd_dyn_chloride's largest
+#: candidate reaches 939, so this is loose: it bounds the worst case on a model
+#: nobody has tried yet rather than excluding anything in the bundled set.
 MAX_INLINE_OPS = 5000
-"""Give up inlining past this many operations.
 
-ToRORd_dyn_chloride's largest candidate reaches 939 operations, so this is
-loose. It exists to bound the worst case on a model nobody has tried yet, not
-to exclude anything in the bundled set.
-"""
+#: Do not series-expand an expression larger than this many operations.
+#: ``sympy.series`` has no useful bound of its own: on ToRORd's 267-operation
+#: ``E1_i`` it did not finish in 100 s. The largest guard any bundled model
+#: needs is well under this.
+MAX_SERIES_OPS = 150
 
 
 def denominator_factors(expr: sympy.Expr) -> tuple[sympy.Expr, ...]:
-    """The factors of ``expr``'s denominator.
+    """The factors of the outermost denominators in ``expr``.
+
+    Found structurally, as the bases of negative powers, rather than with
+    ``sympy.together``: combining an expression into one fraction first was
+    most of the cost of the scan on ToRORd.
+
+    Only *outermost* denominators are returned; a denominator's own
+    denominators are not looked inside. ``1/(1 + c/(K + x)**2)`` yields
+    ``1 + c/(K + x)**2``, not ``K + x``. Looking inside finds real removable
+    singularities too -- the formula above is regular at ``x = -K`` even
+    though it divides by zero there -- but measured on the bundled models it
+    triples the guarded set on ToRORd (8 to 24, mostly concentration buffering
+    terms at negative or zero concentrations), and ``sympy.series`` did not
+    finish within 170 s on ORdmm_Land. The outermost denominators give exactly
+    the GHK and gate-rate poles.
 
     Parameters
     ----------
@@ -98,11 +118,22 @@ def denominator_factors(expr: sympy.Expr) -> tuple[sympy.Expr, ...]:
     Returns
     -------
     tuple[sympy.Expr, ...]
-        The factors of the denominator of ``sympy.together(expr)``. An
-        expression with no denominator yields ``(1,)``.
+        The distinct factors, in a deterministic order. An expression with no
+        denominator yields ``(1,)``.
     """
-    _, den = sympy.fraction(sympy.together(expr))
-    return tuple(sympy.Mul.make_args(sympy.factor_terms(den)))
+    factors: dict[sympy.Expr, None] = {}
+    stack = [expr]
+    while stack:
+        node = stack.pop()
+        if isinstance(node, sympy.Pow) and node.exp.is_negative:
+            for factor in sympy.Mul.make_args(node.base):
+                if not factor.is_number:
+                    factors[factor] = None
+            continue
+        stack.extend(node.args)
+    if not factors:
+        return (sympy.S.One,)
+    return tuple(sorted(factors, key=sympy.default_sort_key))
 
 
 def _linear_root(expr: sympy.Expr, var: sympy.Symbol) -> sympy.Expr | None:
@@ -116,7 +147,7 @@ def _linear_root(expr: sympy.Expr, var: sympy.Symbol) -> sympy.Expr | None:
     slope, intercept = poly.all_coeffs()
     if slope == 0:
         return None
-    return sympy.simplify(-intercept / slope)
+    return -intercept / slope
 
 
 def factor_roots(
@@ -170,8 +201,10 @@ def factor_roots(
     # A*exp(u) + B
     if not isinstance(factor, sympy.Add) or len(factor.args) != 2:
         return []
-    exponentials = [term for term in factor.args if term.has(sympy.exp)]
-    constants = [term for term in factor.args if not term.has(sympy.exp)]
+    # Split by dependence on `var`, not by the presence of `exp`: in
+    # `exp(x) - exp(2)` the second term is an exponential, but a constant one.
+    exponentials = [term for term in factor.args if var in term.free_symbols]
+    constants = [term for term in factor.args if var not in term.free_symbols]
     if len(exponentials) != 1 or len(constants) != 1:
         return []
 
@@ -190,7 +223,7 @@ def factor_roots(
     if var in coefficient.free_symbols or var in intercept.free_symbols:
         return []
 
-    ratio = sympy.simplify(-intercept / coefficient)
+    ratio = -intercept / coefficient
     if ratio.is_positive is not True:
         return []
     root = _linear_root(exponent - sympy.log(ratio), var)
@@ -245,12 +278,42 @@ def inline(
         }
         if not substitutions:
             return expr
-        expr = expr.xreplace(substitutions)
+        # evaluate(False): a default xreplace rebuilds every ancestor with
+        # evaluate=True, which folds `exp(-0.04*(V + 23))` into
+        # `0.398519041084514*exp(-0.04*V)`. After that the pole is no longer
+        # exactly at -23 in any arithmetic, and the series about -23 picks up
+        # a Laurent term. `sympytools.rhs_matrix` guards against the same
+        # folding for the same reason.
+        with sympy.core.parameters.evaluate(False):
+            expr = expr.xreplace(substitutions)
         if sympy.count_ops(expr) > MAX_INLINE_OPS:
             return None
 
 
+_DEPENDENCY_CACHE: list = []
+
+
 def _depending_on(
+    definitions: Mapping[sympy.Symbol, sympy.Expr],
+    seeds: set[sympy.Symbol],
+) -> set[sympy.Symbol]:
+    """Cached front for :func:`_compute_depending_on`.
+
+    Called once per (assignment, variable) pair against the same model, so
+    recomputing the fixed point every time dominated the scan. The cache holds
+    only the most recent ``definitions`` object and compares by identity, so it
+    can never serve a stale answer for a different model.
+    """
+    key = frozenset(seeds)
+    if not _DEPENDENCY_CACHE or _DEPENDENCY_CACHE[0] is not definitions:
+        _DEPENDENCY_CACHE[:] = [definitions, {}]
+    by_seeds = _DEPENDENCY_CACHE[1]
+    if key not in by_seeds:
+        by_seeds[key] = frozenset(_compute_depending_on(definitions, set(seeds)))
+    return set(by_seeds[key])
+
+
+def _compute_depending_on(
     definitions: Mapping[sympy.Symbol, sympy.Expr],
     seeds: set[sympy.Symbol],
 ) -> set[sympy.Symbol]:
@@ -300,12 +363,18 @@ def is_removable(expr: sympy.Expr, var: sympy.Symbol, value: sympy.Expr) -> bool
         True if the singularity is removable. False when sympy cannot decide,
         which leaves the pole unguarded rather than guarded wrongly.
     """
+    exponent = _leading_exponent(expr, var, value)
+    return exponent is not None and bool(exponent >= 0)
+
+
+def _leading_exponent(expr: sympy.Expr, var: sympy.Symbol, value: sympy.Expr) -> sympy.Expr | None:
+    """Leading exponent of ``expr`` in ``var - value``, or None if sympy fails."""
     offset = sympy.Dummy("offset", positive=True)
     try:
         _, exponent = expr.subs(var, value + offset).leadterm(offset)
     except _SERIES_ERRORS:
-        return False
-    return bool(exponent >= 0)
+        return None
+    return exponent
 
 
 def taylor(
@@ -356,7 +425,14 @@ def taylor(
         return None
     if series.has(sympy.oo, -sympy.oo, sympy.zoo, sympy.nan):
         return None
-    return sympy.expand(series)
+    series = sympy.expand(series)
+    # A replacement must be a polynomial in `var`. A Laurent term left over
+    # from float round-off -- e.g. -5.7e-14/(V + 23.000000000000011) -- is
+    # negligible at the window edge, so the numeric check cannot see it, and
+    # infinite a hair away from the guarded point.
+    if not series.is_polynomial(var):
+        return None
+    return series
 
 
 def _numeric(expr: sympy.Expr, defaults: Mapping[sympy.Symbol, float]) -> float | None:
@@ -406,35 +482,36 @@ def half_width(
     value: sympy.Expr,
     order: int,
     defaults: Mapping[sympy.Symbol, float],
+    replacement: sympy.Expr | None = None,
 ) -> float | None:
     r"""Half-width of the window in which the Taylor branch is used.
 
-    Placed where the series' truncation error crosses the direct formula's
-    float64 round-off, measured on the *derivative* -- the quantity the
-    Rush-Larsen linearized block needs. With coefficients :math:`a_k` and
-    :math:`k` the first nonzero index above ``order``, truncation of the
-    derivative goes like :math:`k |a_k| \delta^{k-1} / |a_1|` while round-off
-    of the direct derivative grows like :math:`\epsilon/\delta^2`, so the two
-    cross at
+    Placed at the crossover between the two branches' float64 errors,
+    measured on the *derivative* -- the quantity the Rush-Larsen linearized
+    block needs. Near the pole the direct formula loses precision to
+    cancellation; far from it the truncated series loses it to truncation.
+    Where they cross, both are as accurate as either gets.
 
-    .. math::
-        \delta^{k+1} = \frac{\epsilon |a_1|}{k |a_k|}
+    The crossover is found *empirically*: on a geometric grid of candidate
+    half-widths, the series derivative and the direct derivative are both
+    evaluated in float64 at ``value +- delta``, and the window edge goes where
+    they agree best. Each is accurate on its own side of the crossover, so
+    their disagreement is V-shaped in ``delta`` and bottoms out there.
 
-    clamped to ``[MIN_HALF_WIDTH, MAX_HALF_WIDTH]``. The clamp matters at both
-    ends: the lower bound keeps the window wider than the region where the
-    direct formula is already catastrophically wrong (222% relative error at
-    1e-8 for the canonical kernel), and the upper bound keeps the series out of
-    the region where the direct formula is the more accurate of the two.
+    An analytic rule -- balancing truncation :math:`k|a_k|\delta^{k-1}/|a_1|`
+    against round-off :math:`\epsilon/\delta^2` -- is used only as a fallback
+    when the expression cannot be evaluated numerically. It misplaces the
+    window whenever the pole's local variable is scaled: Beeler-Reuter's
+    ``i_K1`` cancels in ``exp(-0.04*(V + 23)) - 1``, so its round-off grows
+    like :math:`\epsilon/(0.04\,\delta)^2` and the analytic rule puts the edge
+    at 4.9e-3, where the direct derivative is still 8.2e-9 off. The true
+    crossover is near 2e-2, with both branches under 7e-10.
 
-    Calibrating on the *value* instead -- bounding
-    :math:`|a_k \delta^k| \le \mathrm{tol}|a_0|` -- is one order too generous,
-    because differentiating a truncated series loses an order. On ToRORd's
-    ``INab`` that rule returns 0.1, where the series derivative is 4.9e-10 off
-    a 50-digit reference and the direct float64 derivative is 3.0e-13 off.
+    Calibrating on the *value* rather than the derivative is worse again: on
+    ToRORd's ``INab`` it gives 0.1, where the series derivative is 4.9e-10
+    off a 50-digit reference and the direct derivative only 3.0e-13 off.
 
-    The rule is scale-free: it adapts to a gate rate written ``-0.1*(V + 47)``
-    as readily as to one written ``(V + 10)/10``, where a fixed window in the
-    guarded variable's own units would not.
+    The result is clamped to ``[MIN_HALF_WIDTH, MAX_HALF_WIDTH]``.
 
     Parameters
     ----------
@@ -447,13 +524,94 @@ def half_width(
     order : int
         The order of the Taylor replacement.
     defaults : Mapping[sympy.Symbol, float]
-        Default values for parameters and other states, used to make the
-        coefficients numeric. A window half-width has to be a number.
+        Default values for parameters, states and intermediates. A window
+        half-width has to be a number.
+    replacement : sympy.Expr | None, optional
+        The Taylor replacement, if already computed; computed here otherwise.
 
     Returns
     -------
     float | None
-        The half-width, or None if the coefficients could not be evaluated.
+        The half-width, or None if neither the empirical search nor the
+        analytic fallback could be evaluated.
+    """
+    if replacement is None:
+        replacement = taylor(expr, var, value, order)
+    if replacement is not None:
+        delta = _empirical_half_width(expr, replacement, var, value, defaults)
+        if delta is not None:
+            return delta
+    return _analytic_half_width(expr, var, value, order, defaults)
+
+
+#: Candidate half-widths for the empirical search: seven per decade across
+#: the allowed range.
+_HALF_WIDTH_GRID = tuple(
+    MIN_HALF_WIDTH * (MAX_HALF_WIDTH / MIN_HALF_WIDTH) ** (i / 49) for i in range(50)
+)
+
+
+def _empirical_half_width(
+    expr: sympy.Expr,
+    replacement: sympy.Expr,
+    var: sympy.Symbol,
+    value: sympy.Expr,
+    defaults: Mapping[sympy.Symbol, float],
+) -> float | None:
+    """The grid half-width where the two branches' derivatives agree best."""
+    import numpy
+
+    center = _numeric(value, defaults)
+    if center is None:
+        return None
+    others = {s: sympy.Float(x) for s, x in defaults.items() if s != var}
+    try:
+        direct = sympy.lambdify(var, sympy.diff(expr, var).xreplace(others), "numpy")
+        series = sympy.lambdify(var, sympy.diff(replacement, var).xreplace(others), "numpy")
+    except _SERIES_ERRORS:
+        return None
+
+    def disagreement(delta: float) -> float:
+        worst = 0.0
+        # Four points rather than two, so that a lucky cancellation in the
+        # noisy direct formula at one point cannot fake a good agreement.
+        for point in (center - delta, center + delta, center - 1.13 * delta, center + 1.13 * delta):
+            with numpy.errstate(all="ignore"):
+                try:
+                    d = complex(direct(numpy.float64(point)))
+                    s = complex(series(numpy.float64(point)))
+                except (TypeError, ValueError, ZeroDivisionError, OverflowError):
+                    return float("inf")
+            if d.imag or s.imag or not (numpy.isfinite(d.real) and numpy.isfinite(s.real)):
+                return float("inf")
+            scale = max(abs(d.real), abs(s.real), 1e-300)
+            worst = max(worst, abs(d.real - s.real) / scale)
+        return worst
+
+    scores = [(delta, disagreement(delta)) for delta in _HALF_WIDTH_GRID]
+    finite = [score for _, score in scores if score != float("inf")]
+    if not finite:
+        return None
+    best = min(finite)
+    # Widest window that is within a factor of two of the best agreement: on
+    # a flat curve -- a replacement that is exact, say -- that is the upper
+    # clamp rather than an arbitrary point on the plateau.
+    return max(delta for delta, score in scores if score <= 2 * best + 1e-300)
+
+
+def _analytic_half_width(
+    expr: sympy.Expr,
+    var: sympy.Symbol,
+    value: sympy.Expr,
+    order: int,
+    defaults: Mapping[sympy.Symbol, float],
+) -> float | None:
+    r"""Fallback half-width from series coefficients alone.
+
+    With :math:`k` the first nonzero index above ``order``, the crossing of
+    derivative truncation and round-off is at
+    :math:`\delta^{k+1} = \epsilon |a_1| / (k |a_k|)`. Ignores the local
+    variable's scale; see :func:`half_width`.
     """
     coefficients = _series_coefficients(expr, var, value, order + 8, defaults)
     if coefficients is None:
@@ -493,7 +651,7 @@ def agrees_numerically(
     that fails is dropped, not emitted.
 
     The check is made at ``value +- delta``, the window *edge*, not at its
-    centre. ``delta`` is placed where the two branches cross over, so both are
+    center. ``delta`` is placed where the two branches cross over, so both are
     accurate there; closer in, the direct formula is the inaccurate one and a
     disagreement would say nothing about the replacement.
 
@@ -519,10 +677,10 @@ def agrees_numerically(
     bool
         True if the replacement may be emitted.
     """
-    centre = _numeric(value, defaults)
-    if centre is None:
+    center = _numeric(value, defaults)
+    if center is None:
         return False
-    for point in (centre - delta, centre + delta):
+    for point in (center - delta, center + delta):
         substitution = {var: sympy.Float(point)}
         original = _numeric(expr.subs(substitution), defaults)
         proposed = _numeric(replacement.subs(substitution), defaults)
@@ -563,6 +721,47 @@ class RemovablePole:
     replacement: sympy.Expr
     half_width: float
     rewritten: sympy.Expr
+
+
+def _exact(expr: sympy.Expr) -> sympy.Expr:
+    """``expr`` with its float literals turned into exact rationals.
+
+    Pole locations must be found on an exact copy, not on the expression as
+    written. Beeler-Reuter's ``i_K1`` has the factor
+    ``1 - exp(-0.04*(V + 23))``; in float arithmetic sympy folds that to
+    ``1 - 0.398519041084514*exp(-0.04*V)`` and the root solves to
+    -23.000000000000004 rather than -23. Expanding a series about that
+    location -- 3.6e-15 off the actual pole -- makes ``sympy.series`` return
+    plain ``0``, so the replacement is worthless and the guard is dropped.
+    Rationalized, the factor is ``1 - exp(-V/25 - 23/25)`` and the root is
+    exactly -23.
+
+    This is the same weakness as the ``sympy.limit`` failure that rules
+    ``limit`` out of this module: float coefficients defeat sympy's exact
+    machinery, and ``.ode`` files are written with float coefficients.
+    """
+    return sympy.nsimplify(expr, rational=True)
+
+
+def _underlying_states(
+    symbols: set[sympy.Symbol],
+    definitions: Mapping[sympy.Symbol, sympy.Expr],
+    states: frozenset[sympy.Symbol],
+) -> set[sympy.Symbol]:
+    """The states that ``symbols`` transitively depend on."""
+    found: set[sympy.Symbol] = set()
+    seen: set[sympy.Symbol] = set()
+    frontier = set(symbols)
+    while frontier:
+        symbol = frontier.pop()
+        if symbol in seen:
+            continue
+        seen.add(symbol)
+        if symbol in states:
+            found.add(symbol)
+        elif symbol in definitions:
+            frontier |= definitions[symbol].free_symbols
+    return found
 
 
 def removable_poles(
@@ -613,20 +812,29 @@ def removable_poles(
     """
     state_dependent = set(states) | _depending_on(definitions, set(states))
 
-    factors = denominator_factors(expr)
-    if not any(factor.free_symbols & state_dependent for factor in factors):
+    denominator_symbols: set[sympy.Symbol] = set()
+    for factor in denominator_factors(expr):
+        denominator_symbols |= factor.free_symbols & state_dependent
+    if not denominator_symbols:
         return ()
 
     found: list[RemovablePole] = []
-    seen: set[tuple[sympy.Symbol, sympy.Expr]] = set()
-    for factor in factors:
-        if not (factor.free_symbols & state_dependent):
+    for var in sorted(_underlying_states(denominator_symbols, definitions, states), key=str):
+        rewritten = inline(expr, definitions, var)
+        if rewritten is None or sympy.count_ops(rewritten) > MAX_SERIES_OPS:
+            # Checked here rather than only before expanding: nothing this
+            # large can be guarded, so there is no point scanning its factors.
+            logger.debug("Expression too large to guard", var=str(var))
             continue
-        for var in sorted(states, key=str):
-            inlined_factor = inline(factor, definitions, var)
-            if inlined_factor is None or var not in inlined_factor.free_symbols:
-                continue
-            for value in factor_roots(inlined_factor, var):
+        # Cheap pass on the float form: most candidates have no root in a
+        # matched shape at all, and rationalizing is the expensive step.
+        if not any(factor_roots(factor, var) for factor in denominator_factors(rewritten)):
+            continue
+        exact = _exact(rewritten)
+
+        seen: set[sympy.Expr] = set()
+        for factor in denominator_factors(exact):
+            for value in factor_roots(factor, var):
                 if value.free_symbols & states:
                     logger.debug(
                         "Skipping a pole whose location depends on a state",
@@ -641,39 +849,109 @@ def removable_poles(
                         value=str(value),
                     )
                     continue
-                if (var, value) in seen:
+                if value in seen:
                     continue
-                seen.add((var, value))
+                seen.add(value)
 
-                rewritten = inline(expr, definitions, var)
-                if rewritten is None:
-                    logger.debug("Expression too large to inline", var=str(var))
-                    continue
-                if not is_removable(rewritten, var, value):
-                    continue
-                replacement = taylor(rewritten, var, value, order)
-                if replacement is None:
-                    continue
-                delta = half_width(rewritten, var, value, order, defaults)
-                if delta is None:
-                    continue
-                if not agrees_numerically(rewritten, replacement, var, value, delta, defaults):
-                    logger.warning(
-                        "Dropping a guard whose replacement failed its numeric check",
-                        var=str(var),
-                        value=str(value),
-                    )
-                    continue
-                found.append(
-                    RemovablePole(
-                        var=var,
-                        value=value,
-                        replacement=replacement,
-                        half_width=delta,
-                        rewritten=rewritten,
-                    )
-                )
+                pole = _pole_at(rewritten, exact, var, value, order, defaults)
+                if pole is not None:
+                    found.append(pole)
     return tuple(sorted(found, key=lambda pole: (str(pole.var), str(pole.value))))
+
+
+def _pole_at(
+    rewritten: sympy.Expr,
+    exact: sympy.Expr,
+    var: sympy.Symbol,
+    value: sympy.Expr,
+    order: int,
+    defaults: Mapping[sympy.Symbol, float],
+) -> RemovablePole | None:
+    """Classify and, if removable, build the guard for one candidate pole.
+
+    Tried on the expression as written first, and on the exact copy only if
+    that fails. The float form is much the cheaper of the two -- the exact
+    series for Beeler-Reuter's ``i_K1`` runs to hundreds of terms before
+    ``nfloat`` collapses it to the same four coefficients -- so it is worth
+    preferring, with the exact form as the fallback for the cases where float
+    arithmetic defeats the series machinery.
+    """
+    if sympy.count_ops(rewritten) > MAX_SERIES_OPS:
+        logger.debug("Expression too large to expand", var=str(var), value=str(value))
+        return None
+    if _looks_like_a_genuine_pole(exact, var, value, defaults):
+        return None
+
+    # The exact form is consulted only if sympy *fails* on the float form, not
+    # if the float form says the pole is genuine: genuine poles are most of the
+    # candidates, and a second leadterm on the exact form roughly doubled the
+    # scan for no change in the verdict.
+    exponent = _leading_exponent(rewritten, var, value)
+    if exponent is None:
+        exponent = _leading_exponent(exact, var, value)
+    if exponent is None or not bool(exponent >= 0):
+        return None
+
+    # The series is taken on the float form, about the *exact* location. The
+    # exact form's series is no alternative: its coefficients are sums of
+    # rational multiples of exp(rational) that nfloat cannot collapse without
+    # losing every digit to cancellation.
+    replacement = taylor(rewritten, var, value, order)
+    if replacement is not None:
+        replacement = sympy.nfloat(replacement, n=17)
+        delta = half_width(rewritten, var, value, order, defaults, replacement)
+        if delta is not None and agrees_numerically(
+            rewritten, replacement, var, value, delta, defaults
+        ):
+            return RemovablePole(
+                var=var,
+                value=sympy.nfloat(value, n=17),
+                replacement=replacement,
+                half_width=delta,
+                rewritten=rewritten,
+            )
+
+    logger.warning(
+        "Dropping a guard whose replacement failed its numeric check",
+        var=str(var),
+        value=str(value),
+    )
+    return None
+
+
+def _looks_like_a_genuine_pole(
+    exact: sympy.Expr,
+    var: sympy.Symbol,
+    value: sympy.Expr,
+    defaults: Mapping[sympy.Symbol, float],
+) -> bool:
+    """Cheap numeric screen that rejects genuine poles before ``leadterm``.
+
+    Most candidates are genuine poles, and proving that symbolically -- one
+    ``leadterm`` each, roughly 90 ms on ToRORd -- was most of the scan. A
+    genuine pole of order ``k`` grows by ``1e8**k`` between offsets of 1e-12
+    and 1e-20; a removable singularity does not grow at all. Evaluated on the
+    exact form in 60-digit arithmetic, so the 1e-20 offset is far above
+    round-off.
+
+    Only ever *rejects*. A candidate that passes, or that cannot be evaluated
+    here, still goes through the symbolic leading-exponent test.
+    """
+    import mpmath
+
+    others = {symbol: sympy.Rational(repr(x)) for symbol, x in defaults.items() if symbol != var}
+    try:
+        centre = sympy.sympify(value).xreplace(others)
+        function = sympy.lambdify(var, exact.xreplace(others), "mpmath")
+        with mpmath.workdps(60):
+            origin = mpmath.mpf(sympy.N(centre, 60))
+            near = abs(function(origin + mpmath.mpf("1e-20")))
+            far = abs(function(origin + mpmath.mpf("1e-12")))
+    except Exception:  # noqa: BLE001 -- any failure just defers to leadterm
+        return False
+    if not (mpmath.isfinite(near) and mpmath.isfinite(far)) or far == 0:
+        return False
+    return bool(near > 1e4 * far)
 
 
 def guard(expr: sympy.Expr, poles: tuple[RemovablePole, ...]) -> sympy.Expr:
@@ -749,3 +1027,45 @@ def rewrite(
         poles=[(str(p.var), str(p.value), p.half_width) for p in poles],
     )
     return guard(expr, poles)
+
+
+def default_values(
+    definitions: Mapping[sympy.Symbol, sympy.Expr],
+    base: Mapping[sympy.Symbol, float],
+) -> dict[sympy.Symbol, float]:
+    """Default values for every intermediate that can be evaluated.
+
+    :func:`inline` leaves intermediates that do not depend on the pole
+    variable as opaque symbols -- ToRORd's ``ICab`` keeps ``gamma_cai`` and
+    ``gamma_cao`` after being rewritten in ``v``. The window half-width and the
+    numeric check both need numbers, so those symbols need defaults too;
+    without them every GHK guard in ToRORd is silently dropped.
+
+    Parameters
+    ----------
+    definitions : Mapping[sympy.Symbol, sympy.Expr]
+        Every intermediate and its defining expression, in dependency order
+        (as :meth:`gotranx.ode.ODE.sorted_assignments` yields them).
+    base : Mapping[sympy.Symbol, float]
+        Default values for parameters and states.
+
+    Returns
+    -------
+    dict[sympy.Symbol, float]
+        ``base`` plus every intermediate whose value is a real, finite number
+        at those defaults. An intermediate that is not -- ToRORd's bundled
+        state has ``CaTrpn = 0``, and a guard comparing ``CaTrpn**(-ntm/2)``
+        against 100 raises under exact arithmetic -- is simply left out, and
+        any pole whose checks need it is left unguarded.
+    """
+    values = dict(base)
+    for symbol, definition in definitions.items():
+        if not definition.free_symbols <= set(values):
+            continue
+        try:
+            value = _numeric(definition, values)
+        except (TypeError, ValueError, ZeroDivisionError):
+            value = None
+        if value is not None:
+            values[symbol] = value
+    return values
