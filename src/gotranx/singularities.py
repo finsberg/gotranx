@@ -494,9 +494,11 @@ def half_width(
 
     The crossover is found *empirically*: on a geometric grid of candidate
     half-widths, the series derivative and the direct derivative are both
-    evaluated in float64 at ``value +- delta``, and the window edge goes where
-    they agree best. Each is accurate on its own side of the crossover, so
-    their disagreement is V-shaped in ``delta`` and bottoms out there.
+    evaluated with float64-sized round-off at ``value +- delta``, and the
+    window edge goes where they agree best. Each is accurate on its own side
+    of the crossover, so their disagreement is V-shaped in ``delta`` and
+    bottoms out there. The evaluation is deterministic across machines; see
+    :func:`_empirical_half_width`.
 
     An analytic rule -- balancing truncation :math:`k|a_k|\delta^{k-1}/|a_1|`
     against round-off :math:`\epsilon/\delta^2` -- is used only as a fallback
@@ -558,45 +560,64 @@ def _empirical_half_width(
     value: sympy.Expr,
     defaults: Mapping[sympy.Symbol, float],
 ) -> float | None:
-    """The grid half-width where the two branches' derivatives agree best."""
-    import numpy
+    """The grid half-width where the two branches' derivatives agree best.
+
+    Two things make the answer independent of the machine it runs on, which
+    matters because it is emitted into generated code:
+
+    * Both derivatives are evaluated in mpmath at 53-bit precision rather than
+      in numpy float64. That has float64-sized round-off -- which is what the
+      search measures -- but it is software arithmetic, identical everywhere.
+      numpy's ``exp`` is not: on x86-64 it is its own SIMD implementation and
+      not correctly rounded, on aarch64 it is glibc's.
+    * Each half-width is scored by the worst agreement over itself *and its
+      two grid neighbors*. Round-off is noise, and at a single point the two
+      branches can agree by accident. The search without smoothing picked exactly
+      such a point for ToRORd's GHK kernel (0.0373, scored 3.5e-11 against
+      neighbors at 1.5e-10 and 1.1e-10), and a one-ulp change in ``exp``
+      moved it -- which is how CI on x86-64 came to choose 0.0518.
+    """
+    import mpmath
 
     center = _numeric(value, defaults)
     if center is None:
         return None
     others = {s: sympy.Float(x) for s, x in defaults.items() if s != var}
     try:
-        direct = sympy.lambdify(var, sympy.diff(expr, var).xreplace(others), "numpy")
-        series = sympy.lambdify(var, sympy.diff(replacement, var).xreplace(others), "numpy")
+        direct = sympy.lambdify(var, sympy.diff(expr, var).xreplace(others), "mpmath")
+        series = sympy.lambdify(var, sympy.diff(replacement, var).xreplace(others), "mpmath")
     except _SERIES_ERRORS:
         return None
 
     def disagreement(delta: float) -> float:
         worst = 0.0
-        # Four points rather than two, so that a lucky cancellation in the
-        # noisy direct formula at one point cannot fake a good agreement.
         for point in (center - delta, center + delta, center - 1.13 * delta, center + 1.13 * delta):
-            with numpy.errstate(all="ignore"):
-                try:
-                    d = complex(direct(numpy.float64(point)))
-                    s = complex(series(numpy.float64(point)))
-                except (TypeError, ValueError, ZeroDivisionError, OverflowError):
-                    return float("inf")
-            if d.imag or s.imag or not (numpy.isfinite(d.real) and numpy.isfinite(s.real)):
+            try:
+                with mpmath.workprec(53):
+                    x = mpmath.mpf(point)
+                    d, s = mpmath.mpmathify(direct(x)), mpmath.mpmathify(series(x))
+                    if not (isinstance(d, mpmath.mpf) and isinstance(s, mpmath.mpf)):
+                        return float("inf")  # complex
+                    if not (mpmath.isfinite(d) and mpmath.isfinite(s)):
+                        return float("inf")
+                    scale = max(abs(d), abs(s), mpmath.mpf("1e-300"))
+                    worst = max(worst, float(abs(d - s) / scale))
+            except (TypeError, ValueError, ZeroDivisionError, OverflowError):
                 return float("inf")
-            scale = max(abs(d.real), abs(s.real), 1e-300)
-            worst = max(worst, abs(d.real - s.real) / scale)
         return worst
 
-    scores = [(delta, disagreement(delta)) for delta in _HALF_WIDTH_GRID]
-    finite = [score for _, score in scores if score != float("inf")]
+    raw = [disagreement(delta) for delta in _HALF_WIDTH_GRID]
+    smoothed = [max(raw[max(i - 1, 0) : i + 2]) for i in range(len(raw))]
+    finite = [score for score in smoothed if score != float("inf")]
     if not finite:
         return None
     best = min(finite)
-    # Widest window that is within a factor of two of the best agreement: on
-    # a flat curve -- a replacement that is exact, say -- that is the upper
-    # clamp rather than an arbitrary point on the plateau.
-    return max(delta for delta, score in scores if score <= 2 * best + 1e-300)
+    # Widest window within a factor of two of the best agreement: on a flat
+    # curve -- a replacement that is exact, say -- that is the upper clamp
+    # rather than an arbitrary point on the plateau.
+    return max(
+        delta for delta, score in zip(_HALF_WIDTH_GRID, smoothed) if score <= 2 * best + 1e-300
+    )
 
 
 def _analytic_half_width(

@@ -180,9 +180,12 @@ def test_half_width_minimizes_the_worst_case_derivative_error():
     placed where the guarded derivative is most accurate overall.
 
     Measured on ToRORd's INab kernel, worst relative error over the sweep:
-    empirical crossover (delta = 0.037) 1.9e-11; the analytic
+    empirical crossover (delta = 0.0518) 4.8e-11; the analytic
     truncation-vs-round-off rule (delta = 0.0135) 4.2e-10; the
-    value-calibrated rule (delta = 0.1) 2.1e-10.
+    value-calibrated rule (delta = 0.1) 2.1e-10. The margins below are 2x,
+    not tighter: an earlier version asserted 5x against a window that sat on
+    a lucky round-off cancellation (1.9e-11), which did not survive the move
+    to x86-64 CI.
     """
     F_, R_, T_, P_ = 96485.0, 8314.0, 310.0, 3.75e-10
     ghk = (
@@ -197,9 +200,9 @@ def test_half_width_minimizes_the_worst_case_derivative_error():
         ghk, v, 0.0, singularities._analytic_half_width(ghk, v, sympy.Integer(0), 3, {})
     )
     value_calibrated = _worst_guarded_derivative_error(ghk, v, 0.0, 0.1)
-    assert chosen < 5e-11, chosen
-    assert chosen < analytic / 5, (chosen, analytic)
-    assert chosen < value_calibrated / 5, (chosen, value_calibrated)
+    assert chosen < 1e-10, chosen
+    assert chosen < analytic / 2, (chosen, analytic)
+    assert chosen < value_calibrated / 2, (chosen, value_calibrated)
 
 
 def test_agrees_numerically_accepts_a_correct_replacement():
@@ -425,3 +428,52 @@ def test_pole_screen_rejects_a_genuine_pole_but_never_a_removable_one():
     assert not singularities._looks_like_a_genuine_pole(ghk, v, sympy.Integer(0), GHK_DEFAULTS)
     gate = singularities._exact((V + 10) / (sympy.exp((V + 10) / 10) - 1))
     assert not singularities._looks_like_a_genuine_pole(gate, V, sympy.Integer(-10), {})
+
+
+def _exp_with_ulp_errors(seed):
+    """An `exp` that is off by -1, 0 or +1 ulp, deterministically per input.
+
+    Models what differs between CI hosts: numpy's own SIMD `exp` on x86-64 is
+    not correctly rounded, while glibc's (which numpy uses on aarch64) is.
+    Works for both float64 and 53-bit mpmath arguments.
+    """
+    import zlib
+
+    import mpmath
+    import numpy
+
+    def exp(x):
+        key = zlib.crc32(repr(x).encode() + bytes([seed])) % 3
+        if isinstance(x, mpmath.mpf):
+            y = mpmath.exp(x)
+            return y if key == 0 else y * (1 + (1 if key == 1 else -1) * mpmath.mpf(2) ** -52)
+        y = numpy.exp(x)
+        return y if key == 0 else numpy.nextafter(y, numpy.inf if key == 1 else -numpy.inf)
+
+    return exp
+
+
+def test_half_width_does_not_depend_on_one_ulp_differences_in_exp(monkeypatch):
+    """The window half-width is emitted into generated code, so it must not
+    depend on the host's floating-point `exp`. It did: CI on x86-64 chose
+    0.0518 for this kernel where aarch64 chose 0.0373, because the search
+    picked a single grid point where float64 round-off happened to cancel,
+    and a one-ulp difference in `exp` moves that cancellation."""
+    F_, R_, T_, P_ = 96485.0, 8314.0, 310.0, 3.75e-10
+    ghk = (
+        P_
+        * (v * F_ * F_ / (R_ * T_))
+        * (12.0 * sympy.exp(v * F_ / (R_ * T_)) - 140.0)
+        / (sympy.exp(v * F_ / (R_ * T_)) - 1)
+    )
+    reference = singularities.half_width(ghk, v, sympy.Integer(0), 3, {})
+
+    original = sympy.lambdify
+    for seed in range(6):
+
+        def noisy_lambdify(args, expr, modules=None, seed=seed, **kwargs):
+            return original(args, expr, [{"exp": _exp_with_ulp_errors(seed)}, modules], **kwargs)
+
+        monkeypatch.setattr(sympy, "lambdify", noisy_lambdify)
+        assert singularities.half_width(ghk, v, sympy.Integer(0), 3, {}) == reference, seed
+        monkeypatch.setattr(sympy, "lambdify", original)
