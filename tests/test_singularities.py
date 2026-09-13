@@ -194,3 +194,95 @@ def test_agrees_numerically_rejects_the_limit_value_sympy_gets_wrong():
     assert not singularities.agrees_numerically(
         rate, sympy.Integer(0), V, sympy.Integer(-23), 1e-2, {}
     )
+
+
+GHK_DEFAULTS = {
+    F: 96485.0,
+    R: 8314.0,
+    T: 310.0,
+    PNab: 3.75e-10,
+    nai: 12.0,
+    nao: 140.0,
+    v: -80.0,
+}
+
+
+def test_removable_poles_finds_the_ghk_pole_and_nothing_else():
+    poles = singularities.removable_poles(
+        GHK, GHK_DEFINITIONS, frozenset({v}), GHK_DEFAULTS
+    )
+    assert len(poles) == 1
+    assert poles[0].var == v
+    assert poles[0].value == 0
+    assert poles[0].half_width > 0
+
+
+def test_removable_poles_skips_a_genuine_pole():
+    IpCa = GpCa * cai / (KmCap + cai)
+    poles = singularities.removable_poles(
+        IpCa, {}, frozenset({cai}), {GpCa: 0.0005, KmCap: 0.0005, cai: 1e-4}
+    )
+    assert poles == ()
+
+
+def test_removable_poles_skips_a_location_that_is_not_a_real_number():
+    """tentusscher_panfilov's Ca_i buffering root is
+    -K_buf_c +- sqrt(-Buf_c*K_buf_c), imaginary for positive parameters. A
+    guard window needs a real centre."""
+    Buf, K = sympy.symbols("Buf K", real=True)
+    expr = cai / (cai**2 + 2 * K * cai + K**2 + Buf * K)
+    poles = singularities.removable_poles(
+        expr, {}, frozenset({cai}), {Buf: 0.2, K: 0.001, cai: 1e-4}
+    )
+    assert poles == ()
+
+
+def test_removable_poles_skips_an_expression_with_a_constant_denominator():
+    """The pre-filter: a denominator that is a parameter or a literal cannot
+    vanish for a state-dependent reason, so the cone is never inlined."""
+    C = sympy.Symbol("C", real=True)
+    assert singularities.removable_poles(
+        (v + 3) / C, {}, frozenset({v}), {C: 1.0, v: -80.0}
+    ) == ()
+
+
+def test_guard_emits_a_piecewise_on_the_window():
+    pole = singularities.RemovablePole(
+        var=V,
+        value=sympy.Integer(-10),
+        replacement=sympy.Integer(10),
+        half_width=1e-2,
+        rewritten=V,
+    )
+    guarded = singularities.guard(V, (pole,))
+    assert isinstance(guarded, sympy.Piecewise)
+    assert float(guarded.subs(V, -10)) == 10.0
+    assert float(guarded.subs(V, 5)) == 5.0
+
+
+def test_rewrite_is_the_identity_when_there_is_no_pole():
+    expr = sympy.exp(V) + 3
+    assert singularities.rewrite(expr, {}, frozenset({V}), {V: 0.0}) is expr
+
+
+def test_rewrite_guards_the_ghk_expression_in_the_state_variable():
+    """The guard must be written in v, not vfrt. The forward-mode sweep in
+    linearization.py is seeded at v, so a branch written in vfrt would
+    differentiate to zero there -- the same failure the order-0 replacement
+    had."""
+    import numpy
+
+    guarded = singularities.rewrite(GHK, GHK_DEFINITIONS, frozenset({v}), GHK_DEFAULTS)
+    assert v in guarded.free_symbols
+    assert VFRT not in guarded.free_symbols
+    assert VFFRT not in guarded.free_symbols
+
+    numeric = sympy.lambdify(
+        v,
+        guarded.xreplace(
+            {symbol: sympy.Float(value) for symbol, value in GHK_DEFAULTS.items() if symbol is not v}
+        ),
+        "numpy",
+    )
+    numpy.seterr(all="ignore")
+    assert numpy.isfinite(float(numeric(numpy.float64(0.0))))

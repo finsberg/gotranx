@@ -30,23 +30,31 @@ Two sympy entry points are deliberately *not* used here:
 
 from __future__ import annotations
 
+import dataclasses
 from typing import Mapping
 
 import sympy
+from structlog import get_logger
 
 __all__ = [
     "EPSILON",
     "MAX_HALF_WIDTH",
     "MAX_INLINE_OPS",
     "MIN_HALF_WIDTH",
+    "RemovablePole",
     "agrees_numerically",
     "denominator_factors",
     "factor_roots",
     "half_width",
+    "guard",
     "inline",
     "is_removable",
+    "removable_poles",
+    "rewrite",
     "taylor",
 ]
+
+logger = get_logger()
 
 #: Exceptions the sympy series machinery raises on an expression it cannot
 #: expand. Caught rather than propagated: a pole we cannot classify is simply
@@ -524,3 +532,220 @@ def agrees_numerically(
         if abs(original - proposed) / scale > tolerance:
             return False
     return True
+
+
+@dataclasses.dataclass(frozen=True)
+class RemovablePole:
+    """A removable pole and the replacement that covers it.
+
+    Attributes
+    ----------
+    var : sympy.Symbol
+        The state variable the pole lives in.
+    value : sympy.Expr
+        Where the pole is. Free of state symbols, and real and finite at
+        default parameter values, so that the window is a compile-time
+        constant.
+    replacement : sympy.Expr
+        Truncated Taylor series, of order at least 1.
+    half_width : float
+        Half-width of the window in which ``replacement`` is used.
+    rewritten : sympy.Expr
+        The original expression, rewritten in ``var``. This is the branch
+        taken *outside* the window, and it has to be written in ``var`` too:
+        the forward-mode sweep in :mod:`gotranx.linearization` is seeded at
+        ``var``, and a branch written in terms of an intermediate would
+        contribute nothing to that state's tangent.
+    """
+
+    var: sympy.Symbol
+    value: sympy.Expr
+    replacement: sympy.Expr
+    half_width: float
+    rewritten: sympy.Expr
+
+
+def removable_poles(
+    expr: sympy.Expr,
+    definitions: Mapping[sympy.Symbol, sympy.Expr],
+    states: frozenset[sympy.Symbol],
+    defaults: Mapping[sympy.Symbol, float],
+    order: int = 3,
+) -> tuple[RemovablePole, ...]:
+    """Every removable pole of ``expr`` in a state variable.
+
+    Only expressions whose denominator contains a state-dependent symbol are
+    examined at all; a denominator that is a parameter or a literal cannot
+    vanish for a state-dependent reason. That pre-filter is what keeps the
+    scan affordable -- ``dv_dt = (I_stim - ...)/C`` is skipped without
+    inlining its 10,013-operation cone, because ``C`` is a parameter.
+
+    A pole is kept only if all of the following hold:
+
+    * its location is free of state symbols, so the window half-width is a
+      compile-time constant rather than a moving target;
+    * its location is a real, finite number at default parameter values
+      (tentusscher_panfilov's ``Ca_i`` buffering roots are
+      ``-K_buf_c +- sqrt(-Buf_c*K_buf_c)``, imaginary for positive
+      parameters);
+    * it is removable, by leading exponent;
+    * a truncated series exists; and
+    * that series agrees numerically with the original at the window edge.
+
+    Parameters
+    ----------
+    expr : sympy.Expr
+        The assignment's expression, as written in the model.
+    definitions : Mapping[sympy.Symbol, sympy.Expr]
+        Every intermediate symbol in the model and its defining expression.
+    states : frozenset[sympy.Symbol]
+        The model's state symbols.
+    defaults : Mapping[sympy.Symbol, float]
+        Default values for every parameter and state.
+    order : int, optional
+        Order of the Taylor replacement, by default 3.
+
+    Returns
+    -------
+    tuple[RemovablePole, ...]
+        In a deterministic order: by variable name, then by location, so that
+        generated code does not depend on set iteration order.
+    """
+    state_dependent = set(states) | _depending_on(definitions, set(states))
+
+    factors = denominator_factors(expr)
+    if not any(factor.free_symbols & state_dependent for factor in factors):
+        return ()
+
+    found: list[RemovablePole] = []
+    seen: set[tuple[sympy.Symbol, sympy.Expr]] = set()
+    for factor in factors:
+        if not (factor.free_symbols & state_dependent):
+            continue
+        for var in sorted(states, key=str):
+            inlined_factor = inline(factor, definitions, var)
+            if inlined_factor is None or var not in inlined_factor.free_symbols:
+                continue
+            for value in factor_roots(inlined_factor, var):
+                if value.free_symbols & states:
+                    logger.debug(
+                        "Skipping a pole whose location depends on a state",
+                        var=str(var),
+                        value=str(value),
+                    )
+                    continue
+                if _numeric(value, defaults) is None:
+                    logger.debug(
+                        "Skipping a pole whose location is not a real number",
+                        var=str(var),
+                        value=str(value),
+                    )
+                    continue
+                if (var, value) in seen:
+                    continue
+                seen.add((var, value))
+
+                rewritten = inline(expr, definitions, var)
+                if rewritten is None:
+                    logger.debug("Expression too large to inline", var=str(var))
+                    continue
+                if not is_removable(rewritten, var, value):
+                    continue
+                replacement = taylor(rewritten, var, value, order)
+                if replacement is None:
+                    continue
+                delta = half_width(rewritten, var, value, order, defaults)
+                if delta is None:
+                    continue
+                if not agrees_numerically(rewritten, replacement, var, value, delta, defaults):
+                    logger.warning(
+                        "Dropping a guard whose replacement failed its numeric check",
+                        var=str(var),
+                        value=str(value),
+                    )
+                    continue
+                found.append(
+                    RemovablePole(
+                        var=var,
+                        value=value,
+                        replacement=replacement,
+                        half_width=delta,
+                        rewritten=rewritten,
+                    )
+                )
+    return tuple(sorted(found, key=lambda pole: (str(pole.var), str(pole.value))))
+
+
+def guard(expr: sympy.Expr, poles: tuple[RemovablePole, ...]) -> sympy.Expr:
+    """Wrap ``expr`` in one ``Piecewise`` per pole.
+
+    Parameters
+    ----------
+    expr : sympy.Expr
+        The expression to guard.
+    poles : tuple[RemovablePole, ...]
+        The poles to cover. May be empty, in which case ``expr`` is returned
+        unchanged.
+
+    Returns
+    -------
+    sympy.Expr
+        ``Piecewise((replacement, Abs(var - value) < half_width), (expr, True))``,
+        nested when there is more than one pole. The innermost fallback is the
+        last pole's ``rewritten`` form rather than ``expr`` itself, so the
+        guarded expression is written in a variable the AD sweep is seeded at.
+        Every ``rewritten`` form is mathematically equal to ``expr``, so which
+        one ends up innermost does not change the value.
+    """
+    if not poles:
+        return expr
+    guarded = poles[-1].rewritten
+    for pole in poles:
+        guarded = sympy.Piecewise(
+            (
+                pole.replacement,
+                sympy.Abs(pole.var - pole.value) < sympy.Float(pole.half_width),
+            ),
+            (guarded, True),
+        )
+    return guarded
+
+
+def rewrite(
+    expr: sympy.Expr,
+    definitions: Mapping[sympy.Symbol, sympy.Expr],
+    states: frozenset[sympy.Symbol],
+    defaults: Mapping[sympy.Symbol, float],
+    order: int = 3,
+) -> sympy.Expr:
+    """Guard every removable pole of ``expr``, or return it unchanged.
+
+    This is the one entry point the model layer needs.
+
+    Parameters
+    ----------
+    expr : sympy.Expr
+        The assignment's expression.
+    definitions : Mapping[sympy.Symbol, sympy.Expr]
+        Every intermediate symbol in the model and its defining expression.
+    states : frozenset[sympy.Symbol]
+        The model's state symbols.
+    defaults : Mapping[sympy.Symbol, float]
+        Default values for every parameter and state.
+    order : int, optional
+        Order of the Taylor replacement, by default 3.
+
+    Returns
+    -------
+    sympy.Expr
+        The guarded expression, or ``expr`` itself -- the identical object, so
+        callers can test with ``is`` -- if it has no removable pole.
+    """
+    poles = removable_poles(expr, definitions, states, defaults, order=order)
+    if not poles:
+        return expr
+    logger.debug(
+        "Guarding removable poles",
+        poles=[(str(p.var), str(p.value), p.half_width) for p in poles],
+    )
+    return guard(expr, poles)
