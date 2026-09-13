@@ -575,9 +575,7 @@ def inline(
 
     while True:
         substitutions = {
-            symbol: definitions[symbol]
-            for symbol in expr.free_symbols
-            if symbol in dependent
+            symbol: definitions[symbol] for symbol in expr.free_symbols if symbol in dependent
         }
         if not substitutions:
             return expr
@@ -730,8 +728,11 @@ def test_half_width_beats_the_direct_formula_on_its_own_derivative():
 
     mpmath.mp.dps = 50
     F_, R_, T_, P_ = 96485.0, 8314.0, 310.0, 3.75e-10
-    ghk = P_ * (v * F_ * F_ / (R_ * T_)) * (12.0 * sympy.exp(v * F_ / (R_ * T_)) - 140.0) / (
-        sympy.exp(v * F_ / (R_ * T_)) - 1
+    ghk = (
+        P_
+        * (v * F_ * F_ / (R_ * T_))
+        * (12.0 * sympy.exp(v * F_ / (R_ * T_)) - 140.0)
+        / (sympy.exp(v * F_ / (R_ * T_)) - 1)
     )
     delta = singularities.half_width(ghk, v, sympy.Integer(0), 3, {})
     replacement = singularities.taylor(ghk, v, sympy.Integer(0), 3)
@@ -749,9 +750,7 @@ def test_half_width_beats_the_direct_formula_on_its_own_derivative():
 def test_agrees_numerically_accepts_a_correct_replacement():
     rate = 0.2 * (V + 23) / (1 - sympy.exp(-0.04 * (V + 23)))
     replacement = singularities.taylor(rate, V, sympy.Integer(-23), 3)
-    assert singularities.agrees_numerically(
-        rate, replacement, V, sympy.Integer(-23), 1e-2, {}
-    )
+    assert singularities.agrees_numerically(rate, replacement, V, sympy.Integer(-23), 1e-2, {})
 
 
 def test_agrees_numerically_rejects_the_limit_value_sympy_gets_wrong():
@@ -785,7 +784,9 @@ def _numeric(expr: sympy.Expr, defaults: Mapping[sympy.Symbol, float]) -> float 
         value = complex(substituted.evalf())
     except (TypeError, ValueError, AttributeError):
         return None
-    if not all(map(sympy.core.numbers.Float(0).__class__.is_finite.__get__, ())):  # pragma: no cover
+    if not all(
+        map(sympy.core.numbers.Float(0).__class__.is_finite.__get__, ())
+    ):  # pragma: no cover
         pass
     if value != value or abs(value) == float("inf"):
         return None
@@ -806,8 +807,15 @@ def _series_coefficients(
     try:
         series = sympy.series(expr.subs(var, value + offset), offset, 0, upto + 1).removeO()
         poly = sympy.Poly(sympy.expand(series), offset)
-    except (ValueError, NotImplementedError, TypeError, PoleError, RecursionError,
-            sympy.PolynomialError, sympy.GeneratorsNeeded):
+    except (
+        ValueError,
+        NotImplementedError,
+        TypeError,
+        PoleError,
+        RecursionError,
+        sympy.PolynomialError,
+        sympy.GeneratorsNeeded,
+    ):
         return None
     coefficients = []
     for k in range(upto + 1):
@@ -1024,8 +1032,11 @@ def test_removable_poles_skips_a_location_that_is_not_a_real_number():
 
 def test_guard_emits_a_piecewise_on_the_window():
     pole = singularities.RemovablePole(
-        var=V, value=sympy.Integer(-10), replacement=sympy.Integer(10),
-        half_width=1e-2, rewritten=V,
+        var=V,
+        value=sympy.Integer(-10),
+        replacement=sympy.Integer(10),
+        half_width=1e-2,
+        rewritten=V,
     )
     guarded = singularities.guard(V, (pole,))
     assert isinstance(guarded, sympy.Piecewise)
@@ -1042,13 +1053,14 @@ def test_rewrite_guards_the_ghk_expression_in_the_state_variable():
     """The guard must be written in v, not vfrt: the AD sweep in
     linearization.py is seeded at v, and a branch written in vfrt would
     differentiate to zero there."""
-    defaults = {F: 96485.0, R: 8314.0, T: 310.0, PNab: 3.75e-10, nai: 12.0,
-                nao: 140.0, v: -80.0}
+    defaults = {F: 96485.0, R: 8314.0, T: 310.0, PNab: 3.75e-10, nai: 12.0, nao: 140.0, v: -80.0}
     guarded = singularities.rewrite(GHK, GHK_DEFINITIONS, frozenset({v}), defaults)
     assert v in guarded.free_symbols
     assert VFRT not in guarded.free_symbols
     assert VFFRT not in guarded.free_symbols
-    numeric = sympy.lambdify(v, guarded.subs({s: sympy.Float(x) for s, x in defaults.items() if s is not v}), "numpy")
+    numeric = sympy.lambdify(
+        v, guarded.subs({s: sympy.Float(x) for s, x in defaults.items() if s is not v}), "numpy"
+    )
     import numpy
 
     assert numpy.isfinite(float(numeric(numpy.float64(0.0))))
@@ -1190,9 +1202,7 @@ def removable_poles(
                 delta = half_width(rewritten, var, value, order, defaults)
                 if delta is None:
                     continue
-                if not agrees_numerically(
-                    rewritten, replacement, var, value, delta, defaults
-                ):
+                if not agrees_numerically(rewritten, replacement, var, value, delta, defaults):
                     logger.warning(
                         "Dropping a guard whose replacement failed a numeric check",
                         var=str(var),
@@ -1517,8 +1527,7 @@ def _evaluate(expr, values):
 def guarded():
     names = ["beeler_reuter_1977", "ToRORd_dyn_chloride", "ORdmm_Land"]
     return {
-        name: gotranx.load_ode(ODEFILES / f"{name}.ode").remove_singularities()
-        for name in names
+        name: gotranx.load_ode(ODEFILES / f"{name}.ode").remove_singularities() for name in names
     }
 
 
@@ -1546,9 +1555,7 @@ def test_toy_model_guard_evaluates_to_the_true_limit():
         ("ORdmm_Land", "v", 0.0),
     ],
 )
-def test_diagonal_jacobian_is_finite_and_accurate_across_the_pole(
-    name, state, pole, guarded
-):
+def test_diagonal_jacobian_is_finite_and_accurate_across_the_pole(name, state, pole, guarded):
     """Test plan items 1 and 2. Unguarded, ToRORd's d(dv_dt)/dv is +30.1 at
     v = -1e-9 and raises at v = 0, against a true value near -0.0405; a
     positive linearization feeds exp(g*dt) and turns a decaying exponential
@@ -1602,63 +1609,61 @@ the shape). Paste the actual failure output into the commit message.
 In `src/gotranx/ode.py`, replace `remove_singularities`:
 
 ```python
-    def remove_singularities(self, order: int = 3) -> ODE:
-        """Guard every removable singularity in the model's assignments.
+def remove_singularities(self, order: int = 3) -> ODE:
+    """Guard every removable singularity in the model's assignments.
 
-        A gate rate like ``x/(exp(x) - 1)`` has a removable pole that float64
-        cannot evaluate near, and whose *derivative* -- which the Rush-Larsen
-        linearized block forms -- has a double pole there. Each such
-        assignment is rewritten in the state variable the pole lives in and
-        wrapped in a ``Piecewise`` whose other branch is a truncated Taylor
-        series. See :mod:`gotranx.singularities`.
+    A gate rate like ``x/(exp(x) - 1)`` has a removable pole that float64
+    cannot evaluate near, and whose *derivative* -- which the Rush-Larsen
+    linearized block forms -- has a double pole there. Each such
+    assignment is rewritten in the state variable the pole lives in and
+    wrapped in a ``Piecewise`` whose other branch is a truncated Taylor
+    series. See :mod:`gotranx.singularities`.
 
-        Parameters
-        ----------
-        order : int, optional
-            Order of the Taylor replacement, by default 3. Must be at least 1:
-            a constant replacement differentiates to zero, which leaves the
-            linearization silently wrong.
+    Parameters
+    ----------
+    order : int, optional
+        Order of the Taylor replacement, by default 3. Must be at least 1:
+        a constant replacement differentiates to zero, which leaves the
+        linearization silently wrong.
 
-        Returns
-        -------
-        ODE
-            A new ODE. The original is unchanged.
-        """
-        from . import singularities
+    Returns
+    -------
+    ODE
+        A new ODE. The original is unchanged.
+    """
+    from . import singularities
 
-        definitions = {a.symbol: a.expr for a in self.sorted_assignments()}
-        states = frozenset(state.symbol for state in self.states)
-        defaults = {p.symbol: float(p.value) for p in self.parameters}
-        defaults.update({s.symbol: float(s.value) for s in self.states})
+    definitions = {a.symbol: a.expr for a in self.sorted_assignments()}
+    states = frozenset(state.symbol for state in self.states)
+    defaults = {p.symbol: float(p.value) for p in self.parameters}
+    defaults.update({s.symbol: float(s.value) for s in self.states})
 
-        new_components: list[BaseComponent] = []
-        for component in self._components.values():
-            new_assignments = set()
-            for assignment in component.assignments:
-                expr = singularities.rewrite(
-                    assignment.expr, definitions, states, defaults, order=order
-                )
-                if expr is assignment.expr:
-                    new_assignments.add(assignment)
-                else:
-                    new_assignments.add(
-                        attr.evolve(assignment, expr=expr)
-                    )
-            new_components.append(
-                type(component)(
-                    name=component.name,
-                    states=component.states,
-                    parameters=component.parameters,
-                    assignments=frozenset(new_assignments),
-                )
+    new_components: list[BaseComponent] = []
+    for component in self._components.values():
+        new_assignments = set()
+        for assignment in component.assignments:
+            expr = singularities.rewrite(
+                assignment.expr, definitions, states, defaults, order=order
             )
-
-        return ODE(
-            components=new_components,
-            t=self.t,
-            name=self.name,
-            comments=self.comments,
+            if expr is assignment.expr:
+                new_assignments.add(assignment)
+            else:
+                new_assignments.add(attr.evolve(assignment, expr=expr))
+        new_components.append(
+            type(component)(
+                name=component.name,
+                states=component.states,
+                parameters=component.parameters,
+                assignments=frozenset(new_assignments),
+            )
         )
+
+    return ODE(
+        components=new_components,
+        t=self.t,
+        name=self.name,
+        comments=self.comments,
+    )
 ```
 
 Add `import attr` at the top of `ode.py` if it is not already there. Verify
@@ -1835,14 +1840,15 @@ In `src/gotranx/cli/__init__.py`, for every subcommand that has a
 `ode2md`, and the deprecated `convert`), add immediately after it:
 
 ```python
-    remove_singularities: bool = typer.Option(
+remove_singularities: bool = (
+    typer.Option(
         True,
         "--remove-singularities/--no-remove-singularities",
         help=(
-            "Replace a neighbourhood of every removable singularity with a "
-            "truncated Taylor series"
+            "Replace a neighbourhood of every removable singularity with a truncated Taylor series"
         ),
     ),
+)
 ```
 
 and thread `remove_singularities=remove_singularities` into the corresponding
@@ -1932,9 +1938,7 @@ def test_no_cse_temporary_is_singular_at_a_guarded_value(name):
                         continue
                     probe = states.copy()
                     probe[index] = 0.0
-                    result = namespace["generalized_rush_larsen"](
-                        probe, 0.0, 1e-3, parameters
-                    )
+                    result = namespace["generalized_rush_larsen"](probe, 0.0, 1e-3, parameters)
                     assert np.all(np.isfinite(result)), f"{name}: {symbol.name}"
 
 
@@ -2006,9 +2010,7 @@ from gotranx.schemes import get_scheme, Scheme
 
 for flag in (False, True):
     t0 = time.perf_counter()
-    ode = gotranx.load_ode(
-        "tests/odefiles/ToRORd_dyn_chloride.ode", remove_singularities=flag
-    )
+    ode = gotranx.load_ode("tests/odefiles/ToRORd_dyn_chloride.ode", remove_singularities=flag)
     t_load = time.perf_counter() - t0
     codegen = PythonCodeGenerator(ode)
     t0 = time.perf_counter()
@@ -2095,3 +2097,44 @@ These are called out at the point of use rather than left silent.
 `Mapping[sympy.Symbol, float]`; `states` is always
 `frozenset[sympy.Symbol]`. `RemovablePole.rewritten` is the field Task 4's
 `guard` reads and Task 4's `removable_poles` writes.
+
+---
+
+## Implementation notes (added during execution)
+
+Deviations from the tasks above, each forced by a measurement or a failing
+test during implementation. The code and its docstrings are authoritative.
+
+1. **Pole locations are found on a rationalized copy.** Solved on the float
+   expression, Beeler-Reuter's `i_K1` root came back as -23.000000000000004;
+   `sympy.series` about that point returns `0`, so the guard was dropped. The
+   numeric check caught it rather than emitting it wrongly.
+2. **`inline` rebuilds under `evaluate(False)`.** A default `xreplace` folds
+   `exp(-0.04*(V + 23))` into `0.3985...*exp(-0.04*V)`, after which the pole is
+   not at -23 in any arithmetic, and the series picked up a
+   `-5.7e-14/(V + 23.000000000000011)` term. Replacements that are not
+   polynomials in the variable are now rejected outright.
+3. **Intermediates get default values** (`default_values`). Keeping
+   `var`-independent intermediates opaque (C3) left `gamma_cai` without a
+   number, so every ToRORd GHK guard was silently dropped.
+4. **The window is placed empirically** (`half_width`). The analytic rule in
+   Task 3 ignores the local variable's scale; for Beeler-Reuter
+   (`0.04*(V + 23)`) it put the edge at 4.9e-3, where the direct derivative is
+   still 8.2e-9 off. Scanning a grid for the best float64 agreement between
+   the two branches cut the worst-case error on the model's `d(dV_dt)/dV` from
+   1.8e-8 to 1.58e-10. The analytic rule remains as a fallback.
+5. **Denominators are found structurally, outermost only.** `sympy.together`
+   was most of the scan. Looking inside denominators as well tripled ToRORd's
+   guards (8 to 24, buffering terms at non-physiological concentrations) and
+   did not terminate on ORdmm_Land.
+6. **Genuine poles are rejected numerically before `leadterm`**, and nothing
+   over `MAX_SERIES_OPS = 150` operations is series-expanded (`sympy.series`
+   did not finish in 100 s on ToRORd's 267-operation `E1_i`).
+7. **`cse_hiding_piecewise` names shared guards itself.** `cse` will not
+   factor a bare placeholder symbol, so a guard used twice was duplicated.
+8. **CLI:** the flag is `--remove-singularities/--no-remove-singularities`
+   on `ode2py`, `ode2c`, `ode2julia`, `ode2mtk`, `ode2ufl`, `ode2md` and the
+   deprecated `convert`. `ode2cellml` never guards: it exports a model.
+9. **`ODE.remove_singularities` returns `self` when nothing is guarded**, and
+   passes components as a tuple; a list made the round-trip test in
+   `tests/test_save.py` fail on equality.

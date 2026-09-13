@@ -167,10 +167,11 @@ the schemes can use it. This is the reusable piece that does not exist today;
 ```python
 @dataclass(frozen=True)
 class RemovablePole:
-    var: sympy.Symbol         # variable the pole lives in
-    value: sympy.Expr         # location of the pole
-    replacement: sympy.Expr   # truncated Taylor series, order >= 1
-    half_width: float         # delta
+    var: sympy.Symbol  # variable the pole lives in
+    value: sympy.Expr  # location of the pole
+    replacement: sympy.Expr  # truncated Taylor series, order >= 1
+    half_width: float  # delta
+
 
 def removable_poles(expr, var, *, order=3) -> frozenset[RemovablePole]: ...
 def guard(expr, poles) -> sympy.Expr: ...
