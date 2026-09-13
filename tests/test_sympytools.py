@@ -126,7 +126,7 @@ def _hoisted_out_of_a_branch(replacements):
 
 
 def test_cse_hoists_out_of_a_piecewise_branch():
-    """Pins the sympy behaviour that `cse_hiding_piecewise` exists to avoid.
+    """Pins the sympy behavior that `cse_hiding_piecewise` exists to avoid.
 
     Plain `sympy.cse` pulls `(V + 40)/(1 - exp(-V/10 - 4))` out of the
     Piecewise branches below and computes it unconditionally. That temporary
@@ -143,8 +143,7 @@ def test_cse_hoists_out_of_a_piecewise_branch():
 
     numpy.seterr(all="ignore")
     at_the_boundary = [
-        float(sympy.lambdify(V, sub_expr, "numpy")(numpy.float64(-40.0)))
-        for sub_expr in hoisted
+        float(sympy.lambdify(V, sub_expr, "numpy")(numpy.float64(-40.0))) for sub_expr in hoisted
     ]
     assert not all(numpy.isfinite(at_the_boundary)), at_the_boundary
 
