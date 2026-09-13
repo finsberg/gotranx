@@ -6,6 +6,7 @@ beeler
 betaz
 boolalg
 Cais
+cass
 cbuild
 cellml
 cellmlfile
@@ -34,6 +35,7 @@ dxdt
 elif
 errstate
 evalf
+exponentials
 fenics
 fgrl
 figsize
@@ -70,10 +72,12 @@ matplotlib
 modelparameters
 MPLBACKEND
 mpmath
+mpmathify
 myokit
 nbeats
 ndarray
 ndpointer
+nextafter
 nfloat
 njit
 nocover
@@ -100,6 +104,7 @@ pytest
 Radau
 Rdmm
 relop
+removability
 reorderable
 reuter
 reversal_potentials
@@ -119,6 +124,7 @@ Stim
 stpd
 strcmp
 subexpression
+summands
 sympify
 sympy
 sympytools
@@ -135,11 +141,12 @@ ureg
 userfunc
 vffrt
 VFFRT
-vfrt
 VFRT
-windkessel
+vfrt
 Windkessel
+windkessel
 workdps
+workprec
 xlabel
 xrelplace
 xreplace
