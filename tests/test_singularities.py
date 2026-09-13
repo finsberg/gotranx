@@ -134,3 +134,63 @@ def test_taylor_of_the_toy_gate_rate_is_the_expected_polynomial():
     assert sympy.simplify(replacement - (V**2 / 120 - V / 3 + sympy.Rational(35, 6))) == 0
     assert float(replacement.subs(V, -10)) == 10.0
     assert float(sympy.diff(replacement, V).subs(V, -10)) == -0.5
+
+
+def test_half_width_lands_near_the_crossover_for_the_canonical_kernel():
+    """The design document's tolerance table puts the crossover at ~1e-3 in
+    the local variable. Here the local variable is (V + 10)/10, so ~1e-2 in V."""
+    rate = (V + 10) / (sympy.exp((V + 10) / 10) - 1)
+    delta = singularities.half_width(rate, V, sympy.Integer(-10), 3, {})
+    assert 1e-3 < delta < 5e-2, delta
+
+
+def test_half_width_is_clamped_above():
+    """A pure polynomial has no truncation error at all; the window must not
+    grow without bound."""
+    delta = singularities.half_width(V**2 + 1, V, sympy.Integer(0), 3, {})
+    assert delta == singularities.MAX_HALF_WIDTH
+
+
+def test_half_width_beats_the_direct_formula_on_its_own_derivative():
+    """The linearized block uses the *derivative*, so that is what the window
+    must be calibrated on. Calibrating on the value returns 0.1 here, where
+    the series derivative is 4.9e-10 off a 50-digit reference and the direct
+    float64 derivative is only 3.0e-13 off -- a guard three orders of
+    magnitude worse than the formula it replaces."""
+    import mpmath
+
+    mpmath.mp.dps = 50
+    F_, R_, T_, P_ = 96485.0, 8314.0, 310.0, 3.75e-10
+    ghk = (
+        P_
+        * (v * F_ * F_ / (R_ * T_))
+        * (12.0 * sympy.exp(v * F_ / (R_ * T_)) - 140.0)
+        / (sympy.exp(v * F_ / (R_ * T_)) - 1)
+    )
+    delta = singularities.half_width(ghk, v, sympy.Integer(0), 3, {})
+    replacement = singularities.taylor(ghk, v, sympy.Integer(0), 3)
+
+    exact = sympy.lambdify(v, sympy.diff(sympy.nsimplify(ghk, rational=True), v), "mpmath")
+    series = sympy.lambdify(v, sympy.diff(replacement, v), "mpmath")
+    worst = max(
+        abs(series(mpmath.mpf(delta * f)) - exact(mpmath.mpf(delta * f)))
+        / abs(exact(mpmath.mpf(delta * f)))
+        for f in (1.0, 0.5, 0.1, 0.01)
+    )
+    assert float(worst) < 1e-11, float(worst)
+
+
+def test_agrees_numerically_accepts_a_correct_replacement():
+    rate = 0.2 * (V + 23) / (1 - sympy.exp(-0.04 * (V + 23)))
+    replacement = singularities.taylor(rate, V, sympy.Integer(-23), 3)
+    assert singularities.agrees_numerically(rate, replacement, V, sympy.Integer(-23), 1e-2, {})
+
+
+def test_agrees_numerically_rejects_the_limit_value_sympy_gets_wrong():
+    """Design document F5: sympy.limit returns 0 for this rate, where the
+    truth is 5. The numeric spot check is the backstop that catches exactly
+    this class of silent symbolic failure."""
+    rate = 0.2 * (V + 23) / (1 - sympy.exp(-0.04 * (V + 23)))
+    assert not singularities.agrees_numerically(
+        rate, sympy.Integer(0), V, sympy.Integer(-23), 1e-2, {}
+    )

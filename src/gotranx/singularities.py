@@ -35,9 +35,14 @@ from typing import Mapping
 import sympy
 
 __all__ = [
+    "EPSILON",
+    "MAX_HALF_WIDTH",
     "MAX_INLINE_OPS",
+    "MIN_HALF_WIDTH",
+    "agrees_numerically",
     "denominator_factors",
     "factor_roots",
+    "half_width",
     "inline",
     "is_removable",
     "taylor",
@@ -55,6 +60,15 @@ _SERIES_ERRORS = (
     sympy.PoleError,
     RecursionError,
 )
+
+MIN_HALF_WIDTH = 1e-8
+"""Narrowest guard window allowed, in the guarded variable's own units."""
+
+MAX_HALF_WIDTH = 1e-1
+"""Widest guard window allowed, in the guarded variable's own units."""
+
+EPSILON = 2.220446049250313e-16
+"""float64 machine epsilon, the round-off scale the window is balanced against."""
 
 MAX_INLINE_OPS = 5000
 """Give up inlining past this many operations.
@@ -335,3 +349,178 @@ def taylor(
     if series.has(sympy.oo, -sympy.oo, sympy.zoo, sympy.nan):
         return None
     return sympy.expand(series)
+
+
+def _numeric(expr: sympy.Expr, defaults: Mapping[sympy.Symbol, float]) -> float | None:
+    """``expr`` as a real, finite float at default values, or None.
+
+    None means "not usable as a guard location or as a check point": complex,
+    infinite, NaN, or still carrying a free symbol ``defaults`` does not cover.
+    """
+    substituted = expr.xreplace({symbol: sympy.Float(x) for symbol, x in defaults.items()})
+    try:
+        value = complex(substituted.evalf())
+    except (TypeError, ValueError, AttributeError):
+        return None
+    if value != value or abs(value.real) == float("inf") or abs(value.imag) == float("inf"):
+        return None
+    if abs(value.imag) > 1e-12 * max(1.0, abs(value.real)):
+        return None
+    return value.real
+
+
+def _series_coefficients(
+    expr: sympy.Expr,
+    var: sympy.Symbol,
+    value: sympy.Expr,
+    upto: int,
+    defaults: Mapping[sympy.Symbol, float],
+) -> list[float] | None:
+    """Numeric Taylor coefficients a_0 .. a_upto of ``expr`` about ``value``."""
+    offset = sympy.Symbol("_offset")
+    try:
+        series = sympy.series(expr.subs(var, value + offset), offset, 0, upto + 1).removeO()
+        poly = sympy.Poly(sympy.expand(series), offset)
+    except _SERIES_ERRORS + (sympy.PolynomialError, sympy.GeneratorsNeeded):
+        return None
+    coefficients = []
+    for k in range(upto + 1):
+        coefficient = _numeric(poly.coeff_monomial(offset**k), defaults)
+        if coefficient is None:
+            return None
+        coefficients.append(coefficient)
+    return coefficients
+
+
+def half_width(
+    expr: sympy.Expr,
+    var: sympy.Symbol,
+    value: sympy.Expr,
+    order: int,
+    defaults: Mapping[sympy.Symbol, float],
+) -> float | None:
+    r"""Half-width of the window in which the Taylor branch is used.
+
+    Placed where the series' truncation error crosses the direct formula's
+    float64 round-off, measured on the *derivative* -- the quantity the
+    Rush-Larsen linearized block needs. With coefficients :math:`a_k` and
+    :math:`k` the first nonzero index above ``order``, truncation of the
+    derivative goes like :math:`k |a_k| \delta^{k-1} / |a_1|` while round-off
+    of the direct derivative grows like :math:`\epsilon/\delta^2`, so the two
+    cross at
+
+    .. math::
+        \delta^{k+1} = \frac{\epsilon |a_1|}{k |a_k|}
+
+    clamped to ``[MIN_HALF_WIDTH, MAX_HALF_WIDTH]``. The clamp matters at both
+    ends: the lower bound keeps the window wider than the region where the
+    direct formula is already catastrophically wrong (222% relative error at
+    1e-8 for the canonical kernel), and the upper bound keeps the series out of
+    the region where the direct formula is the more accurate of the two.
+
+    Calibrating on the *value* instead -- bounding
+    :math:`|a_k \delta^k| \le \mathrm{tol}|a_0|` -- is one order too generous,
+    because differentiating a truncated series loses an order. On ToRORd's
+    ``INab`` that rule returns 0.1, where the series derivative is 4.9e-10 off
+    a 50-digit reference and the direct float64 derivative is 3.0e-13 off.
+
+    The rule is scale-free: it adapts to a gate rate written ``-0.1*(V + 47)``
+    as readily as to one written ``(V + 10)/10``, where a fixed window in the
+    guarded variable's own units would not.
+
+    Parameters
+    ----------
+    expr : sympy.Expr
+        The expression, already inlined in ``var``.
+    var : sympy.Symbol
+        The variable the pole lives in.
+    value : sympy.Expr
+        Where the pole is.
+    order : int
+        The order of the Taylor replacement.
+    defaults : Mapping[sympy.Symbol, float]
+        Default values for parameters and other states, used to make the
+        coefficients numeric. A window half-width has to be a number.
+
+    Returns
+    -------
+    float | None
+        The half-width, or None if the coefficients could not be evaluated.
+    """
+    coefficients = _series_coefficients(expr, var, value, order + 8, defaults)
+    if coefficients is None:
+        return None
+
+    tail = [(k, c) for k, c in enumerate(coefficients) if k > order and c != 0.0]
+    if not tail:
+        # No truncation error within reach: as far as we can see the
+        # replacement is exact, so use the widest window allowed.
+        return MAX_HALF_WIDTH
+    k, a_k = tail[0]
+
+    # a_1 is the scale the derivative's *relative* error is measured against.
+    # If the derivative vanishes at the pole, fall back to the value's scale.
+    reference = coefficients[1] if coefficients[1] != 0.0 else coefficients[0]
+    if reference == 0.0:
+        return None
+    delta = (EPSILON * abs(reference) / (k * abs(a_k))) ** (1.0 / (k + 1))
+    return min(max(delta, MIN_HALF_WIDTH), MAX_HALF_WIDTH)
+
+
+def agrees_numerically(
+    expr: sympy.Expr,
+    replacement: sympy.Expr,
+    var: sympy.Symbol,
+    value: sympy.Expr,
+    delta: float,
+    defaults: Mapping[sympy.Symbol, float],
+    tolerance: float = 1e-6,
+) -> bool:
+    """Spot-check a replacement against the expression it replaces.
+
+    Symbolic tools have silently produced wrong answers twice in this design's
+    investigation -- ``sympy.limit`` returning 0 on a float-coefficient gate
+    rate, and a Laurent branch passing an ``oo``/``zoo``/``nan`` scan -- so
+    every replacement is checked numerically before it is emitted. A guard
+    that fails is dropped, not emitted.
+
+    The check is made at ``value +- delta``, the window *edge*, not at its
+    centre. ``delta`` is placed where the two branches cross over, so both are
+    accurate there; closer in, the direct formula is the inaccurate one and a
+    disagreement would say nothing about the replacement.
+
+    Parameters
+    ----------
+    expr : sympy.Expr
+        The original expression.
+    replacement : sympy.Expr
+        The proposed Taylor replacement.
+    var : sympy.Symbol
+        The variable the pole lives in.
+    value : sympy.Expr
+        Where the pole is.
+    delta : float
+        The window half-width.
+    defaults : Mapping[sympy.Symbol, float]
+        Default values for parameters and other states.
+    tolerance : float, optional
+        Largest acceptable relative disagreement, by default 1e-6.
+
+    Returns
+    -------
+    bool
+        True if the replacement may be emitted.
+    """
+    centre = _numeric(value, defaults)
+    if centre is None:
+        return False
+    for point in (centre - delta, centre + delta):
+        substitution = {var: sympy.Float(point)}
+        original = _numeric(expr.subs(substitution), defaults)
+        proposed = _numeric(replacement.subs(substitution), defaults)
+        if original is None or proposed is None:
+            return False
+        scale = max(abs(original), abs(proposed), 1e-300)
+        if abs(original - proposed) / scale > tolerance:
+            return False
+    return True
