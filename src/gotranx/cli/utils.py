@@ -89,6 +89,18 @@ def validate_cse(cse: Any) -> bool:
     return cse
 
 
+def validate_remove_singularities(remove_singularities: Any) -> bool:
+    """Reject a non-boolean `remove_singularities`, which can only reach here
+    from a config file -- where a string such as "false" is truthy and would
+    silently do the opposite of what it says."""
+    if not isinstance(remove_singularities, bool):
+        raise typer.BadParameter(
+            f"remove_singularities must be true or false, got {remove_singularities!r}",
+            param_hint="remove_singularities",
+        )
+    return remove_singularities
+
+
 def validate_scheme(scheme: list[Scheme] | list[str]) -> list[Scheme]:
     lst = []
     for s in scheme:

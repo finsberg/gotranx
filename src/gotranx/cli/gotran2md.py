@@ -14,13 +14,14 @@ def main(
     outname: Path | str | None = None,
     verbose: bool = False,
     pdf: bool = False,
+    remove_singularities: bool = True,
 ) -> None:
     loglevel = logging.DEBUG if verbose else logging.INFO
     structlog.configure(
         wrapper_class=structlog.make_filtering_bound_logger(loglevel),
     )
 
-    ode = load_ode(fname)
+    ode = load_ode(fname, remove_singularities=remove_singularities)
     generator = MarkdownGenerator(ode)
     code = generator.generate()
 

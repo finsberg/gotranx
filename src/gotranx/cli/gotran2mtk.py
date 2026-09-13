@@ -24,13 +24,14 @@ def main(
     fname: Path,
     outname: Path | str | None = None,
     remove_unused: bool = False,
+    remove_singularities: bool = True,
     verbose: bool = False,
 ) -> None:
     loglevel = logging.DEBUG if verbose else logging.INFO
     structlog.configure(
         wrapper_class=structlog.make_filtering_bound_logger(loglevel),
     )
-    ode = load_ode(fname)
+    ode = load_ode(fname, remove_singularities=remove_singularities)
     code = get_code(
         ode,
         remove_unused=remove_unused,

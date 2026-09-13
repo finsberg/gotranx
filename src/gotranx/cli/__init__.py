@@ -78,6 +78,14 @@ def convert(
         "--remove-unused",
         help="Remove unused variables",
     ),
+    remove_singularities: bool = typer.Option(
+        True,
+        "--remove-singularities/--no-remove-singularities",
+        help=(
+            "Replace a small neighborhood of every removable singularity "
+            "(e.g. x/(exp(x) - 1) at x = 0) with a truncated Taylor series"
+        ),
+    ),
     jax: bool = typer.Option(
         False,
         "--jax",
@@ -148,6 +156,7 @@ def convert(
             outname=outname,
             scheme=scheme,
             remove_unused=remove_unused,
+            remove_singularities=remove_singularities,
             verbose=verbose,
             stiff_states=stiff_states,
             delta=delta,
@@ -160,6 +169,7 @@ def convert(
             outname=outname,
             scheme=scheme,
             remove_unused=remove_unused,
+            remove_singularities=remove_singularities,
             verbose=verbose,
             stiff_states=stiff_states,
             delta=delta,
@@ -302,6 +312,14 @@ def ode2py(
         "--remove-unused",
         help="Remove unused variables",
     ),
+    remove_singularities: bool = typer.Option(
+        True,
+        "--remove-singularities/--no-remove-singularities",
+        help=(
+            "Replace a small neighborhood of every removable singularity "
+            "(e.g. x/(exp(x) - 1) at x = 0) with a truncated Taylor series"
+        ),
+    ),
     version: bool = typer.Option(
         None,
         "--version",
@@ -376,6 +394,9 @@ def ode2py(
     delta = config_data.get("delta", delta)
     stiff_states = config_data.get("stiff_states", stiff_states)
     cse = utils.validate_cse(config_data.get("cse", cse))
+    remove_singularities = utils.validate_remove_singularities(
+        config_data.get("remove_singularities", remove_singularities)
+    )
     scheme = config_data.get("scheme", scheme)
     shape = Shape(config_data.get("shape", shape))
     scheme = utils.validate_scheme(scheme)
@@ -388,6 +409,7 @@ def ode2py(
         outname=outname,
         scheme=scheme,
         remove_unused=remove_unused,
+        remove_singularities=remove_singularities,
         verbose=verbose,
         stiff_states=stiff_states,
         delta=delta,
@@ -424,6 +446,14 @@ def ode2c(
         False,
         "--remove-unused",
         help="Remove unused variables",
+    ),
+    remove_singularities: bool = typer.Option(
+        True,
+        "--remove-singularities/--no-remove-singularities",
+        help=(
+            "Replace a small neighborhood of every removable singularity "
+            "(e.g. x/(exp(x) - 1) at x = 0) with a truncated Taylor series"
+        ),
     ),
     version: bool = typer.Option(
         None,
@@ -487,6 +517,9 @@ def ode2c(
     delta = config_data.get("delta", delta)
     stiff_states = config_data.get("stiff_states", stiff_states)
     cse = utils.validate_cse(config_data.get("cse", cse))
+    remove_singularities = utils.validate_remove_singularities(
+        config_data.get("remove_singularities", remove_singularities)
+    )
     scheme = config_data.get("scheme", scheme)
     scheme = utils.validate_scheme(scheme)
     c_config = config_data.get("c", {})
@@ -499,6 +532,7 @@ def ode2c(
         outname=outname,
         scheme=scheme,
         remove_unused=remove_unused,
+        remove_singularities=remove_singularities,
         verbose=verbose,
         stiff_states=stiff_states,
         delta=delta,
@@ -527,6 +561,14 @@ def ode2julia(
         False,
         "--remove-unused",
         help="Remove unused variables",
+    ),
+    remove_singularities: bool = typer.Option(
+        True,
+        "--remove-singularities/--no-remove-singularities",
+        help=(
+            "Replace a small neighborhood of every removable singularity "
+            "(e.g. x/(exp(x) - 1) at x = 0) with a truncated Taylor series"
+        ),
     ),
     version: bool = typer.Option(
         None,
@@ -595,6 +637,9 @@ def ode2julia(
     delta = config_data.get("delta", delta)
     stiff_states = config_data.get("stiff_states", stiff_states)
     cse = utils.validate_cse(config_data.get("cse", cse))
+    remove_singularities = utils.validate_remove_singularities(
+        config_data.get("remove_singularities", remove_singularities)
+    )
     scheme = config_data.get("scheme", scheme)
     scheme = utils.validate_scheme(scheme)
     # c_config = config_data.get("c", {})
@@ -605,6 +650,7 @@ def ode2julia(
         outname=outname,
         scheme=scheme,
         remove_unused=remove_unused,
+        remove_singularities=remove_singularities,
         verbose=verbose,
         stiff_states=stiff_states,
         delta=delta,
@@ -634,6 +680,14 @@ def ode2mtk(
         False,
         "--remove-unused",
         help="Remove unused variables",
+    ),
+    remove_singularities: bool = typer.Option(
+        True,
+        "--remove-singularities/--no-remove-singularities",
+        help=(
+            "Replace a small neighborhood of every removable singularity "
+            "(e.g. x/(exp(x) - 1) at x = 0) with a truncated Taylor series"
+        ),
     ),
     version: bool = typer.Option(
         None,
@@ -668,10 +722,14 @@ def ode2mtk(
     config_data = utils.read_config(config)
     verbose = config_data.get("verbose", verbose)
     remove_unused = config_data.get("remove_unused", remove_unused)
+    remove_singularities = utils.validate_remove_singularities(
+        config_data.get("remove_singularities", remove_singularities)
+    )
     gotran2mtk.main(
         fname=fname,
         outname=outname,
         remove_unused=remove_unused,
+        remove_singularities=remove_singularities,
         verbose=verbose,
     )
 
@@ -750,11 +808,25 @@ def ode2md(
         "--pdf",
         help="Generate PDF output",
     ),
+    remove_singularities: bool = typer.Option(
+        True,
+        "--remove-singularities/--no-remove-singularities",
+        help=(
+            "Replace a small neighborhood of every removable singularity "
+            "(e.g. x/(exp(x) - 1) at x = 0) with a truncated Taylor series"
+        ),
+    ),
 ):
     if fname is None:
         return typer.echo("No file specified")
 
-    gotran2md.main(fname=fname, outname=outname, verbose=verbose, pdf=pdf)
+    gotran2md.main(
+        fname=fname,
+        outname=outname,
+        verbose=verbose,
+        pdf=pdf,
+        remove_singularities=remove_singularities,
+    )
 
 
 @app.command()
@@ -778,6 +850,14 @@ def ode2ufl(
         False,
         "--remove-unused",
         help="Remove unused variables",
+    ),
+    remove_singularities: bool = typer.Option(
+        True,
+        "--remove-singularities/--no-remove-singularities",
+        help=(
+            "Replace a small neighborhood of every removable singularity "
+            "(e.g. x/(exp(x) - 1) at x = 0) with a truncated Taylor series"
+        ),
     ),
     version: bool = typer.Option(
         None,
@@ -847,6 +927,9 @@ def ode2ufl(
     delta = config_data.get("delta", delta)
     stiff_states = config_data.get("stiff_states", stiff_states)
     cse = utils.validate_cse(config_data.get("cse", cse))
+    remove_singularities = utils.validate_remove_singularities(
+        config_data.get("remove_singularities", remove_singularities)
+    )
     scheme = config_data.get("scheme", scheme)
     shape = Shape(config_data.get("shape", shape))
     scheme = utils.validate_scheme(scheme)
@@ -858,6 +941,7 @@ def ode2ufl(
         outname=outname,
         scheme=scheme,
         remove_unused=remove_unused,
+        remove_singularities=remove_singularities,
         verbose=verbose,
         stiff_states=stiff_states,
         delta=delta,

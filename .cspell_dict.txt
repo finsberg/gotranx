@@ -14,6 +14,8 @@ cmodel
 codegen
 codeprinter
 codspeed
+coeff
+coeffs
 conds
 cpath
 ctypeslib
@@ -30,6 +32,7 @@ dtsp
 dunused
 dxdt
 elif
+errstate
 evalf
 fenics
 fgrl
@@ -38,6 +41,7 @@ Finsberg
 fitzhughnagumo
 funcname
 gammasu
+geomspace
 gotran
 gotranx
 hprint
@@ -50,7 +54,9 @@ jupytext
 kernelspec
 Kristian
 lalr
+lambdified
 lambdify
+leadterm
 LIBFILE
 linalg
 linearizable
@@ -62,12 +68,15 @@ logicalfunc
 matplotlib
 modelparameters
 MPLBACKEND
+mpmath
 myokit
 nbeats
 ndarray
 ndpointer
+nfloat
 njit
 nocover
+nsimplify
 numba
 numpy
 odeblock
@@ -91,8 +100,8 @@ Radau
 Rdmm
 relop
 reorderable
-reversal_potentials
 reuter
+reversal_potentials
 rhoz
 rtol
 scalarparam
@@ -123,8 +132,13 @@ tsdp
 tspd
 ureg
 userfunc
+VFFRT
+vffrt
+VFRT
+vfrt
 Windkessel
 windkessel
+workdps
 xlabel
 xrelplace
 xreplace

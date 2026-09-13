@@ -97,6 +97,7 @@ def main(
     outname: Path | str | None = None,
     scheme: list[Scheme] | None = None,
     remove_unused: bool = False,
+    remove_singularities: bool = True,
     verbose: bool = False,
     missing_values: dict[str, int] | None = None,
     delta: float = 1e-8,
@@ -108,7 +109,7 @@ def main(
     structlog.configure(
         wrapper_class=structlog.make_filtering_bound_logger(loglevel),
     )
-    ode = load_ode(fname)
+    ode = load_ode(fname, remove_singularities=remove_singularities)
     code = get_code(
         ode,
         scheme=scheme,
