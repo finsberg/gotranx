@@ -941,10 +941,10 @@ def _looks_like_a_genuine_pole(
 
     others = {symbol: sympy.Rational(repr(x)) for symbol, x in defaults.items() if symbol != var}
     try:
-        centre = sympy.sympify(value).xreplace(others)
+        center = sympy.sympify(value).xreplace(others)
         function = sympy.lambdify(var, exact.xreplace(others), "mpmath")
         with mpmath.workdps(60):
-            origin = mpmath.mpf(sympy.N(centre, 60))
+            origin = mpmath.mpf(sympy.N(center, 60))
             near = abs(function(origin + mpmath.mpf("1e-20")))
             far = abs(function(origin + mpmath.mpf("1e-12")))
     except Exception:  # noqa: BLE001 -- any failure just defers to leadterm

@@ -39,6 +39,7 @@ fgrl
 figsize
 Finsberg
 fitzhughnagumo
+flatnonzero
 funcname
 gammasu
 geomspace
@@ -132,12 +133,12 @@ tsdp
 tspd
 ureg
 userfunc
-VFFRT
 vffrt
-VFRT
+VFFRT
 vfrt
-Windkessel
+VFRT
 windkessel
+Windkessel
 workdps
 xlabel
 xrelplace

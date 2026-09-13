@@ -141,10 +141,10 @@ def test_diagonal_jacobian_is_continuous_across_the_pole(name, state, pole, guar
 
     Finiteness alone would be satisfied by any constant, so this checks that
     the three points are collinear: the value at the pole must sit on the
-    midpoint of its two neighbours, to far better than the spread between
+    midpoint of its two neighbors, to far better than the spread between
     them. A jump of size `j` would move it off that midpoint by `j/2`, while
     genuine curvature only moves it by O(h**2 * f''), which is negligible next
-    to the O(h * f') spread. Comparing the pole value against a neighbour
+    to the O(h * f') spread. Comparing the pole value against a neighbor
     directly would not work: the function legitimately varies over the
     +-1e-4 window used here.
     """
