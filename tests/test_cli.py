@@ -591,3 +591,70 @@ def test_ode2ufl_config_file(odefile, config_file):
     assert "hybrid_rush_larsen" in code
     assert "import ufl" in code
     outfile.unlink()
+
+
+# A gate rate with a removable pole at V = -10 and nothing else conditional,
+# so any branch in the generated code can only be the singularity guard.
+GATE_RATE_ODE = dedent(
+    """
+    parameters(C=1.0)
+    states("Membrane", V=-80.0)
+    expressions("Membrane")
+    alpha_n = (V + 10)/(exp((V + 10)/10) - 1)
+    dV_dt = -alpha_n*(V + 77)/C
+    """
+)
+
+
+@pytest.fixture
+def gate_rate_odefile(tmp_path):
+    path = tmp_path / "gate_rate.ode"
+    path.write_text(GATE_RATE_ODE)
+    return path
+
+
+@pytest.mark.parametrize(
+    "flags, expect_guard",
+    [([], True), (["--remove-singularities"], True), (["--no-remove-singularities"], False)],
+)
+def test_ode2py_remove_singularities_flag(flags, expect_guard, gate_rate_odefile, tmp_path):
+    outfile = tmp_path / "gate_rate.py"
+    result = runner.invoke(
+        gotranx.cli.app,
+        ["ode2py", str(gate_rate_odefile), "-o", str(outfile), "-f", "none", *flags],
+    )
+    assert result.exit_code == 0, result.stdout
+    assert ("numpy.where" in outfile.read_text()) is expect_guard
+
+
+@pytest.mark.parametrize(
+    "command, suffix, marker",
+    [("ode2c", ".h", "?"), ("ode2julia", ".jl", "?"), ("ode2ufl", ".py", "conditional")],
+)
+def test_remove_singularities_flag_reaches_the_other_backends(
+    command, suffix, marker, gate_rate_odefile, tmp_path
+):
+    for flags, expect_guard in (([], True), (["--no-remove-singularities"], False)):
+        outfile = tmp_path / f"gate_rate{suffix}"
+        result = runner.invoke(
+            gotranx.cli.app, [command, str(gate_rate_odefile), "-o", str(outfile), *flags]
+        )
+        assert result.exit_code == 0, result.stdout
+        assert (marker in outfile.read_text()) is expect_guard, (command, flags)
+
+
+@pytest.mark.parametrize("bad", ['"false"', '"no"', "0"])
+def test_remove_singularities_rejects_a_non_boolean_in_the_config_file(
+    bad, gate_rate_odefile, tmp_path
+):
+    """In a config file `remove_singularities = "false"` is a non-empty string,
+    hence truthy, and would silently guard -- the opposite of what it says."""
+    config = tmp_path / "config.toml"
+    config.write_text(f"[tool.gotranx]\nremove_singularities = {bad}\n")
+    result = runner.invoke(
+        gotranx.cli.app,
+        ["ode2py", str(gate_rate_odefile), "-o", str(tmp_path / "out.py"), "-c", str(config)],
+    )
+    assert result.exit_code != 0
+    # The message goes to stderr, which `result.output` includes.
+    assert "Invalid value for remove_singularities" in result.output

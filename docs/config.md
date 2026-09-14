@@ -41,6 +41,7 @@ stiff_states = [
     "j",
 ]
 cse = true
+remove_singularities = true
 
 [tool.gotranx.python]
 format = "ruff"
@@ -73,6 +74,15 @@ gotranx ode2py file.ode -c folder/pyproject.toml
   inlines them instead, which emits no temporaries at all but costs far more
   operations — worth it only on the vectorized numpy backend, where every
   temporary is a live array
+- `remove_singularities` (bool, default: `true`): Replace a small
+  neighborhood of every removable singularity -- a gate rate like
+  `(V + 10)/(exp((V + 10)/10) - 1)` at `V = -10`, or a GHK flux at `v = 0` --
+  with a truncated Taylor series. Without it the generated code divides by
+  zero at exactly that point (numpy warns and returns `nan`; numba crashes),
+  and the Rush-Larsen linearization is wrong by an O(1) amount, possibly with
+  the wrong sign, in a neighborhood of it. `false` emits the expressions
+  exactly as written. Must be a boolean: `"false"` is rejected rather than
+  read as a truthy string
 
 ### Python specific options (under `tool.gotranx.python`)
 

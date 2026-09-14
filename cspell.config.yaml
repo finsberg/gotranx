@@ -5,3 +5,7 @@ dictionaryDefinitions:
 dictionaries:
   - gotranx
 ignoreWords: []
+ignorePaths:
+  # Design specs and implementation plans: working documents full of code
+  # identifiers, not published docs.
+  - docs/superpowers/**

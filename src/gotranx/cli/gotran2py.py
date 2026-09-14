@@ -119,6 +119,7 @@ def main(
     format: Format = Format.black,
     scheme: list[Scheme] | None = None,
     remove_unused: bool = False,
+    remove_singularities: bool = True,
     verbose: bool = True,
     stiff_states: list[str] | None = None,
     cse: bool = True,
@@ -132,7 +133,7 @@ def main(
         wrapper_class=structlog.make_filtering_bound_logger(loglevel),
     )
 
-    ode = load_ode(fname)
+    ode = load_ode(fname, remove_singularities=remove_singularities)
 
     code = get_code(
         ode,

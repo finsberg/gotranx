@@ -1,5 +1,48 @@
 # Changelog
 
+## Unreleased
+
+### Changed — this changes generated code
+
+Removable singularities are now guarded by default, in the right-hand side as
+well as in the Rush-Larsen linearization. Every assignment with a removable
+pole in a state variable -- a gate rate such as
+`(V + 10)/(exp((V + 10)/10) - 1)`, or a GHK flux divided by `exp(vfrt) - 1` --
+is rewritten in that state and wrapped in a `Piecewise` whose other branch is
+a truncated Taylor series of order 3 over a small window around the pole.
+
+This matters most for the linearization. Since 2.0.0 the Rush-Larsen schemes
+differentiate through intermediates, which turns a removable pole into a
+double pole: ToRORd's `d(dv_dt)/dv` was +30.1 at `v = -1e-9` and raised at
+`v = 0`, against a true value near -0.0405, and every action potential
+crosses `v = 0` twice. A positive linearization turns the exponential update
+from decaying to growing.
+
+**If you regenerate a model with such a pole, its output changes** -- including
+`rhs`, for ToRORd_dyn_chloride and ORdmm_Land, whose GHK poles were not guarded
+before. Pass `--no-remove-singularities` (or `remove_singularities=False` to
+`load_ode`, or `remove_singularities = false` in the config file) to emit the
+expressions exactly as written. `ode2cellml` never guards: it exports a model,
+not code.
+
+### Fixed
+
+- The previous mechanism (`ODE.remove_singularities`, reachable only from
+  Python) discarded every GHK pole as infinite, because it looked for poles in
+  whatever intermediate the model author had named; replaced a pole by a
+  constant, which differentiates to zero and left the linearization wrong;
+  used `sympy.limit`, which returns 0 for float-coefficient gate rates such as
+  `0.2*(V + 23)/(1 - exp(-0.04*(V + 23)))` where the true limit is 5; and
+  tested for the pole with exact equality. It has been removed.
+- `sympy.cse` in the Rush-Larsen schemes no longer hoists subexpressions out of
+  `Piecewise` branches, where a hoisted temporary could be `nan` at exactly
+  the value the branch exists to avoid.
+
+### Added
+
+- `gotranx.singularities`, and `--remove-singularities/--no-remove-singularities`
+  on `ode2py`, `ode2c`, `ode2julia`, `ode2mtk`, `ode2ufl` and `ode2md`.
+
 ## 2.0.0
 
 ### Changed — this changes the numerics of generated code

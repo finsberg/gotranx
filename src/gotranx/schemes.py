@@ -173,7 +173,12 @@ def _linearized_assignments(
                 yield sympy.Symbol(name, real=True)
             i += 1
 
-    replacements, reduced = sympy.cse(exprs, symbols=fresh(), optimizations="basic")
+    # Not `sympy.cse` directly: it hoists out of `Piecewise` branches, which
+    # would compute a guarded singular expression unconditionally. See
+    # `sympytools.cse_hiding_piecewise`.
+    replacements, reduced = sympytools.cse_hiding_piecewise(
+        exprs, symbols=fresh(), optimizations="basic"
+    )
 
     temp_symbols = {symbol for symbol, _ in replacements}
     sub_expr_by_symbol = dict(replacements)
