@@ -1,7 +1,10 @@
+import math
 import pytest
 from pathlib import Path
 import gotranx
+from gotranx.cli import gotran2py, gotran2ufl
 from gotranx.codegen.ufl import UFLCodeGenerator
+from gotranx.schemes import Scheme
 
 here = Path(__file__).parent.absolute()
 
@@ -117,3 +120,78 @@ def test_ufl_codegen_ordmm_land():
     # generated successfully as state array index mappings
     assert "hL = states[" in code
     assert "a = states[" in code
+
+
+def _generated(module, ode, scheme=None):
+    code = module.get_code(ode, scheme=scheme)
+    namespace: dict = {}
+    exec(compile(code, f"<{module.__name__}>", "exec"), namespace)
+    return namespace
+
+
+def test_ufl_generalized_rush_larsen_with_float_parameters():
+    """The generated UFL scheme accepts parameters that are plain Python floats.
+
+    The linearized rate of ``x`` is the parameter ``-k``, so the scheme's
+    zero-division guard ``|dx_dt_linearized| > delta`` compares two numbers.
+    Printed as ``>`` that is a Python ``bool``, which ``ufl.Or`` refuses.
+    """
+    pytest.importorskip("ufl")
+    from ufl.core.expr import Expr
+
+    ode = gotranx.load.ode_from_string(
+        """
+        parameters(k=2.0, c=1.0)
+        states(x=0.2)
+        dx_dt = c - k * x
+        """
+    )
+    scheme = [Scheme.generalized_rush_larsen]
+    ufl_code = _generated(gotran2ufl, ode, scheme)
+    py_code = _generated(gotran2py, ode, scheme)
+
+    states = py_code["init_state_values"]()
+    parameters = py_code["init_parameter_values"]()
+    dt = 0.1
+    expected = py_code["generalized_rush_larsen"](states, 0.0, dt, parameters)
+
+    values = ufl_code["generalized_rush_larsen"](
+        [float(s) for s in states], 0.0, dt, [float(p) for p in parameters]
+    )
+
+    assert isinstance(values[0], Expr)
+    assert float(values[0]) == pytest.approx(expected[0], rel=1e-12)
+    # The scheme is exact for a linear ODE: x(dt) = c/k + (x0 - c/k) exp(-k dt)
+    assert float(values[0]) == pytest.approx(0.5 - 0.3 * math.exp(-0.2), rel=1e-12)
+
+
+@pytest.mark.parametrize("b", [1.0, 2.0])
+@pytest.mark.parametrize(
+    "condition", ["Lt(a, b)", "Le(a, b)", "Gt(a, b)", "Ge(a, b)", "Eq(a, b)", "Not(Eq(a, b))"]
+)
+def test_ufl_relational_with_float_operands(condition, b):
+    """Every relational prints to a UFL condition, whatever its operands are.
+
+    Comparing two Python numbers gives a Python ``bool``, which
+    ``ufl.conditional`` refuses. ``==`` and ``!=`` never give a UFL condition,
+    even on UFL operands, since UFL reserves them for structural equality.
+    """
+    pytest.importorskip("ufl")
+
+    ode = gotranx.load.ode_from_string(
+        f"""
+        parameters(a=1.0, b=2.0)
+        states(x=0.0)
+        dx_dt = Conditional({condition}, 1.0, -1.0)
+        """
+    )
+    ufl_code = _generated(gotran2ufl, ode)
+    py_code = _generated(gotran2py, ode)
+
+    states = py_code["init_state_values"]()
+    parameters = py_code["init_parameter_values"](b=b)
+    expected = py_code["rhs"](0.0, states, parameters)
+
+    values = ufl_code["rhs"](0.0, [float(s) for s in states], [float(p) for p in parameters])
+
+    assert float(values[0]) == expected[0]

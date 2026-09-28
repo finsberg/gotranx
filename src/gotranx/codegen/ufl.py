@@ -74,6 +74,28 @@ class UFLPrinter(GotranPythonCodePrinter):
 
         return "".join(result)
 
+    # Comparisons are printed as calls to the ufl functions, not as Python
+    # operators. With two numbers as operands (say a parameter passed as a
+    # float) an operator gives a Python bool, which ufl.conditional, ufl.And
+    # and ufl.Or refuse; the functions convert both operands with ufl.as_ufl.
+    # `==` and `!=` never give a condition: UFL keeps them for structural
+    # equality of expressions.
+    _comparisons = {
+        "==": "ufl.eq",
+        "!=": "ufl.ne",
+        "<": "ufl.lt",
+        "<=": "ufl.le",
+        ">": "ufl.gt",
+        ">=": "ufl.ge",
+    }
+
+    def _print_Relational(self, expr):
+        func = self._comparisons[expr.rel_op]
+        return f"{func}({self._print(expr.lhs)}, {self._print(expr.rhs)})"
+
+    # The Python printer's own _print_Equality would otherwise take precedence
+    _print_Equality = _print_Relational
+
     def _print_And(self, expr):
         args = [self._print(arg) for arg in expr.args]
         return functools.reduce(lambda x, y: f"ufl.And({x}, {y})", args)
