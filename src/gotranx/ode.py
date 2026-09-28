@@ -280,7 +280,10 @@ def sort_assignments(
                 "Try to save the ODE to an .ode file first and load it again"
             )
             raise exceptions.GotranxError(msg)
-        sorter.add(assignment.name, *assignment.value.dependencies)
+        # sorted(): dependencies is a frozenset[str], and graphlib breaks ties in
+        # insertion order, so an unsorted splat leaks PYTHONHASHSEED into the
+        # emitted order of states, monitors and intermediates.
+        sorter.add(assignment.name, *sorted(assignment.value.dependencies))
 
     static_order = tuple(sorter.static_order())
 
