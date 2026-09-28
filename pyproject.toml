@@ -62,6 +62,7 @@ test = [
     "pytest-cov",
     "jax",
     "cmake",
+    "fenics-ufl",
     "gotranx[formatters]",
 ]
 benchmark = [

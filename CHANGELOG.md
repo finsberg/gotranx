@@ -27,6 +27,14 @@ not code.
 
 ### Fixed
 
+- The UFL backend printed comparisons as Python operators, so any condition
+  whose operands were both numbers -- for instance the Rush-Larsen
+  zero-division guard `|dx_dt_linearized| > delta` when the linearized rate
+  is a parameter passed as a float -- became a Python `bool`, which
+  `ufl.conditional`, `ufl.And` and `ufl.Or` reject. Comparisons are now
+  printed as `ufl.lt`, `ufl.gt`, `ufl.eq`, ..., which convert their operands to
+  UFL first. This also makes `Eq` usable in the UFL backend: `==` on UFL
+  expressions tests structural equality and returns a `bool` as well.
 - The previous mechanism (`ODE.remove_singularities`, reachable only from
   Python) discarded every GHK pole as infinite, because it looked for poles in
   whatever intermediate the model author had named; replaced a pole by a
