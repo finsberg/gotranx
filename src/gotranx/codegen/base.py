@@ -218,6 +218,7 @@ class CodeGenerator(abc.ABC):
             state_names=[s.name for s in self.ode.sorted_states()],
             state_values=[self.printer.doprint(s.value) for s in self.ode.sorted_states()],
             name=name,
+            **self._init_value_kwargs(),
         )
         return self._format(code)
 
@@ -247,8 +248,19 @@ class CodeGenerator(abc.ABC):
             parameter_names=[s.name for s in self.ode.parameters],
             parameter_values=[self.printer.doprint(s.value) for s in self.ode.parameters],
             name=name,
+            **self._init_value_kwargs(),
         )
         return self._format(code)
+
+    def _init_value_kwargs(self) -> dict[str, typing.Any]:
+        """Extra keyword arguments for the `init_*_values` templates.
+
+        Empty for every backend whose initial-value functions need no signature
+        of their own. The Julia backend overrides it, because under
+        `--type-stable` the emitted bodies refer to `TYPE` and so the functions
+        need a type parameter to bind it.
+        """
+        return {}
 
     def _state_assignments(self, states: sympy.IndexedBase, remove_unused: bool) -> str:
         return "\n".join(

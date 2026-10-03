@@ -1,4 +1,5 @@
 from __future__ import annotations
+import typing
 import structlog
 from sympy.printing.julia import JuliaCodePrinter
 from sympy.codegen.ast import Assignment
@@ -73,6 +74,9 @@ class JuliaCodeGenerator(CodeGenerator):
     def template(self):
         return templates.julia
 
+    def _init_value_kwargs(self) -> dict[str, typing.Any]:
+        return {"type_stable": self._printer._type_stable}
+
     def imports(self) -> str:
         return ""
         # return self._format(
@@ -89,13 +93,19 @@ class JuliaCodeGenerator(CodeGenerator):
     ) -> Func:
         value = RHSArgument.get_value(order)
         if self._printer._type_stable:
+            # Each argument gets its OWN type parameter. Tying them to a single
+            # `TYPE` means no AD-based stiff solver in the SciML stack can call
+            # the emitted `rhs`: such a solver differentiates with respect to the
+            # states only, calling `f(du, u, p, t)` with `Dual` `u`/`du` and the
+            # original `Float64` `p` and `t`, a combination no single-parameter
+            # method matches.
             argument_dict = {
                 "s": "states::AbstractVector{TYPE}",
-                "t": "t::TYPE",
-                "p": "parameters::AbstractVector{TYPE}",
+                "t": "t::TIME",
+                "p": "parameters::AbstractVector{PARAM}",
             }
-            values = ["values::AbstractVector{TYPE}"]
-            post_function_signature = " where {TYPE}"
+            values = ["values::AbstractVector{OUT}"]
+            post_function_signature = " where {TYPE, TIME, PARAM, OUT}"
         else:
             argument_dict = {
                 "s": "states",
@@ -125,14 +135,18 @@ class JuliaCodeGenerator(CodeGenerator):
     ) -> Func:
         value = SchemeArgument.get_value(order)
         if self._printer._type_stable:
+            # Own type parameter per argument, for the reason given in
+            # `_rhs_arguments`. A stepper is called with the same mixture of
+            # differentiated states and undifferentiated parameters, time and
+            # step size.
             argument_dict = {
                 "s": "states::AbstractVector{TYPE}",
-                "t": "t::TYPE",
-                "d": "dt::TYPE",
-                "p": "parameters::AbstractVector{TYPE}",
+                "t": "t::TIME",
+                "d": "dt::DT",
+                "p": "parameters::AbstractVector{PARAM}",
             }
-            values = ["values::AbstractVector{TYPE}"]
-            post_function_signature = " where {TYPE}"
+            values = ["values::AbstractVector{OUT}"]
+            post_function_signature = " where {TYPE, TIME, DT, PARAM, OUT}"
         else:
             argument_dict = {
                 "s": "states",
