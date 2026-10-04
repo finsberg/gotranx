@@ -4,6 +4,7 @@ import structlog
 
 from ..ode import ODE
 from .. import templates
+from .. import atoms
 from .julia import JuliaCodeGenerator
 
 logger = structlog.get_logger()
@@ -49,14 +50,23 @@ class CytoZooCodeGenerator(JuliaCodeGenerator):
         return self._model_name
 
     def _state_name_list(self) -> list[str]:
-        return [s.name for s in self.ode.states]
+        # self.ode.states is name-sorted; sorted_states() is the dependency order
+        # that fills `u`, which is what state_index()/_state_assignments() in
+        # codegen/base.py actually use (base.py:171, base.py:268). Using the
+        # name-sorted list here would silently mislabel every state slot.
+        return [s.name for s in self.ode.sorted_states()]
 
     def _parameter_name_list(self) -> list[str]:
         return [p.name for p in self.ode.parameters]
 
     def _monitor_name_list(self) -> list[str]:
-        return [m.name for m in self.ode.state_derivatives] + [
-            m.name for m in self.ode.intermediates
+        # Mirror codegen.base.CodeGenerator.monitor_index (base.py:186) exactly:
+        # one pass over sorted_assignments() in encounter order, not two
+        # name-sorted blocks concatenated. Monitor slots must match monitor_index.
+        return [
+            a.name
+            for a in self.ode.sorted_assignments(remove_unused=False)
+            if isinstance(a, (atoms.Intermediate, atoms.StateDerivative))
         ]
 
     def _potential_index(self) -> int:

@@ -23,6 +23,7 @@ ctypeslib
 cytozoo
 Cyto
 CUDA
+dalpha
 dcai
 DCELL
 dolfinx
@@ -35,6 +36,7 @@ dtps
 dtsp
 dunused
 dxdt
+dzeta
 elif
 eltype
 errstate

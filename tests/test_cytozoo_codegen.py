@@ -119,3 +119,60 @@ def test_state_names_follow_the_ode_ordering(simple_ode):
     code = CytoZooCodeGenerator(simple_ode, type_stable=True).adapter()
     expected = ", ".join(f":{s.name}" for s in simple_ode.states)
     assert expected in code
+
+
+from gotranx import atoms
+
+
+@pytest.fixture(scope="module")
+def diverging_ode(parser, trans):
+    # `alpha`'s derivative depends on a two-level intermediate chain rooted at
+    # `zeta`; `zeta`'s derivative depends on nothing but itself and a parameter.
+    # Named so that alphabetical order (alpha, zeta) and dependency order
+    # (zeta must be resolved before the chain that feeds alpha) disagree.
+    tree = parser.parse(
+        """
+        parameters(k=1.0)
+        states(alpha=0.0, zeta=1.0)
+
+        chain1 = zeta
+        chain2 = chain1 * 2
+        dalpha_dt = chain2 - alpha
+        dzeta_dt = -k*zeta
+        """
+    )
+    return make_ode(*trans.transform(tree), name="diverge")
+
+
+def test_transmembrane_potential_index_uses_dependency_order(diverging_ode):
+    alphabetical = [s.name for s in diverging_ode.states]
+    dependency_order = [s.name for s in diverging_ode.sorted_states()]
+    # If this ever stops diverging the test below stops testing anything --
+    # fail loudly rather than silently passing for the wrong reason.
+    assert alphabetical.index("zeta") != dependency_order.index("zeta")
+
+    code = CytoZooCodeGenerator(diverging_ode, v_name="zeta", type_stable=True).adapter()
+    expected_index = dependency_order.index("zeta") + 1
+    assert f"transmembrane_potential_index(::Diverge) = {expected_index}" in code
+
+
+def test_monitor_names_follow_monitor_index_order(diverging_ode):
+    # Mirror codegen.base.CodeGenerator.monitor_index's own loop exactly: walk
+    # sorted_assignments() and keep Intermediate/StateDerivative names in the
+    # single interleaved order they're encountered in, not grouped by type.
+    expected = [
+        a.name
+        for a in diverging_ode.sorted_assignments(remove_unused=False)
+        if isinstance(a, (atoms.Intermediate, atoms.StateDerivative))
+    ]
+    # If the two kinds never interleave, this test can't catch a grouped-by-type bug.
+    kinds = [
+        isinstance(a, atoms.StateDerivative)
+        for a in diverging_ode.sorted_assignments(remove_unused=False)
+        if isinstance(a, (atoms.Intermediate, atoms.StateDerivative))
+    ]
+    assert kinds != sorted(kinds), "fixture no longer interleaves intermediates and derivatives"
+
+    code = CytoZooCodeGenerator(diverging_ode, v_name="zeta", type_stable=True).adapter()
+    expected_tuple = "(" + ", ".join(f":{n}" for n in expected) + ",)"
+    assert f"const DIVERGE_MONITOR_NAMES = {expected_tuple}" in code
