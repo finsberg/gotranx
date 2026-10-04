@@ -20,11 +20,9 @@ coeffs
 conds
 cpath
 ctypeslib
-cytozoo
-Cyto
 CUDA
-dalpha
-dcai
+Cyto
+cytozoo
 DCELL
 dolfinx
 doprint
@@ -36,7 +34,6 @@ dtps
 dtsp
 dunused
 dxdt
-dzeta
 elif
 eltype
 errstate

@@ -85,17 +85,19 @@ from gotranx.codegen.cytozoo import (
 from gotranx.ode import make_ode
 
 
+# Kept as one constant so the fixture and the two CLI tests below cannot drift.
+SIMPLE_ODE = """
+parameters(GNa=1.0, T=310.0)
+states(v=-87.0, ca=1e-4)
+
+dv_dt = -GNa*v
+dca_dt = T*ca
+"""
+
+
 @pytest.fixture(scope="module")
 def simple_ode(parser, trans):
-    tree = parser.parse(
-        """
-        parameters(GNa=1.0, T=310.0)
-        states(v=-87.0, cai=1e-4)
-
-        dv_dt = -GNa*v
-        dcai_dt = T*cai
-        """
-    )
+    tree = parser.parse(SIMPLE_ODE)
     return make_ode(*trans.transform(tree), name="simple")
 
 
@@ -176,19 +178,21 @@ from gotranx import atoms
 
 @pytest.fixture(scope="module")
 def diverging_ode(parser, trans):
-    # `alpha`'s derivative depends on a two-level intermediate chain rooted at
-    # `zeta`; `zeta`'s derivative depends on nothing but itself and a parameter.
-    # Named so that alphabetical order (alpha, zeta) and dependency order
-    # (zeta must be resolved before the chain that feeds alpha) disagree.
+    # `a`'s derivative depends on a two-level intermediate chain rooted at
+    # `z`; `z`'s derivative depends on nothing but itself and a parameter.
+    # Named for the two ends of the alphabet so that alphabetical order (a, z)
+    # and dependency order (z must be resolved before the chain that feeds a)
+    # disagree -- the property the two tests below rely on, and which each of
+    # them re-asserts rather than assuming.
     tree = parser.parse(
         """
         parameters(k=1.0)
-        states(alpha=0.0, zeta=1.0)
+        states(a=0.0, z=1.0)
 
-        chain1 = zeta
+        chain1 = z
         chain2 = chain1 * 2
-        dalpha_dt = chain2 - alpha
-        dzeta_dt = -k*zeta
+        da_dt = chain2 - a
+        dz_dt = -k*z
         """
     )
     return make_ode(*trans.transform(tree), name="diverge")
@@ -199,10 +203,10 @@ def test_transmembrane_potential_index_uses_dependency_order(diverging_ode):
     dependency_order = [s.name for s in diverging_ode.sorted_states()]
     # If this ever stops diverging the test below stops testing anything --
     # fail loudly rather than silently passing for the wrong reason.
-    assert alphabetical.index("zeta") != dependency_order.index("zeta")
+    assert alphabetical.index("z") != dependency_order.index("z")
 
-    code = CytoZooCodeGenerator(diverging_ode, v_name="zeta", type_stable=True).adapter()
-    expected_index = dependency_order.index("zeta") + 1
+    code = CytoZooCodeGenerator(diverging_ode, v_name="z", type_stable=True).adapter()
+    expected_index = dependency_order.index("z") + 1
     assert f"transmembrane_potential_index(::Diverge) = {expected_index}" in code
 
 
@@ -223,7 +227,7 @@ def test_monitor_names_follow_monitor_index_order(diverging_ode):
     ]
     assert kinds != sorted(kinds), "fixture no longer interleaves intermediates and derivatives"
 
-    code = CytoZooCodeGenerator(diverging_ode, v_name="zeta", type_stable=True).adapter()
+    code = CytoZooCodeGenerator(diverging_ode, v_name="z", type_stable=True).adapter()
     expected_tuple = "(" + ", ".join(f":{n}" for n in expected) + ",)"
     assert f"const DIVERGE_MONITOR_NAMES = {expected_tuple}" in code
 
@@ -368,10 +372,7 @@ def test_cli_writes_a_module(tmp_path):
     from gotranx.cli import app
 
     ode = tmp_path / "simple.ode"
-    ode.write_text(
-        "parameters(GNa=1.0, T=310.0)\nstates(v=-87.0, cai=1e-4)\n"
-        "\ndv_dt = -GNa*v\ndcai_dt = T*cai\n"
-    )
+    ode.write_text(SIMPLE_ODE)
     result = CliRunner().invoke(app, ["ode2cytozoo", str(ode), "-o", str(tmp_path / "out")])
     assert result.exit_code == 0, result.output
 
@@ -387,10 +388,7 @@ def test_ode2julia_output_is_unchanged_by_this_feature(tmp_path):
     from gotranx.load import load_ode
 
     ode_file = tmp_path / "m.ode"
-    ode_file.write_text(
-        "parameters(GNa=1.0, T=310.0)\nstates(v=-87.0, cai=1e-4)\n"
-        "\ndv_dt = -GNa*v\ndcai_dt = T*cai\n"
-    )
+    ode_file.write_text(SIMPLE_ODE)
     code = gotran2julia.get_code(load_ode(ode_file), type_stable=True)
     assert "resolve_parameter" not in code
     assert "_cz_" not in code
