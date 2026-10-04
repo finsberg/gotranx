@@ -5,12 +5,13 @@ from structlog import get_logger
 logger = get_logger()
 
 
-def init_state_values(name, state_names, state_values, code):
+def init_state_values(name, state_names, state_values, code, type_stable=False):
     indented_code = indent(code, "    ")
     indent_values = indent(", ".join(f"{n}={v}" for n, v in zip(state_names, state_values)), "    ")
+    argument, post_signature = _init_value_signature(name, type_stable)
     return dedent(
         f"""
-function init_state_values!({name})
+function init_state_values!({argument}){post_signature}
     #=
 {indent_values}
     =#
@@ -20,14 +21,28 @@ end
     )
 
 
-def init_parameter_values(name, parameter_names, parameter_values, code):
+def _init_value_signature(name, type_stable):
+    """Argument spelling and `where` clause for an `init_*_values!` function.
+
+    Under `--type-stable` the emitted body writes `TYPE(0.5)` rather than `0.5`,
+    so the function must bind `TYPE` itself. Without a type parameter the name
+    resolves at the module level, which forces the caller to define a
+    `const TYPE` and pins every initial value to that one element type.
+    """
+    if not type_stable:
+        return name, ""
+    return f"{name}::AbstractVector{{TYPE}}", " where {TYPE}"
+
+
+def init_parameter_values(name, parameter_names, parameter_values, code, type_stable=False):
     indented_code = indent(code, "    ")
     indent_values = indent(
         ", ".join(f"{n}={v}" for n, v in zip(parameter_names, parameter_values)), "    "
     )
+    argument, post_signature = _init_value_signature(name, type_stable)
     return dedent(
         f"""
-function init_parameter_values!({name})
+function init_parameter_values!({argument}){post_signature}
     #=
 {indent_values}
     =#

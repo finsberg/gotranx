@@ -234,7 +234,7 @@ def test_consistent_floats_with_T(parser, trans):
     codegen = JuliaCodeGenerator(ode, type_stable=True)
     rhs = codegen.rhs()
     assert rhs == (
-        "\nfunction rhs(t::TYPE, states::AbstractVector{TYPE}, parameters::AbstractVector{TYPE}, values::AbstractVector{TYPE}) where {TYPE}"  # noqa: E501
+        "\nfunction rhs(t::TIME, states::AbstractVector{TYPE}, parameters::AbstractVector{PARAM}, values::AbstractVector{OUT}) where {TYPE, TIME, PARAM, OUT}"  # noqa: E501
         "\n"
         "\n    # Assign states"
         "\n    x = states[1]"
@@ -248,3 +248,67 @@ def test_consistent_floats_with_T(parser, trans):
         "\nend"
         "\n"
     )
+
+
+def test_type_stable_rhs_gives_each_argument_its_own_type_parameter(parser, trans):
+    # An AD-based stiff solver differentiates with respect to the states only:
+    # it calls f(du, u, p, t) with Dual u/du and the original Float64 p and t.
+    # A single shared `TYPE` matches no such call, so OrdinaryDiffEq's Jacobian
+    # cannot call the generated rhs at all. See the `where` clause.
+    tree = parser.parse("\nstates(x=0)\ndx_dt = 1.0\n")
+    ode = make_ode(*trans.transform(tree), name="name")
+    rhs = JuliaCodeGenerator(ode, type_stable=True).rhs()
+
+    assert "states::AbstractVector{TYPE}" in rhs
+    assert "t::TIME" in rhs
+    assert "parameters::AbstractVector{PARAM}" in rhs
+    assert "values::AbstractVector{OUT}" in rhs
+    assert "where {TYPE, TIME, PARAM, OUT}" in rhs
+    # The whole point: the four must not be the same parameter.
+    assert "t::TYPE" not in rhs
+    assert "parameters::AbstractVector{TYPE}" not in rhs
+
+
+def test_type_stable_scheme_gives_each_argument_its_own_type_parameter(parser, trans):
+    tree = parser.parse("\nstates(x=0)\ndx_dt = 1.0\n")
+    ode = make_ode(*trans.transform(tree), name="name")
+    codegen = JuliaCodeGenerator(ode, type_stable=True)
+    scheme = codegen.scheme(get_scheme("explicit_euler"))
+
+    assert "where {TYPE, TIME, DT, PARAM, OUT}" in scheme
+    assert "dt::DT" in scheme
+    assert "dt::TYPE" not in scheme
+
+
+def test_type_stable_init_values_bind_their_own_TYPE(parser, trans):
+    # Under --type-stable the emitted body writes TYPE(0.5) rather than 0.5, so
+    # these functions must bind TYPE themselves. Without a type parameter the
+    # name resolves at module level, which forces the caller to define a
+    # `const TYPE = Float64` and pins every initial value to one element type --
+    # which in turn makes a Float32 (or Dual) state vector impossible to build.
+    tree = parser.parse("\nparameters(a=0.5)\nstates(x=0.25)\ndx_dt = a\n")
+    ode = make_ode(*trans.transform(tree), name="name")
+    codegen = JuliaCodeGenerator(ode, type_stable=True)
+
+    states = codegen.initial_state_values()
+    params = codegen.initial_parameter_values()
+
+    assert "function init_state_values!(states::AbstractVector{TYPE}) where {TYPE}" in states
+    assert (
+        "function init_parameter_values!(parameters::AbstractVector{TYPE}) where {TYPE}" in params
+    )
+    # The bodies do use TYPE, which is why the binding is needed at all.
+    assert "TYPE(0.25)" in states
+    assert "TYPE(0.5)" in params
+
+
+def test_init_values_are_untyped_without_type_stable(parser, trans):
+    # Without --type-stable the bodies carry bare literals, so there is nothing
+    # to bind and the signature stays plain.
+    tree = parser.parse("\nparameters(a=0.5)\nstates(x=0.25)\ndx_dt = a\n")
+    ode = make_ode(*trans.transform(tree), name="name")
+    codegen = JuliaCodeGenerator(ode, type_stable=False)
+
+    assert "function init_state_values!(states)\n" in codegen.initial_state_values()
+    assert "function init_parameter_values!(parameters)\n" in codegen.initial_parameter_values()
+    assert "TYPE(" not in codegen.initial_state_values()
