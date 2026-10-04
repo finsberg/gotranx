@@ -20,3 +20,50 @@ def test_index_lookups_raise_rather_than_return_minus_one():
     assert "parameter_index(::ORdmmLand, name::Symbol)" in code
     # A Dict lookup raises KeyError on an unknown name; -1 must appear nowhere.
     assert "-1" not in code
+
+
+def test_name_tuples_tuple_arity_cases():
+    # Empty list case: must produce () with no trailing comma
+    code = cytozoo.name_tuples("ORd", [], [], [])
+    assert "ORD_STATE_NAMES = ()" in code
+    assert "ORD_PARAMETER_NAMES = ()" in code
+    assert "ORD_MONITOR_NAMES = ()" in code
+
+    # One-element list case: must produce trailing comma to form a tuple, not a bare symbol
+    code = cytozoo.name_tuples("ORd", ["v"], ["GNa"], ["Calcium"])
+    # This is the critical assertion: (:v,) is a tuple, (:v) is just the symbol
+    assert "(:v,)" in code
+    assert "(:GNa,)" in code
+    assert "(:Calcium,)" in code
+    # Ensure it's not the bare symbol without comma
+    lines = code.split("\n")
+    for line in lines:
+        if ":v" in line:
+            assert ":v," in line, "Single-element state name must have trailing comma"
+
+    # Multi-element list case: all names in order, trailing comma after last
+    code = cytozoo.name_tuples("ORd", ["v", "cai", "cass"], ["GNa", "GK"], ["ICa", "IK"])
+    assert "(:v, :cai, :cass,)" in code
+    assert "(:GNa, :GK,)" in code
+    assert "(:ICa, :IK,)" in code
+
+
+def test_interface_methods_conditional_monitor_branch():
+    # With monitors: all three required components must be present
+    code = cytozoo.interface_methods("ORdmmLand", 0, 3)
+    assert "num_monitors(::ORdmmLand) = 3" in code
+    assert "monitor_names(::ORdmmLand) = ORDMMLAND_MONITOR_NAMES" in code
+    assert "function monitor_values!(mon, u, t, model::ORdmmLand)" in code
+    # The critical detail: monitor_values must be called with six arguments
+    # ending with mon, nothing, nothing (spatial context additions come later)
+    assert "monitor_values(t, u, model.parameters, mon, nothing, nothing)" in code
+
+    # Without monitors: none of those three should appear
+    code = cytozoo.interface_methods("ORdmmLand", 0, 0)
+    assert "num_monitors" not in code
+    assert "monitor_names" not in code
+    assert "function monitor_values!" not in code
+
+    # Test with v_index set (should appear in both cases)
+    code = cytozoo.interface_methods("ORdmmLand", 42, 0)
+    assert "transmembrane_potential_index(::ORdmmLand) = 42" in code
