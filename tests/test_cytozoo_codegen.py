@@ -277,3 +277,37 @@ def test_an_ode_with_no_monitors_emits_no_monitor_block(parser, trans):
 def test_monitor_values_takes_spatial_arguments(simple_ode):
     code = CytoZooCodeGenerator(simple_ode, type_stable=True).monitor_values()
     assert "_cz_overrides" in code
+
+
+def test_cli_writes_a_module(tmp_path):
+    from typer.testing import CliRunner
+    from gotranx.cli import app
+
+    ode = tmp_path / "simple.ode"
+    ode.write_text(
+        "parameters(GNa=1.0, T=310.0)\nstates(v=-87.0, cai=1e-4)\n"
+        "\ndv_dt = -GNa*v\ndcai_dt = T*cai\n"
+    )
+    result = CliRunner().invoke(app, ["ode2cytozoo", str(ode), "-o", str(tmp_path / "out")])
+    assert result.exit_code == 0, result.output
+
+    code = (tmp_path / "out.jl").read_text()
+    assert "import CytoZoo" in code
+    assert "AbstractCardiacCellModel" in code
+    assert "resolve_parameter" in code
+
+
+def test_ode2julia_output_is_unchanged_by_this_feature(tmp_path):
+    """The root repo's generate.jl --check compares bytes. This must never move."""
+    from gotranx.cli import gotran2julia
+    from gotranx.load import load_ode
+
+    ode_file = tmp_path / "m.ode"
+    ode_file.write_text(
+        "parameters(GNa=1.0, T=310.0)\nstates(v=-87.0, cai=1e-4)\n"
+        "\ndv_dt = -GNa*v\ndcai_dt = T*cai\n"
+    )
+    code = gotran2julia.get_code(load_ode(ode_file), type_stable=True)
+    assert "resolve_parameter" not in code
+    assert "_cz_" not in code
+    assert "AbstractCardiacCellModel" not in code

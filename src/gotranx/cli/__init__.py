@@ -8,7 +8,7 @@ import typer
 from ..schemes import Scheme, get_scheme
 from ..codegen import PythonFormat, CFormat
 from ..codegen.base import Shape
-from . import gotran2c, gotran2py, gotran2julia, gotran2md, gotran2mtk, gotran2ufl
+from . import gotran2c, gotran2py, gotran2julia, gotran2cytozoo, gotran2md, gotran2mtk, gotran2ufl
 from . import utils
 
 app = typer.Typer()
@@ -656,6 +656,35 @@ def ode2julia(
         delta=delta,
         cse=cse,
         type_stable=type_stable,
+    )
+
+
+@app.command()
+def ode2cytozoo(
+    fname: typing.Optional[Path] = typer.Argument(
+        None, exists=True, file_okay=True, dir_okay=False, readable=True, resolve_path=True
+    ),
+    outname: typing.Optional[str] = typer.Option(None, "-o", "--outname", help="Output name"),
+    model_name: typing.Optional[str] = typer.Option(
+        None, "--model-name", help="Julia struct name (default: the ODE name in PascalCase)"
+    ),
+    v_name: str = typer.Option("v", "--v-name", help="State holding the transmembrane potential"),
+    remove_unused: bool = typer.Option(False, "--remove-unused", help="Remove unused variables"),
+    remove_singularities: bool = typer.Option(
+        True, "--remove-singularities", help="Remove singularities"
+    ),
+    verbose: bool = typer.Option(False, "--verbose", help="Verbose output"),
+):
+    if fname is None:
+        return typer.echo("No file specified")
+    gotran2cytozoo.main(
+        fname=fname,
+        outname=outname,
+        model_name=model_name,
+        v_name=v_name,
+        remove_unused=remove_unused,
+        remove_singularities=remove_singularities,
+        verbose=verbose,
     )
 
 
