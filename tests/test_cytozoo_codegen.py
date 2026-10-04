@@ -465,3 +465,41 @@ def test_real_model_generates():
     assert "Val(:T)" in code
     # The adapter must include the transmembrane potential index.
     assert "transmembrane_potential_index" in code
+
+
+def test_generated_module_carries_a_provenance_banner(simple_ode):
+    """Hand-written headers are deleted the moment anyone regenerates the file.
+
+    The banner has to come out of the generator, so the facts a reader needs --
+    that the file is generated, by which version, from what, and what it
+    requires -- survive a regeneration.
+    """
+    import gotranx
+    from gotranx.cli.gotran2cytozoo import get_code
+
+    code = get_code(simple_ode, source="/somewhere/on/my/disk/simple.ode")
+    banner = code.split("import CytoZoo", 1)[0]
+
+    assert banner.strip(), "no banner before the first import"
+    assert all(line.startswith("#") for line in banner.strip().splitlines())
+
+    # The version is read from the package, never hardcoded.
+    assert gotranx.__version__ in banner
+    assert "gotranx" in banner
+    assert "do not hand-edit" in banner
+
+    # The basename only: an absolute path would leak one machine's layout into
+    # a file that gets committed in the consuming repository.
+    assert "simple.ode" in banner
+    assert "/somewhere/on/my/disk" not in code
+
+    # The two facts a reader cannot get from the code itself.
+    assert "resolve_parameter" in banner
+    assert "module" in banner
+
+
+def test_the_banner_falls_back_to_the_ode_name(simple_ode):
+    from gotranx.cli.gotran2cytozoo import get_code
+
+    banner = get_code(simple_ode).split("import CytoZoo", 1)[0]
+    assert f"{simple_ode.name}.ode" in banner
