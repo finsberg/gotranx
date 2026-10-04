@@ -255,3 +255,25 @@ def test_parameter_name_index_pairing_matches_ode_order(permuted_ode):
     ordered_from_rhs = [name for name, _ in sorted(index_by_name.items(), key=lambda kv: kv[1])]
     expected_tuple = "(" + ", ".join(f":{n}" for n in ordered_from_rhs) + ",)"
     assert f"PERMUTED_PARAMETER_NAMES = {expected_tuple}" in adapter_code
+
+
+def test_monitor_hooks_are_emitted(simple_ode):
+    code = CytoZooCodeGenerator(simple_ode, type_stable=True).adapter()
+    assert "num_monitors(::Simple) = " in code
+    assert "monitor_names(::Simple) = SIMPLE_MONITOR_NAMES" in code
+    assert "function monitor_values!(mon, u, t, model::Simple)" in code
+
+
+def test_an_ode_with_no_monitors_emits_no_monitor_block(parser, trans):
+    # Only state derivatives, no intermediates -> monitors still exist; force the
+    # zero case directly, since CytoZoo's defaults must carry it.
+    from gotranx.templates import cytozoo as tpl
+
+    code = tpl.interface_methods("Bare", 1, 0)
+    assert "num_monitors" not in code
+    assert "monitor_values!" not in code
+
+
+def test_monitor_values_takes_spatial_arguments(simple_ode):
+    code = CytoZooCodeGenerator(simple_ode, type_stable=True).monitor_values()
+    assert "_cz_overrides" in code
