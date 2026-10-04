@@ -67,3 +67,55 @@ def test_interface_methods_conditional_monitor_branch():
     # Test with v_index set (should appear in both cases)
     code = cytozoo.interface_methods("ORdmmLand", 42, 0)
     assert "transmembrane_potential_index(::ORdmmLand) = 42" in code
+
+
+import pytest
+from gotranx.codegen.cytozoo import CytoZooCodeGenerator, MissingPotentialState
+from gotranx.ode import make_ode
+
+
+@pytest.fixture(scope="module")
+def simple_ode(parser, trans):
+    tree = parser.parse(
+        """
+        parameters(GNa=1.0, T=310.0)
+        states(v=-87.0, cai=1e-4)
+
+        dv_dt = -GNa*v
+        dcai_dt = T*cai
+        """
+    )
+    return make_ode(*trans.transform(tree), name="simple")
+
+
+def test_adapter_names_the_model_from_the_ode(simple_ode):
+    code = CytoZooCodeGenerator(simple_ode, type_stable=True).adapter()
+    assert "struct Simple{T <: AbstractVector} <: AbstractCardiacCellModel" in code
+
+
+def test_transmembrane_potential_index_is_one_based(simple_ode):
+    code = CytoZooCodeGenerator(simple_ode, type_stable=True).adapter()
+    idx = [s.name for s in simple_ode.states].index("v") + 1
+    assert f"transmembrane_potential_index(::Simple) = {idx}" in code
+
+
+def test_missing_potential_state_fails_loudly(parser, trans):
+    tree = parser.parse(
+        """
+        parameters(a=1.0)
+        states(x=0.0)
+
+        dx_dt = -a*x
+        """
+    )
+    ode = make_ode(*trans.transform(tree), name="nov")
+    with pytest.raises(MissingPotentialState) as exc:
+        CytoZooCodeGenerator(ode, type_stable=True).adapter()
+    # The error must name the option to set, not merely complain.
+    assert "v_name" in str(exc.value)
+
+
+def test_state_names_follow_the_ode_ordering(simple_ode):
+    code = CytoZooCodeGenerator(simple_ode, type_stable=True).adapter()
+    expected = ", ".join(f":{s.name}" for s in simple_ode.states)
+    assert expected in code

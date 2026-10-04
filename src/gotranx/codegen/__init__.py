@@ -10,6 +10,7 @@ from .base import CodeGenerator, Func, RHSArgument, SchemeArgument
 from .ode import GotranODECodePrinter, BaseGotranODECodePrinter
 from .julia import JuliaCodeGenerator, GotranJuliaCodePrinter
 from .mtk import MTKCodeGenerator
+from .cytozoo import CytoZooCodeGenerator, MissingPotentialState  # noqa: F401
 
 __all__ = [
     "base",
@@ -32,4 +33,6 @@ __all__ = [
     "GotranJuliaCodePrinter",
     "JaxCodeGenerator",
     "MTKCodeGenerator",
+    "CytoZooCodeGenerator",
+    "MissingPotentialState",
 ]

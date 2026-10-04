@@ -1,0 +1,87 @@
+from __future__ import annotations
+
+import structlog
+
+from ..ode import ODE
+from .. import templates
+from .julia import JuliaCodeGenerator
+
+logger = structlog.get_logger()
+
+
+class MissingPotentialState(ValueError):
+    """The ODE has no state to use as the transmembrane potential."""
+
+
+def _pascal_case(name: str) -> str:
+    return "".join(
+        part[:1].upper() + part[1:] for part in name.replace("-", "_").split("_") if part
+    )
+
+
+class CytoZooCodeGenerator(JuliaCodeGenerator):
+    """Emit a CytoZoo cell-model adapter.
+
+    Subclasses the Julia generator so every expression, every `TYPE(...)`-wrapped
+    literal and every assignment block is shared rather than reimplemented. What
+    differs is the RHS signature (Task 5), the parameter assignments (Task 5) and
+    the adapter block below.
+    """
+
+    def __init__(
+        self,
+        ode: ODE,
+        model_name: str | None = None,
+        v_name: str = "v",
+        remove_unused: bool = False,
+        type_stable: bool = True,
+    ) -> None:
+        super().__init__(ode, remove_unused=remove_unused, type_stable=type_stable)
+        self._model_name = model_name or _pascal_case(ode.name or "Model")
+        self._v_name = v_name
+
+    @property
+    def template(self):
+        return templates.julia
+
+    @property
+    def model_name(self) -> str:
+        return self._model_name
+
+    def _state_name_list(self) -> list[str]:
+        return [s.name for s in self.ode.states]
+
+    def _parameter_name_list(self) -> list[str]:
+        return [p.name for p in self.ode.parameters]
+
+    def _monitor_name_list(self) -> list[str]:
+        return [m.name for m in self.ode.state_derivatives] + [
+            m.name for m in self.ode.intermediates
+        ]
+
+    def _potential_index(self) -> int:
+        names = self._state_name_list()
+        try:
+            return names.index(self._v_name) + 1
+        except ValueError:
+            raise MissingPotentialState(
+                f"no state named {self._v_name!r} in ODE {self.ode.name!r}; "
+                f"pass v_name=<state> (CLI: --v-name) naming the transmembrane potential. "
+                f"States are: {', '.join(names)}"
+            ) from None
+
+    def adapter(self) -> str:
+        """The struct, name tuples, index lookups and interface methods."""
+        name = self._model_name
+        monitors = self._monitor_name_list()
+        parts = [
+            templates.cytozoo.model_struct(name, len(self.ode.parameters)),
+            templates.cytozoo.name_tuples(
+                name, self._state_name_list(), self._parameter_name_list(), monitors
+            ),
+            templates.cytozoo.index_lookups(
+                name, self._state_name_list(), self._parameter_name_list()
+            ),
+            templates.cytozoo.interface_methods(name, self._potential_index(), len(monitors)),
+        ]
+        return self._format("\n".join(parts))

@@ -23,6 +23,7 @@ ctypeslib
 cytozoo
 Cyto
 CUDA
+dcai
 DCELL
 dolfinx
 doprint
