@@ -112,3 +112,12 @@ import gotranx
 print(gotranx.codegen.CFormat._member_names_)
 ```
 - `to` (str, default `.h`). Whether to save the C code to a `.c` or `.h` file
+
+### CytoZoo specific options (under `tool.gotranx.cytozoo`)
+
+- `model_name` (str, default: the ODE's name in PascalCase). Name of the
+  generated Julia struct. Must be a valid Julia identifier -- an ODE named
+  e.g. `1962_noble` pascal-cases to `1962Noble`, which is rejected rather than
+  emitted as a `struct` that Julia cannot parse
+- `v_name` (str, default: `v`). Name of the state holding the transmembrane
+  potential

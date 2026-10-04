@@ -671,12 +671,47 @@ def ode2cytozoo(
     v_name: str = typer.Option("v", "--v-name", help="State holding the transmembrane potential"),
     remove_unused: bool = typer.Option(False, "--remove-unused", help="Remove unused variables"),
     remove_singularities: bool = typer.Option(
-        True, "--remove-singularities", help="Remove singularities"
+        True,
+        "--remove-singularities/--no-remove-singularities",
+        help=(
+            "Replace a small neighborhood of every removable singularity "
+            "(e.g. x/(exp(x) - 1) at x = 0) with a truncated Taylor series"
+        ),
     ),
-    verbose: bool = typer.Option(False, "--verbose", help="Verbose output"),
+    version: bool = typer.Option(
+        None,
+        "--version",
+        callback=version_callback,
+        is_eager=True,
+        help="Show version",
+    ),
+    license: bool = typer.Option(
+        None,
+        "--license",
+        callback=license_callback,
+        is_eager=True,
+        help="Show license",
+    ),
+    config: typing.Optional[Path] = typer.Option(
+        None,
+        "-c",
+        "--config",
+        help="Read configuration options from a configuration file",
+    ),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output"),
 ):
     if fname is None:
         return typer.echo("No file specified")
+
+    config_data = utils.read_config(config)
+    verbose = config_data.get("verbose", verbose)
+    remove_singularities = utils.validate_remove_singularities(
+        config_data.get("remove_singularities", remove_singularities)
+    )
+    cytozoo_config = config_data.get("cytozoo", {})
+    model_name = cytozoo_config.get("model_name", model_name)
+    v_name = cytozoo_config.get("v_name", v_name)
+
     gotran2cytozoo.main(
         fname=fname,
         outname=outname,
