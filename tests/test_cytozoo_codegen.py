@@ -1,4 +1,5 @@
 import re
+from pathlib import Path
 
 from gotranx.templates import cytozoo
 
@@ -355,3 +356,25 @@ def test_extended_cytozoo_interface_names_are_imported_not_used(simple_ode):
     for name in extended:
         assert name in import_names, f"{name} is extended but not on an `import CytoZoo:` line"
         assert name not in using_names, f"{name} is extended but also brought in via `using`"
+
+
+def test_generation_is_deterministic(tmp_path):
+    """W1-07's no-op CI check in the consuming repo is worthless without this."""
+    from gotranx.cli.gotran2cytozoo import get_code
+    from gotranx.load import load_ode
+
+    path = Path(__file__).parent / "odefiles" / "ORdmm_Land.ode"
+    ode = load_ode(path)
+    assert get_code(ode) == get_code(load_ode(path))
+
+
+def test_real_model_generates(tmp_path):
+    from gotranx.cli.gotran2cytozoo import get_code
+    from gotranx.load import load_ode
+
+    ode = load_ode(Path(__file__).parent / "odefiles" / "ORdmm_Land.ode")
+    code = get_code(ode)
+    # The parameter named T must not have become the type parameter.
+    assert "where {TYPE" in code
+    assert "Val(:T)" in code
+    assert "transmembrane_potential_index" in code
