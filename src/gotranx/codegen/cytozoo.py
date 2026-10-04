@@ -5,6 +5,7 @@ import structlog
 from ..ode import ODE
 from .. import templates
 from .. import atoms
+from .base import RHSArgument
 from .julia import JuliaCodeGenerator
 
 logger = structlog.get_logger()
@@ -79,6 +80,35 @@ class CytoZooCodeGenerator(JuliaCodeGenerator):
                 f"pass v_name=<state> (CLI: --v-name) naming the transmembrane potential. "
                 f"States are: {', '.join(names)}"
             ) from None
+
+    def _rhs_arguments(self, order=None, const_states: bool = True):
+        """The Julia signature plus the two spatial arguments.
+
+        `_cz_`-prefixed so an .ode declaring a parameter called `x` or `overrides`
+        still generates valid code.
+        """
+        func = super()._rhs_arguments(
+            order if order is not None else RHSArgument.tsp, const_states=const_states
+        )
+        return func._replace(arguments=list(func.arguments) + ["_cz_x", "_cz_overrides"])
+
+    def _parameter_assignments(self, parameters) -> str:
+        """Every parameter local resolves against the spatial overrides.
+
+        `resolve_parameter` is CytoZoo public API. It is @inline and `name in names`
+        folds against the override NamedTuple's type parameter, so a parameter with no
+        override costs nothing at runtime; the ::Nothing method returns the fallback
+        directly.
+        """
+        lines = []
+        for i, param in enumerate(self.ode.parameters):
+            if not self._condition(param.name):
+                continue
+            lines.append(
+                f"{param.name} = TYPE(resolve_parameter("
+                f"parameters[{i + 1}], _cz_overrides, Val(:{param.name}), _cz_x, t))"
+            )
+        return "\n".join(lines)
 
     def adapter(self) -> str:
         """The struct, name tuples, index lookups and interface methods."""

@@ -176,3 +176,34 @@ def test_monitor_names_follow_monitor_index_order(diverging_ode):
     code = CytoZooCodeGenerator(diverging_ode, v_name="zeta", type_stable=True).adapter()
     expected_tuple = "(" + ", ".join(f":{n}" for n in expected) + ",)"
     assert f"const DIVERGE_MONITOR_NAMES = {expected_tuple}" in code
+
+
+def test_rhs_takes_spatial_arguments(simple_ode):
+    rhs = CytoZooCodeGenerator(simple_ode, type_stable=True).rhs()
+    assert "_cz_x" in rhs
+    assert "_cz_overrides" in rhs
+
+
+def test_every_parameter_is_spatially_overridable(simple_ode):
+    rhs = CytoZooCodeGenerator(simple_ode, type_stable=True).rhs()
+    for p in simple_ode.parameters:
+        assert f"Val(:{p.name})" in rhs, f"{p.name} is not overridable"
+
+
+def test_parameter_named_T_does_not_shadow_the_type_parameter(simple_ode):
+    # simple_ode has a parameter literally named T. CytoZoo's docs name the element
+    # type T; gotranx names it TYPE. Emitting both would produce `T = parameters[2]`
+    # followed by `T(0.5)` -- calling a Float64.
+    rhs = CytoZooCodeGenerator(simple_ode, type_stable=True).rhs()
+    assert "where {TYPE" in rhs
+    assert "where {T," not in rhs
+    assert "where {T}" not in rhs
+    assert "T = resolve_parameter" in rhs or "T = TYPE(resolve_parameter" in rhs
+
+
+def test_plain_julia_backend_is_untouched(simple_ode):
+    from gotranx.codegen import JuliaCodeGenerator
+
+    rhs = JuliaCodeGenerator(simple_ode, type_stable=True).rhs()
+    assert "_cz_overrides" not in rhs
+    assert "resolve_parameter" not in rhs
