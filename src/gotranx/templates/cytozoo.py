@@ -1,5 +1,5 @@
 from __future__ import annotations
-from textwrap import dedent, indent
+from textwrap import dedent
 
 
 def model_struct(name: str, num_params: int) -> str:
@@ -97,7 +97,7 @@ def interface_methods(name: str, v_index: int, num_monitors: int) -> str:
             """
         )
 
-    return dedent(
+    core = dedent(
         f"""
         num_states(::{name}) = NUM_STATES
         num_parameters(::{name}) = NUM_PARAMS
@@ -119,4 +119,5 @@ def interface_methods(name: str, v_index: int, num_monitors: int) -> str:
             return nothing
         end
         """
-    ) + indent(monitors, "")
+    )
+    return core + monitors
