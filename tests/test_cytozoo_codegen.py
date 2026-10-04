@@ -1,4 +1,7 @@
+import os
 import re
+import subprocess
+import sys
 from pathlib import Path
 
 from gotranx.templates import cytozoo
@@ -358,23 +361,63 @@ def test_extended_cytozoo_interface_names_are_imported_not_used(simple_ode):
         assert name not in using_names, f"{name} is extended but also brought in via `using`"
 
 
-def test_generation_is_deterministic(tmp_path):
-    """W1-07's no-op CI check in the consuming repo is worthless without this."""
+_CYTOZOO_SCRIPT = """
+import sys
+import gotranx
+
+ode = gotranx.load_ode(sys.argv[1])
+from gotranx.cli.gotran2cytozoo import get_code
+sys.stdout.write("<<<CODE>>>" + get_code(ode))
+"""
+
+SEEDS = ("1", "2", "7")
+
+
+def _run(script: str, odefile: Path, seed: str, marker: str) -> str:
+    env = {**os.environ, "PYTHONHASHSEED": seed}
+    out = subprocess.run(
+        [sys.executable, "-c", script, str(odefile)],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert marker in out.stdout, f"marker missing; stderr was:\n{out.stderr}"
+    return out.stdout.split(marker, 1)[1]
+
+
+def test_generation_is_deterministic():
+    """The consuming repo's regenerate-and-compare CI check depends on this.
+
+    PYTHONHASHSEED is fixed per interpreter, so in-process comparisons cannot
+    detect hash-seed-dependent ordering bugs. This test shells out to fresh
+    interpreters with different seeds, following test_determinism.py's pattern.
+    """
+    odefile = Path(__file__).parent / "odefiles" / "ORdmm_Land.ode"
+    code = [_run(_CYTOZOO_SCRIPT, odefile, s, "<<<CODE>>>") for s in SEEDS]
+
+    for seed, other in zip(SEEDS[1:], code[1:]):
+        assert other == code[0], (
+            f"generated code under PYTHONHASHSEED={seed} differs from {SEEDS[0]}"
+        )
+
+    # Also verify in-process determinism: get_code is a pure function of its input.
     from gotranx.cli.gotran2cytozoo import get_code
     from gotranx.load import load_ode
 
-    path = Path(__file__).parent / "odefiles" / "ORdmm_Land.ode"
-    ode = load_ode(path)
-    assert get_code(ode) == get_code(load_ode(path))
+    ode = load_ode(odefile)
+    assert get_code(ode) == get_code(load_ode(odefile))
 
 
-def test_real_model_generates(tmp_path):
+def test_real_model_generates():
     from gotranx.cli.gotran2cytozoo import get_code
     from gotranx.load import load_ode
 
     ode = load_ode(Path(__file__).parent / "odefiles" / "ORdmm_Land.ode")
     code = get_code(ode)
-    # The parameter named T must not have become the type parameter.
+    # The type parameter must be named TYPE, not T (which is a parameter name).
     assert "where {TYPE" in code
+    # The parameter named T must be overridable via Val(:T) (secondary check).
     assert "Val(:T)" in code
+    # The adapter must include the transmembrane potential index.
     assert "transmembrane_potential_index" in code
