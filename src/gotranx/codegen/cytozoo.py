@@ -94,11 +94,35 @@ class CytoZooCodeGenerator(JuliaCodeGenerator):
 
         `_cz_`-prefixed so an .ode declaring a parameter called `x` or `overrides`
         still generates valid code.
+
+        Typing the overrides follows the house pattern CytoZoo's own models use
+        (docs/src/guides/implementing_a_model.md, "Adding Spatial Support"):
+        giving them their own type parameter makes the method specialize on the
+        override NamedTuple's type, so the `Nothing` case compiles the whole
+        spatial branch away instead of leaving a runtime check behind. Julia
+        does not specialize on an untyped argument that is only passed along.
+
+        The guide spells that type parameter `F`, which cannot be used verbatim
+        here: `F` is Faraday's constant in every cardiac model, and the emitted
+        body assigns a local `F = TYPE(resolve_parameter(...))` for it, which
+        Julia rejects with "local variable name \"F\" conflicts with a static
+        parameter". The generated name is `_cz_F` for the same reason the
+        arguments are `_cz_`-prefixed, and for the same reason the element type
+        is `TYPE` rather than `T`.
         """
         func = super()._rhs_arguments(
             order if order is not None else RHSArgument.tsp, const_states=const_states
         )
-        return func._replace(arguments=list(func.arguments) + ["_cz_x", "_cz_overrides"])
+        post = func.post_function_signature
+        if post:
+            # " where {TYPE, TIME, PARAM, OUT}" -> " where {TYPE, TIME, PARAM, OUT, _cz_F}"
+            post = post.rstrip().removesuffix("}") + ", _cz_F}"
+        else:
+            post = " where {_cz_F}"
+        return func._replace(
+            arguments=list(func.arguments) + ["_cz_x", "_cz_overrides::_cz_F"],
+            post_function_signature=post,
+        )
 
     def _parameter_assignments(self, parameters) -> str:
         """Every parameter local resolves against the spatial overrides.

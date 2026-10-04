@@ -251,6 +251,33 @@ def test_parameter_named_T_does_not_shadow_the_type_parameter(simple_ode):
     assert "T = resolve_parameter" in rhs or "T = TYPE(resolve_parameter" in rhs
 
 
+def test_the_overrides_type_parameter_cannot_collide_with_a_parameter(parser, trans):
+    """CytoZoo's guide spells it `F`; `F` is Faraday's constant in every cardiac model.
+
+    `function rhs(..., _cz_overrides::F) where {..., F}` with a body that then
+    assigns `F = TYPE(resolve_parameter(...))` is a Julia *syntax* error --
+    "local variable name \"F\" conflicts with a static parameter" -- so the
+    module does not load at all. ORdmm_Land has exactly such a parameter.
+    """
+    tree = parser.parse(
+        """
+        parameters(F=96485.0)
+        states(v=-87.0)
+
+        dv_dt = -v/F
+        """
+    )
+    ode = make_ode(*trans.transform(tree), name="faraday")
+    rhs = CytoZooCodeGenerator(ode, type_stable=True).rhs()
+
+    # The parameter local is still emitted, and still named F.
+    assert "F = TYPE(resolve_parameter(" in rhs
+    # The overrides' type parameter must therefore not be called F.
+    signature = next(line for line in rhs.splitlines() if line.startswith("function rhs("))
+    assert "_cz_overrides::_cz_F" in signature
+    assert re.search(r"where \{[^}]*\bF\b", signature) is None, signature
+
+
 def test_plain_julia_backend_is_untouched(simple_ode):
     from gotranx.codegen import JuliaCodeGenerator
 
@@ -325,6 +352,15 @@ def test_an_ode_with_no_monitors_emits_no_monitor_block(parser, trans):
 def test_monitor_values_takes_spatial_arguments(simple_ode):
     code = CytoZooCodeGenerator(simple_ode, type_stable=True).monitor_values()
     assert "_cz_overrides" in code
+    # `"_cz_overrides" in code` would still pass if the name moved anywhere in
+    # the body. Pin the definition's own argument list, mirroring the call-site
+    # assertion in test_interface_methods_conditional_monitor_branch: the
+    # emitted `monitor_values!` adapter calls it with six positional arguments
+    # ending `nothing, nothing`, so the definition must end with exactly these
+    # two in this order.
+    assert re.search(r"function monitor_values\([^)]*,\s*_cz_x,\s*_cz_overrides::_cz_F\)", code), (
+        code.splitlines()[0]
+    )
 
 
 def test_cli_writes_a_module(tmp_path):
