@@ -1,3 +1,5 @@
+import re
+
 from gotranx.templates import cytozoo
 
 
@@ -207,3 +209,49 @@ def test_plain_julia_backend_is_untouched(simple_ode):
     rhs = JuliaCodeGenerator(simple_ode, type_stable=True).rhs()
     assert "_cz_overrides" not in rhs
     assert "resolve_parameter" not in rhs
+
+
+@pytest.fixture(scope="module")
+def permuted_ode(parser, trans):
+    # Declared out of alphabetical order, and the declaration order itself is
+    # neither the sorted order nor its reversal, so neither a sort-vs-declaration
+    # mixup nor a reversal would coincidentally line up with the correct pairing.
+    tree = parser.parse(
+        """
+        parameters(Omega=1.0, Gamma=2.0, Sigma=3.0, Delta=4.0)
+        states(v=-87.0)
+
+        dv_dt = -(Omega + Gamma + Sigma + Delta) * v
+        """
+    )
+    return make_ode(*trans.transform(tree), name="permuted")
+
+
+def test_parameter_name_index_pairing_matches_ode_order(permuted_ode):
+    # The four tests above only assert that tokens like `Val(:GNa)` appear
+    # *somewhere* in the output. A bug that scrambles the pairing between a
+    # parameter's name and its `parameters[i]` index -- e.g. enumerating
+    # `reversed(self.ode.parameters)` while still printing the right name --
+    # would leave every one of those tokens present and still pass. Only
+    # checking the actual (name, index) pairs against the ODE's own ordering
+    # catches that silent mislabeling.
+    gen = CytoZooCodeGenerator(permuted_ode, type_stable=True)
+    rhs = gen.rhs()
+
+    pairs = re.findall(r"(\w+) = TYPE\(resolve_parameter\(parameters\[(\d+)\]", rhs)
+    index_by_name = {name: int(idx) for name, idx in pairs}
+
+    expected_names = [p.name for p in permuted_ode.parameters]
+    assert len(index_by_name) == len(expected_names) == 4
+    for i, name in enumerate(expected_names):
+        assert index_by_name[name] == i + 1, (
+            f"{name} should read parameters[{i + 1}], got parameters[{index_by_name[name]}]"
+        )
+
+    # Pin the rhs assignments and the adapter's PARAMETER_NAMES tuple against
+    # each other -- not each independently against a literal -- so the two
+    # halves of the name<->index contract can't silently drift apart.
+    adapter_code = gen.adapter()
+    ordered_from_rhs = [name for name, _ in sorted(index_by_name.items(), key=lambda kv: kv[1])]
+    expected_tuple = "(" + ", ".join(f":{n}" for n in ordered_from_rhs) + ",)"
+    assert f"PERMUTED_PARAMETER_NAMES = {expected_tuple}" in adapter_code
