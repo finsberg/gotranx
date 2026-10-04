@@ -76,7 +76,12 @@ def test_interface_methods_conditional_monitor_branch():
 
 
 import pytest
-from gotranx.codegen.cytozoo import CytoZooCodeGenerator, MissingPotentialState
+from gotranx.codegen.cytozoo import (
+    CytoZooCodeGenerator,
+    InvalidModelName,
+    MissingPotentialState,
+    _pascal_case,
+)
 from gotranx.ode import make_ode
 
 
@@ -119,6 +124,45 @@ def test_missing_potential_state_fails_loudly(parser, trans):
         CytoZooCodeGenerator(ode, type_stable=True).adapter()
     # The error must name the option to set, not merely complain.
     assert "v_name" in str(exc.value)
+
+
+@pytest.mark.parametrize(
+    "ode_name",
+    [
+        # A leading digit: `1962_noble` pascal-cases to `1962Noble`.
+        "1962_noble",
+        # A space survives `_pascal_case`, which only splits on `-` and `_`.
+        "tentusscher panfilov",
+        # So does a dot, which Julia reads as module qualification.
+        "my.model",
+    ],
+)
+def test_a_model_name_that_is_not_an_identifier_is_rejected(parser, trans, ode_name):
+    """Each of these used to emit `struct <invalid>{...}`: a Julia parse error."""
+    tree = parser.parse("parameters(a=1.0)\nstates(v=0.0)\n\ndv_dt = -a*v\n")
+    ode = make_ode(*trans.transform(tree), name=ode_name)
+    with pytest.raises(InvalidModelName) as exc:
+        CytoZooCodeGenerator(ode, type_stable=True)
+    # The message must name the offending value, not merely complain.
+    assert _pascal_case(ode_name) in str(exc.value)
+    assert "--model-name" in str(exc.value)
+
+
+def test_an_explicit_model_name_is_validated_too(simple_ode):
+    with pytest.raises(InvalidModelName) as exc:
+        CytoZooCodeGenerator(simple_ode, model_name="1962Noble", type_stable=True)
+    assert "1962Noble" in str(exc.value)
+
+
+def test_both_cytozoo_exceptions_are_gotranx_errors():
+    """`except exceptions.GotranxError` must catch them, like the other twelve."""
+    from gotranx import exceptions
+
+    assert issubclass(exceptions.InvalidModelName, exceptions.GotranxError)
+    assert issubclass(exceptions.MissingPotentialState, exceptions.GotranxError)
+    # And they are still importable from where they are raised.
+    assert InvalidModelName is exceptions.InvalidModelName
+    assert MissingPotentialState is exceptions.MissingPotentialState
 
 
 def test_state_names_follow_the_ode_ordering(simple_ode):

@@ -5,14 +5,16 @@ import structlog
 from ..ode import ODE
 from .. import templates
 from .. import atoms
+from ..exceptions import InvalidModelName, MissingPotentialState
 from .base import RHSArgument
 from .julia import JuliaCodeGenerator
 
 logger = structlog.get_logger()
 
-
-class MissingPotentialState(ValueError):
-    """The ODE has no state to use as the transmembrane potential."""
+# Both exceptions live in gotranx.exceptions alongside every other GotranxError,
+# so `except exceptions.GotranxError` catches them. They stay importable from
+# here, which is where they are raised and where callers already import them.
+__all__ = ["CytoZooCodeGenerator", "InvalidModelName", "MissingPotentialState"]
 
 
 def _pascal_case(name: str) -> str:
@@ -39,7 +41,15 @@ class CytoZooCodeGenerator(JuliaCodeGenerator):
         type_stable: bool = True,
     ) -> None:
         super().__init__(ode, remove_unused=remove_unused, type_stable=type_stable)
-        self._model_name = model_name or _pascal_case(ode.name or "Model")
+        name = model_name or _pascal_case(ode.name or "Model")
+        # `_pascal_case` only splits on `-`/`_`, so an ODE named `1962_noble`,
+        # `tentusscher panfilov` or `my.model` -- and any `--model-name` the
+        # user passes -- can still start with a digit or carry a space or a
+        # dot. Each emits `struct <invalid>{T <: AbstractVector}`, a Julia
+        # parse error hundreds of lines away from its cause.
+        if not name.isidentifier():
+            raise InvalidModelName(name)
+        self._model_name = name
         self._v_name = v_name
 
     @property
@@ -76,9 +86,7 @@ class CytoZooCodeGenerator(JuliaCodeGenerator):
             return names.index(self._v_name) + 1
         except ValueError:
             raise MissingPotentialState(
-                f"no state named {self._v_name!r} in ODE {self.ode.name!r}; "
-                f"pass v_name=<state> (CLI: --v-name) naming the transmembrane potential. "
-                f"States are: {', '.join(names)}"
+                v_name=self._v_name, ode_name=self.ode.name, state_names=names
             ) from None
 
     def _rhs_arguments(self, order=None, const_states: bool = True):

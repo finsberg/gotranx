@@ -125,3 +125,31 @@ class ResolveExpressionError(GotranxError, ValueError):
 
     def __str__(self) -> str:
         return f"Unable to resolve expression for {self.name!r}"
+
+
+@dataclass
+class MissingPotentialState(GotranxError, ValueError):
+    v_name: str
+    ode_name: str
+    state_names: list[str]
+
+    def __str__(self) -> str:
+        return (
+            f"no state named {self.v_name!r} in ODE {self.ode_name!r}; "
+            f"pass v_name=<state> (CLI: --v-name) naming the transmembrane potential. "
+            f"States are: {', '.join(self.state_names)}"
+        )
+
+
+@dataclass
+class InvalidModelName(GotranxError, ValueError):
+    name: str
+
+    def __str__(self) -> str:
+        return (
+            f"Model name {self.name!r} is not a valid Julia identifier, so the "
+            "generated `struct` would not parse. A valid name starts with a letter "
+            "or underscore and contains only letters, digits and underscores -- "
+            "e.g. 'ORdmmLand'. Pass a different name with model_name= "
+            "(CLI: --model-name)."
+        )
