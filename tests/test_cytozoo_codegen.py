@@ -311,3 +311,47 @@ def test_ode2julia_output_is_unchanged_by_this_feature(tmp_path):
     assert "resolve_parameter" not in code
     assert "_cz_" not in code
     assert "AbstractCardiacCellModel" not in code
+
+
+def test_extended_cytozoo_interface_names_are_imported_not_used(simple_ode):
+    """Julia requires `import Mod: f` (not `using Mod: f`) to add methods to `f`.
+
+    Every CytoZoo function the generated adapter defines a new method on must be
+    `import`ed, or the module fails to load with "function M.f must be explicitly
+    imported to be extended" -- a load-time error a textual grep for a name can't
+    catch, since the name is present either way. This test derives the set of
+    extended names from the generated code itself (every `name(::Simple...)` or
+    `function name(..., model::Simple...)` definition) rather than hard-coding a
+    second copy of the interface list, so it can't silently drift from
+    templates/cytozoo.py.
+    """
+    import re
+    from gotranx.cli import gotran2cytozoo
+
+    code = gotran2cytozoo.get_code(simple_ode)
+    model_name = "Simple"
+
+    extended = sorted(
+        set(
+            re.findall(
+                rf"(?:^|\n)\s*(?:function\s+)?(\w+!?)\([^)\n]*::{model_name}\b",
+                code,
+            )
+        )
+    )
+    # If the fixture ever stops emitting any method on the model type, this test
+    # would vacuously pass without checking anything -- fail loudly instead.
+    assert extended, "no extended interface names found; fixture no longer exercises this"
+
+    import_names: set[str] = set()
+    using_names: set[str] = set()
+    for line in code.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("import CytoZoo:"):
+            import_names.update(n.strip() for n in stripped.split(":", 1)[1].split(","))
+        elif stripped.startswith("using CytoZoo:"):
+            using_names.update(n.strip() for n in stripped.split(":", 1)[1].split(","))
+
+    for name in extended:
+        assert name in import_names, f"{name} is extended but not on an `import CytoZoo:` line"
+        assert name not in using_names, f"{name} is extended but also brought in via `using`"
