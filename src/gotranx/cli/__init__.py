@@ -8,7 +8,7 @@ import typer
 from ..schemes import Scheme, get_scheme
 from ..codegen import PythonFormat, CFormat
 from ..codegen.base import Shape
-from . import gotran2c, gotran2py, gotran2julia, gotran2md, gotran2mtk, gotran2ufl
+from . import gotran2c, gotran2py, gotran2julia, gotran2cytozoo, gotran2md, gotran2mtk, gotran2ufl
 from . import utils
 
 app = typer.Typer()
@@ -656,6 +656,70 @@ def ode2julia(
         delta=delta,
         cse=cse,
         type_stable=type_stable,
+    )
+
+
+@app.command()
+def ode2cytozoo(
+    fname: typing.Optional[Path] = typer.Argument(
+        None, exists=True, file_okay=True, dir_okay=False, readable=True, resolve_path=True
+    ),
+    outname: typing.Optional[str] = typer.Option(None, "-o", "--outname", help="Output name"),
+    model_name: typing.Optional[str] = typer.Option(
+        None, "--model-name", help="Julia struct name (default: the ODE name in PascalCase)"
+    ),
+    v_name: str = typer.Option("v", "--v-name", help="State holding the transmembrane potential"),
+    remove_unused: bool = typer.Option(False, "--remove-unused", help="Remove unused variables"),
+    remove_singularities: bool = typer.Option(
+        True,
+        "--remove-singularities/--no-remove-singularities",
+        help=(
+            "Replace a small neighborhood of every removable singularity "
+            "(e.g. x/(exp(x) - 1) at x = 0) with a truncated Taylor series"
+        ),
+    ),
+    version: bool = typer.Option(
+        None,
+        "--version",
+        callback=version_callback,
+        is_eager=True,
+        help="Show version",
+    ),
+    license: bool = typer.Option(
+        None,
+        "--license",
+        callback=license_callback,
+        is_eager=True,
+        help="Show license",
+    ),
+    config: typing.Optional[Path] = typer.Option(
+        None,
+        "-c",
+        "--config",
+        help="Read configuration options from a configuration file",
+    ),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output"),
+):
+    if fname is None:
+        return typer.echo("No file specified")
+
+    config_data = utils.read_config(config)
+    verbose = config_data.get("verbose", verbose)
+    remove_singularities = utils.validate_remove_singularities(
+        config_data.get("remove_singularities", remove_singularities)
+    )
+    cytozoo_config = config_data.get("cytozoo", {})
+    model_name = cytozoo_config.get("model_name", model_name)
+    v_name = cytozoo_config.get("v_name", v_name)
+
+    gotran2cytozoo.main(
+        fname=fname,
+        outname=outname,
+        model_name=model_name,
+        v_name=v_name,
+        remove_unused=remove_unused,
+        remove_singularities=remove_singularities,
+        verbose=verbose,
     )
 
 

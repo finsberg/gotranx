@@ -49,6 +49,15 @@ codegen = JuliaCodeGenerator(ode)
 sys.stdout.write("<<<CODE>>>" + codegen.rhs() + codegen.monitor_index() + codegen.state_index())
 """
 
+_CYTOZOO_SCRIPT = """
+import sys
+import gotranx
+
+ode = gotranx.load_ode(sys.argv[1])
+from gotranx.cli.gotran2cytozoo import get_code
+sys.stdout.write("<<<CODE>>>" + get_code(ode))
+"""
+
 
 def _run(script: str, odefile: Path, seed: str, marker: str) -> str:
     env = {**os.environ, "PYTHONHASHSEED": seed}
@@ -87,3 +96,28 @@ def test_generated_code_is_independent_of_hash_seed(model):
         assert other == code[0], (
             f"generated rhs under PYTHONHASHSEED={seed} differs from {SEEDS[0]}"
         )
+
+
+@pytest.mark.parametrize("model", MODELS)
+def test_cytozoo_code_is_independent_of_hash_seed(model):
+    """The consuming repository regenerates and compares; this is what makes that safe.
+
+    The CytoZoo backend adds orderings of its own on top of the Julia backend's
+    -- the state, parameter and monitor name tuples, and the per-parameter
+    `resolve_parameter` block -- so it needs its own end-to-end check rather
+    than inheriting the one above.
+    """
+    odefile = here / "odefiles" / model
+    code = [_run(_CYTOZOO_SCRIPT, odefile, s, "<<<CODE>>>") for s in SEEDS]
+
+    for seed, other in zip(SEEDS[1:], code[1:]):
+        assert other == code[0], (
+            f"generated CytoZoo adapter under PYTHONHASHSEED={seed} differs from {SEEDS[0]}"
+        )
+
+    # And in-process: get_code is a pure function of its input, so loading the
+    # same file twice must give the same bytes.
+    from gotranx.cli.gotran2cytozoo import get_code
+    from gotranx.load import load_ode
+
+    assert get_code(load_ode(odefile)) == get_code(load_ode(odefile))

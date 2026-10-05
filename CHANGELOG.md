@@ -50,6 +50,20 @@ not code.
 
 - `gotranx.singularities`, and `--remove-singularities/--no-remove-singularities`
   on `ode2py`, `ode2c`, `ode2julia`, `ode2mtk`, `ode2ufl` and `ode2md`.
+- `ode2cytozoo`, which emits a [CytoZoo](https://github.com/finsberg/CytoZoo.jl)
+  cell-model adapter: the Julia backend's right-hand side plus a
+  `<: AbstractCardiacCellModel` struct, symbol-keyed state and parameter index
+  lookups that raise rather than returning `-1`, the monitor hooks, and a
+  `SpatialContext` dispatch that resolves every parameter against per-cell
+  spatial overrides. `--model-name` names the struct, `--v-name` names the
+  state carrying the transmembrane potential, and `--config` reads
+  `model_name`/`v_name` from `[tool.gotranx.cytozoo]`.
+
+  **The generated code requires a CytoZoo version providing
+  `resolve_parameter`, which is not yet released.** Every emitted parameter
+  assignment calls it, so the module will not load against any CytoZoo
+  currently on the registry; it needs a development checkout until a release
+  carrying that function is tagged.
 
 ## 2.0.0
 

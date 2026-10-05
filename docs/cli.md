@@ -64,6 +64,27 @@ or to a `.h` file
 python3 -m gotranx ode2c noble_1962.ode --to .h
 ```
 ````
+
+````{tab-item} Julia
+```shell
+python3 -m gotranx ode2julia noble_1962.ode
+```
+````
+
+````{tab-item} CytoZoo
+A [CytoZoo](https://github.com/finsberg/CytoZoo.jl) cell-model adapter: the Julia
+right-hand side wrapped in a `<: AbstractCardiacCellModel` struct with the index
+lookups, monitor hooks and spatial-override dispatch CytoZoo expects.
+```shell
+python3 -m gotranx ode2cytozoo noble_1962.ode --v-name V
+```
+`--v-name` names the state carrying the transmembrane potential, and
+`--model-name` the generated struct (by default the ODE's own name in
+PascalCase, which must be a valid Julia identifier).
+
+Note that the generated module requires a CytoZoo version providing
+`resolve_parameter`, which is not yet released.
+````
 `````
 
 Let us generate some code in python
