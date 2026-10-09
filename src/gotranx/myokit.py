@@ -346,6 +346,18 @@ def myokit_to_gotran(model: "myokit.Model", protocol=None) -> ODE:
     )
 
 
+def _without_min_max(expr: sp.Expr) -> sp.Expr:
+    """``expr`` with every ``Min`` and ``Max`` rewritten as a ``Piecewise``.
+
+    myokit's sympy reader has no ``Min`` or ``Max`` (it raises ``Unsupported
+    type``), but it reads ``Piecewise``, which is what they mean.
+    """
+    return expr.replace(
+        lambda e: isinstance(e, (sp.Min, sp.Max)),
+        lambda e: e.rewrite(sp.Piecewise),
+    )
+
+
 def gotran_to_myokit(ode: ODE, time_component="engine", time_unit="s") -> "myokit.Model":
     """Convert a gotran ODE to myokit model
 
@@ -439,7 +451,7 @@ def gotran_to_myokit(ode: ODE, time_component="engine", time_unit="s") -> "myoki
             # form.
             with sp.core.parameters.evaluate(False):
                 expr = state_derivative.expr.xreplace(global_var_map)
-            expr = sympy_reader.ex(expr)
+            expr = sympy_reader.ex(_without_min_max(expr))
             v.set_rhs(expr)
             v.promote(state.value)
 
@@ -447,7 +459,7 @@ def gotran_to_myokit(ode: ODE, time_component="engine", time_unit="s") -> "myoki
             v = comp[intermediate.name]
             with sp.core.parameters.evaluate(False):
                 expr = intermediate.expr.xreplace(global_var_map)
-            expr = sympy_reader.ex(expr)
+            expr = sympy_reader.ex(_without_min_max(expr))
             v.set_rhs(expr)
 
     model.validate()

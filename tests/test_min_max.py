@@ -3,6 +3,7 @@
 import math
 
 import numpy
+import pytest
 import sympy
 
 from gotranx.cli import gotran2py
@@ -76,3 +77,12 @@ def test_max_keeps_a_removable_pole_guarded():
         values = ns["rhs"](0.0, numpy.array([[-40.0, -30.0]]), ns["init_parameter_values"]())
     # x/(exp(x/10) - 1) -> 10 at x = 0, times Max(-40, -60) = -40
     numpy.testing.assert_allclose(values[0], [400.0, 30.0 * 10.0 / (math.e - 1.0)], rtol=1e-6)
+
+
+def test_myokit_export_of_min_max():
+    pytest.importorskip("myokit")
+    from gotranx.myokit import gotran_to_myokit
+
+    model = gotran_to_myokit(ode_from_string(MODEL))
+    r = next(v for v in model.variables(deep=True) if v.name() == "r")
+    assert r.eval() == pytest.approx(-_expected_rhs(numpy.array(0.5)))  # y = 0.5, k = 0.5
