@@ -45,6 +45,8 @@ figsize
 Finsberg
 fitzhughnagumo
 flatnonzero
+fmax
+fmin
 funcname
 gammasu
 geomspace

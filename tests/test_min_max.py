@@ -6,7 +6,9 @@ import numpy
 import pytest
 import sympy
 
-from gotranx.cli import gotran2py
+import gotranx
+from gotranx.cli import gotran2c, gotran2julia, gotran2mtk, gotran2py, gotran2ufl
+from gotranx.codegen.c import Format as CFormat
 from gotranx.load import ode_from_string
 from gotranx.schemes import Scheme
 
@@ -86,3 +88,34 @@ def test_myokit_export_of_min_max():
     model = gotran_to_myokit(ode_from_string(MODEL))
     r = next(v for v in model.variables(deep=True) if v.name() == "r")
     assert r.eval() == pytest.approx(-_expected_rhs(numpy.array(0.5)))  # y = 0.5, k = 0.5
+
+
+def test_c_prints_fmin_fmax():
+    # format=none: clang-format may be absent
+    code = gotran2c.get_code(ode_from_string(MODEL), format=CFormat.none)
+    assert "fmax(" in code and "fmin(" in code
+
+
+def test_ufl_min_max_evaluate_like_numpy():
+    pytest.importorskip("ufl")
+    ode = ode_from_string(MODEL)
+    ufl_ns = _generated(gotran2ufl, ode)
+    params = [float(p) for p in _generated(gotran2py, ode)["init_parameter_values"]()]
+    for y in (0.1, 0.2, 0.5, 1.5):
+        value = float(ufl_ns["rhs"](0.0, [y], params)[0])
+        assert value == pytest.approx(_expected_rhs(numpy.array(y)), rel=1e-12)
+
+
+@pytest.mark.parametrize("module", [gotran2julia, gotran2mtk])
+def test_julia_and_mtk_print_without_sympy_names(module):
+    code = module.get_code(ode_from_string(MODEL))
+    assert "Max(" not in code and "Min(" not in code
+
+
+def test_save_and_load_round_trip(tmp_path):
+    ode = ode_from_string(MODEL)
+    ode.save(tmp_path / "m.ode")
+    again = gotranx.load_ode(tmp_path / "m.ode")
+    ns, ns2 = _generated(gotran2py, ode), _generated(gotran2py, again)
+    p = ns["init_parameter_values"]()
+    numpy.testing.assert_array_equal(ns["rhs"](0.0, Y[None, :], p), ns2["rhs"](0.0, Y[None, :], p))

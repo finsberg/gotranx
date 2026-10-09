@@ -81,9 +81,15 @@ The following binary mathematical operators are supported
 
 - `Mod`
 
+The following take any number of arguments
+
+- `Min`
+- `Max`
+
 For example
 ```
 x = abs(1.0 - exp(4))
+y = Max(x - 1.0, 0.0)
 ```
 
 ### Numbers
@@ -178,27 +184,19 @@ or another solution could be
 H = Conditional(Gt(x, 0), 1, Conditional(Lt(x, 0.0), 0.0, 0.5))
 ```
 
-### Implementing `min` and `max`
+### `Min` and `Max`
 
-The operations `min` and `max` can be implemented in terms of `Conditional`, because
-```python
-f = min(x, y)
+`Min` and `Max` take any number of arguments, as in `Max(a, b, c)`. Clamping `x`
+to an interval is
 ```
-is equivalent to
-```python
-if x <= y:
-    f = x
-else:
-    f = y
+f = Min(Max(x, lower), upper)
 ```
-So `f = min(x, y)` could be implemented as
-```
-f = Conditional(Le(x, y), x, y)
-```
-Similarly `f = max(x, y)` can be implemented as
-```
-f = Conditional(Ge(x, y), x, y)
-```
+They are written with a capital letter, like `Mod` and `Conditional`, so `min`
+and `max` remain free to use as variable names. A `Conditional` gives the same
+result, e.g. `Max(x, y)` is `Conditional(Ge(x, y), x, y)`, but `Min` and `Max`
+are shorter and are printed as the target language's own functions (`fmin` and
+`fmax` in C, `numpy.minimum` and `numpy.maximum` in Python, `ufl.min_value`
+and `ufl.max_value` in UFL).
 
 
 ## Advanced usage
