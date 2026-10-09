@@ -463,7 +463,15 @@ def _numeric(expr: sympy.Expr, defaults: Mapping[sympy.Symbol, float]) -> float 
     None means "not usable as a guard location or as a check point": complex,
     infinite, NaN, or still carrying a free symbol ``defaults`` does not cover.
     """
-    substituted = expr.xreplace({symbol: sympy.Float(x) for symbol, x in defaults.items()})
+    # Only the expression's own symbols: converting every default in the model
+    # on every call made evaluating all of a model's defaults quadratic.
+    substituted = expr.xreplace(
+        {
+            symbol: sympy.Float(defaults[symbol])
+            for symbol in expr.free_symbols
+            if symbol in defaults
+        }
+    )
     try:
         value = complex(substituted.evalf())
     except (TypeError, ValueError, AttributeError):
@@ -1103,7 +1111,7 @@ def default_values(
     """
     values = dict(base)
     for symbol, definition in definitions.items():
-        if not definition.free_symbols <= set(values):
+        if not definition.free_symbols <= values.keys():
             continue
         try:
             value = _numeric(definition, values)

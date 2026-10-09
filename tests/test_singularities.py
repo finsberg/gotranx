@@ -519,3 +519,9 @@ def test_depending_on_does_not_reuse_another_models_graph():
     assert singularities._depending_on(first, {a}) == {x}
     assert singularities._depending_on(second, {a}) == set()
     assert singularities._depending_on(second, {b}) == {x}
+
+
+def test_numeric_substitutes_only_the_expressions_own_symbols():
+    a, unrelated = sympy.symbols("a unrelated")
+    # sympy.Float("not a number") raises, so only `a`'s default may be converted
+    assert singularities._numeric(a + 1, {a: 2.0, unrelated: "not a number"}) == 3.0
