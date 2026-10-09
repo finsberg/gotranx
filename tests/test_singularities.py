@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import random
+
+import pytest
 import sympy
 
 from gotranx import singularities
@@ -477,3 +480,48 @@ def test_half_width_does_not_depend_on_one_ulp_differences_in_exp(monkeypatch):
         monkeypatch.setattr(sympy, "lambdify", noisy_lambdify)
         assert singularities.half_width(ghk, v, sympy.Integer(0), 3, {}) == reference, seed
         monkeypatch.setattr(sympy, "lambdify", original)
+
+
+def _fixed_point_depending_on(definitions, seeds):
+    """The algorithm on main at d17b977, kept as the reference."""
+    dependent, changed = set(), True
+    while changed:
+        changed = False
+        for symbol, definition in definitions.items():
+            if symbol not in dependent and definition.free_symbols & (seeds | dependent):
+                dependent.add(symbol)
+                changed = True
+    return dependent
+
+
+@pytest.mark.parametrize("seed", range(20))
+def test_depending_on_matches_the_fixed_point(seed):
+    rng = random.Random(seed)
+    leaves, inner = sympy.symbols("a0:10"), sympy.symbols("s0:50")
+    known, definitions = list(leaves), {}
+    for s in inner:
+        definitions[s] = sympy.Add(*rng.sample(known, rng.randint(1, 3)))
+        known.append(s)
+    items = list(definitions.items())
+    rng.shuffle(items)  # not in dependency order: one pass is not enough
+    definitions = dict(items)
+    seeds = set(rng.sample(leaves, rng.randint(1, 3)))
+    if seed % 2:
+        seeds.add(rng.choice(inner))
+    assert singularities._compute_depending_on(definitions, seeds) == _fixed_point_depending_on(
+        definitions, seeds
+    )
+
+
+def test_depending_on_does_not_reuse_another_models_graph():
+    a, b, x = sympy.symbols("a b x")
+    first, second = {x: a + 1}, {x: b + 1}
+    assert singularities._depending_on(first, {a}) == {x}
+    assert singularities._depending_on(second, {a}) == set()
+    assert singularities._depending_on(second, {b}) == {x}
+
+
+def test_numeric_substitutes_only_the_expressions_own_symbols():
+    a, unrelated = sympy.symbols("a unrelated")
+    # sympy.Float("not a number") raises, so only `a`'s default may be converted
+    assert singularities._numeric(a + 1, {a: 2.0, unrelated: "not a number"}) == 3.0

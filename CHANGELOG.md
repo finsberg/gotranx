@@ -45,6 +45,12 @@ not code.
 - `sympy.cse` in the Rush-Larsen schemes no longer hoists subexpressions out of
   `Piecewise` branches, where a hoisted temporary could be `nan` at exactly
   the value the branch exists to avoid.
+- Removing singularities took time quadratic in the size of a model: finding
+  the assignments that depend on a state swept every assignment to a fixed
+  point, once per state, and evaluating default values converted every default
+  in the model for each assignment. A model of 2000 states, each dividing by a
+  sum of states, now loads in 3.0 s instead of 129 s. Generated code is
+  unchanged.
 
 ### Added
 
