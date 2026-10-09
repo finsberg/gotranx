@@ -300,7 +300,7 @@ def _depending_on(
     """Cached front for :func:`_compute_depending_on`.
 
     Called once per (assignment, variable) pair against the same model, so
-    recomputing the fixed point every time dominated the scan. The cache holds
+    recomputing the dependents every time dominated the scan. The cache holds
     only the most recent ``definitions`` object and compares by identity, so it
     can never serve a stale answer for a different model.
     """
@@ -313,25 +313,47 @@ def _depending_on(
     return set(by_seeds[key])
 
 
+_USERS_CACHE: list = []
+
+
+def _users(
+    definitions: Mapping[sympy.Symbol, sympy.Expr],
+) -> dict[sympy.Symbol, list[sympy.Symbol]]:
+    """Every symbol mapped to the symbols whose definitions use it.
+
+    The reverse of ``definitions``' dependency graph. Built once per
+    ``definitions`` object and cached by identity, as :func:`_depending_on`
+    caches its answers, since a model asks for the dependents of every state.
+    """
+    if not _USERS_CACHE or _USERS_CACHE[0] is not definitions:
+        users: dict[sympy.Symbol, list[sympy.Symbol]] = {}
+        for symbol, definition in definitions.items():
+            for used in definition.free_symbols:
+                users.setdefault(used, []).append(symbol)
+        _USERS_CACHE[:] = [definitions, users]
+    return _USERS_CACHE[1]
+
+
 def _compute_depending_on(
     definitions: Mapping[sympy.Symbol, sympy.Expr],
     seeds: set[sympy.Symbol],
 ) -> set[sympy.Symbol]:
     """Symbols in ``definitions`` that transitively depend on any of ``seeds``.
 
-    ``definitions`` is not guaranteed to be topologically sorted, so this
-    iterates to a fixed point rather than assuming one pass suffices.
+    Walks the reverse dependency graph (:func:`_users`) out from the seeds, so
+    the cost is linear in the graph whatever order ``definitions`` is in. A
+    fixed-point sweep over ``definitions``, which is not guaranteed to be
+    topologically sorted, cost a pass per level of dependency for every set of
+    seeds, which made the scan quadratic in the size of a model.
     """
+    users = _users(definitions)
     dependent: set[sympy.Symbol] = set()
-    changed = True
-    while changed:
-        changed = False
-        for symbol, definition in definitions.items():
-            if symbol in dependent:
-                continue
-            if (definition.free_symbols & seeds) or (definition.free_symbols & dependent):
-                dependent.add(symbol)
-                changed = True
+    stack = list(seeds)
+    while stack:
+        for user in users.get(stack.pop(), ()):
+            if user not in dependent:
+                dependent.add(user)
+                stack.append(user)
     return dependent
 
 
