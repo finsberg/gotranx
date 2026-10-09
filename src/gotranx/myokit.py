@@ -1,5 +1,6 @@
 from __future__ import annotations
 from collections import defaultdict
+import functools
 import re
 import warnings
 from pathlib import Path
@@ -346,16 +347,41 @@ def myokit_to_gotran(model: "myokit.Model", protocol=None) -> ODE:
     )
 
 
-def _without_min_max(expr: sp.Expr) -> sp.Expr:
-    """``expr`` with every ``Min`` and ``Max`` rewritten as a ``Piecewise``.
+def _sympy_reader(model: "myokit.Model") -> "myokit.formats.sympy.SymPyExpressionReader":
+    """myokit's sympy expression reader, extended to read ``Min``, ``Max`` and n-ary
+    ``And``/``Or``.
 
-    myokit's sympy reader has no ``Min`` or ``Max`` (it raises ``Unsupported
-    type``), but it reads ``Piecewise``, which is what they mean.
+    myokit has no min or max, and its ``And`` and ``Or`` take exactly two operands where sympy's
+    take any number. Rewriting ``Min``/``Max`` as sympy ``Piecewise`` first does not work: a
+    ``Piecewise`` nested in a condition, as in the clamp ``Min(Max(x, 0), 1)``, becomes an ``ITE``,
+    which the reader cannot read either, and four or more arguments produce an n-ary ``And``. So
+    each ``Min``/``Max`` is read into nested myokit ``If`` expressions, and ``And``/``Or`` are
+    folded into nested binary ones.
     """
-    return expr.replace(
-        lambda e: isinstance(e, (sp.Min, sp.Max)),
-        lambda e: e.rewrite(sp.Piecewise),
-    )
+
+    class Reader(myokit.formats.sympy.SymPyExpressionReader):
+        def _build_op_map(self):
+            op_map = super()._build_op_map()
+            op_map[sp.Min] = self._ex_min
+            op_map[sp.Max] = self._ex_max
+            return op_map
+
+        def _fold(self, e, combine):
+            return functools.reduce(combine, [self.ex(arg) for arg in e.args])
+
+        def _ex_min(self, e):
+            return self._fold(e, lambda a, b: myokit.If(myokit.LessEqual(a, b), a, b))
+
+        def _ex_max(self, e):
+            return self._fold(e, lambda a, b: myokit.If(myokit.MoreEqual(a, b), a, b))
+
+        def _ex_and(self, e):
+            return self._fold(e, myokit.And)
+
+        def _ex_or(self, e):
+            return self._fold(e, myokit.Or)
+
+    return Reader(model=model)
 
 
 def gotran_to_myokit(ode: ODE, time_component="engine", time_unit="s") -> "myokit.Model":
@@ -432,7 +458,7 @@ def gotran_to_myokit(ode: ODE, time_component="engine", time_unit="s") -> "myoki
             var.set_unit(to_myokit_unit(intermediate.unit_str))
             global_var_map[intermediate.symbol] = sp.Symbol(var.qname())
 
-    sympy_reader = myokit.formats.sympy.SymPyExpressionReader(model=model)
+    sympy_reader = _sympy_reader(model)
     # Then we can add expressions
     for component in ode.components:
         comp = model[component_name_map[component.name]]
@@ -451,7 +477,7 @@ def gotran_to_myokit(ode: ODE, time_component="engine", time_unit="s") -> "myoki
             # form.
             with sp.core.parameters.evaluate(False):
                 expr = state_derivative.expr.xreplace(global_var_map)
-            expr = sympy_reader.ex(_without_min_max(expr))
+            expr = sympy_reader.ex(expr)
             v.set_rhs(expr)
             v.promote(state.value)
 
@@ -459,7 +485,7 @@ def gotran_to_myokit(ode: ODE, time_component="engine", time_unit="s") -> "myoki
             v = comp[intermediate.name]
             with sp.core.parameters.evaluate(False):
                 expr = intermediate.expr.xreplace(global_var_map)
-            expr = sympy_reader.ex(_without_min_max(expr))
+            expr = sympy_reader.ex(expr)
             v.set_rhs(expr)
 
     model.validate()

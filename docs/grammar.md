@@ -192,7 +192,9 @@ to an interval is
 f = Min(Max(x, lower), upper)
 ```
 They are written with a capital letter, like `Mod` and `Conditional`, so `min`
-and `max` remain free to use as variable names. A `Conditional` gives the same
+and `max` remain free to use as variable names, as do names that start with
+`Min` or `Max`. A variable named exactly `Min` or `Max`, however, cannot be used
+in an expression. A `Conditional` gives the same
 result, e.g. `Max(x, y)` is `Conditional(Ge(x, y), x, y)`, but `Min` and `Max`
 are shorter and are printed as the target language's own functions (`fmin` and
 `fmax` in C, `numpy.minimum` and `numpy.maximum` in Python, `ufl.min_value`

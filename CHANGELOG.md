@@ -30,8 +30,11 @@ not code.
 - The numpy and JAX backends printed a `Max` or `Min` that reached them (for
   instance from a CellML import) as `numpy.max(a, b)`, which takes `b` as an
   axis. They are printed as `numpy.maximum`/`numpy.minimum`.
-- `ode2cellml` raised `Unsupported type: Max` on a model containing `Min` or
-  `Max`. They are exported as the piecewise expressions they stand for.
+- `ode2cellml` and `gotran_to_myokit` could not export `Min`, `Max`, or an
+  `And`/`Or` of more than two conditions: myokit has no min or max, and its
+  `And` and `Or` take exactly two operands. `Min` and `Max` are now exported as
+  nested myokit `If` expressions, nested in each other or in a `Conditional` as
+  well, and `And`/`Or` as nested binary ones.
 - The UFL backend printed comparisons as Python operators, so any condition
   whose operands were both numbers -- for instance the Rush-Larsen
   zero-division guard `|dx_dt_linearized| > delta` when the linearized rate
@@ -73,7 +76,9 @@ not code.
   `fmin`/`fmax`, UFL as `ufl.min_value`/`ufl.max_value`, numpy and JAX as
   `numpy.minimum`/`numpy.maximum`, Julia and ModelingToolkit as conditionals.
   Only the capitalised names are functions, like `Mod`, so `min` and `max` can
-  still be variable names.
+  still be variable names, as can names that start with `Min` or `Max`. **A
+  variable named exactly `Min` or `Max` can no longer be used in an
+  expression**: the model fails to parse.
 
 ## 2.0.0
 
