@@ -1,4 +1,5 @@
 from __future__ import annotations
+import functools
 import typing
 from enum import Enum
 from sympy.printing.pycode import PythonCodePrinter
@@ -45,6 +46,15 @@ class GotranPythonCodePrinter(PythonCodePrinter):
 
     def _print_Float(self, flt):
         return self._print(str(float(flt)))
+
+    def _print_Min(self, expr):
+        # numpy.min(a, b) would read b as an axis; numpy.minimum takes two arrays
+        args = [self._print(arg) for arg in expr.args]
+        return functools.reduce(lambda x, y: f"numpy.minimum({x}, {y})", args)
+
+    def _print_Max(self, expr):
+        args = [self._print(arg) for arg in expr.args]
+        return functools.reduce(lambda x, y: f"numpy.maximum({x}, {y})", args)
 
     def _print_Piecewise(self, expr):
         result = []
