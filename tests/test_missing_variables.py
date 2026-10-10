@@ -2,7 +2,7 @@
 
 Subtracting a component turns the names it defined into *missing variables*: values the
 generated code takes as an argument. The Python backend has always handled them; these tests
-hold the C and Julia backends to the same contract, checked against the Python output.
+hold the C, Julia and CytoZoo backends to the same contract, checked against the Python output.
 """
 
 import ctypes
@@ -13,7 +13,7 @@ import sys
 import numpy
 import pytest
 
-from gotranx.cli import gotran2c, gotran2julia, gotran2py
+from gotranx.cli import gotran2c, gotran2cytozoo, gotran2julia, gotran2py
 from gotranx.codegen.c import Format as CFormat
 from gotranx.load import ode_from_string
 from gotranx.schemes import Scheme
@@ -174,3 +174,48 @@ def test_julia_runs_and_agrees_with_python(ode, python, tmp_path, type_stable):
     numpy.testing.assert_allclose([float(x) for x in lines[2].split()], step, rtol=1e-14)
     # Julia indices are one-based
     assert lines[3].split() == ["1", "2", str(python["monitor_index"]("r") + 1)]
+
+
+# --- CytoZoo -----------------------------------------------------------------------------------
+
+
+def test_cytozoo_appends_missing_variables_as_trailing_parameters(ode):
+    code = gotran2cytozoo.get_code(ode, model_name="Toy")
+    assert "const NUM_MISSING = 2;" in code
+    # Parameters first, then the missing variables in missing_index order, so `connect` and
+    # parameter_index reach them by name.
+    assert "TOY_PARAMETER_NAMES = (:k, :u_in, :w_in,)" in code
+    assert "num_parameters(::Toy) = NUM_PARAMS + NUM_MISSING" in code
+
+
+def test_cytozoo_inputs_start_as_nan(ode):
+    code = gotran2cytozoo.get_code(ode, model_name="Toy")
+    # Once per constructor that builds the vector: an unconnected input must poison the RHS.
+    assert code.count("p[(NUM_PARAMS + 1):end] .= NaN") == 2
+
+
+def test_cytozoo_passes_the_trailing_slice_as_missing_variables(ode):
+    code = gotran2cytozoo.get_code(ode, model_name="Toy")
+    inputs = "view(model.parameters, (NUM_PARAMS + 1):(NUM_PARAMS + NUM_MISSING))"
+    assert f"rhs(t, u, model.parameters, du, nothing, nothing, {inputs})" in code
+    assert f"rhs(t, u, model.parameters, du, p.x, p.overrides, {inputs})" in code
+    assert f"monitor_values(t, u, model.parameters, mon, nothing, nothing, {inputs})" in code
+
+
+def test_cytozoo_converts_missing_variables_to_the_state_type(ode):
+    code = gotran2cytozoo.get_code(ode, model_name="Toy")
+    # Like the parameters, whose vector they share: a model built in Float64 and evaluated
+    # on Float32 states must not compute the terms that read an input in Float64.
+    assert code.count("u_in = TYPE(missing_variables[1])") == 2  # rhs and monitor_values
+    assert code.count("w_in = TYPE(missing_variables[2])") == 2
+    assert "= missing_variables[" not in code
+
+
+def test_cytozoo_without_missing_variables_is_unchanged(parser, trans):
+    from gotranx.ode import make_ode
+
+    ode = make_ode(*trans.transform(parser.parse(TEXT)))
+    code = gotran2cytozoo.get_code(ode, model_name="Toy")
+    assert "NUM_MISSING" not in code
+    assert "NaN" not in code
+    assert "num_parameters(::Toy) = NUM_PARAMS\n" in code

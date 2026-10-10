@@ -87,6 +87,7 @@ def get_code(
         "import CytoZoo: num_monitors, monitor_names, monitor_values!",
         f"const NUM_STATES = {len(ode.states)};",
         f"const NUM_PARAMS = {len(ode.parameters)};",
+        *([f"const NUM_MISSING = {len(ode.missing_variables)};"] if ode.missing_variables else []),
         codegen.initial_parameter_values(),
         codegen.initial_state_values(),
         codegen.rhs(),

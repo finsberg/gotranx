@@ -88,6 +88,15 @@ not code.
   assignment calls it, so the module will not load against any CytoZoo
   currently on the registry; it needs a development checkout until a release
   carrying that function is tagged.
+- `ode2cytozoo` supports models with missing variables, which before failed
+  with a `MethodError` on the first call. They are appended to the parameter
+  vector after the parameters, in `missing_index` order, so a CytoZoo
+  `connect` edge supplies them by name, and `num_parameters` counts them. They
+  start as `NaN`, so an input nothing is connected to makes the right-hand
+  side `NaN` instead of silently reading 0. `rhs` and `monitor_values` receive
+  them as a view of that trailing slice and convert them to the state's
+  element type, as they do the parameters. Code for a model without missing
+  variables is unchanged.
 - `Min` and `Max`, with any number of arguments. C prints them as
   `fmin`/`fmax`, UFL as `ufl.min_value`/`ufl.max_value`, numpy and JAX as
   `numpy.minimum`/`numpy.maximum`, Julia and ModelingToolkit as conditionals.
