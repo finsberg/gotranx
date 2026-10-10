@@ -81,6 +81,7 @@ class GotranCCodePrinter(C99CodePrinter):
 
 class CCodeGenerator(CodeGenerator):
     variable_prefix = "const double "
+    missing_variables_argument = "const double *__restrict missing_variables"
 
     def __init__(
         self, ode: ODE, format: Format = Format.clang_format, remove_unused: bool = False

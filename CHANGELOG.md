@@ -27,6 +27,16 @@ not code.
 
 ### Fixed
 
+- The C and Julia backends could not run a model with missing variables (an
+  ODE with a component subtracted away, e.g. `ode - ode.get_component("x")`).
+  `missing_index` was emitted as a second `monitor_index`: a redefinition in
+  C, and in Julia a method that replaced the real one, so `monitor_index`
+  returned -1 for every monitor. The functions declared a `missing_variables`
+  argument but never read it, so their bodies used undefined names (a compile
+  error in C, `UndefVarError` in Julia), and C declared it without a type.
+  They now take `const double *__restrict missing_variables` in C, unpack it
+  like the parameters, and emit `missing_index`. Code for a model without
+  missing variables is unchanged.
 - The numpy and JAX backends printed a `Max` or `Min` that reached them (for
   instance from a CellML import) as `numpy.max(a, b)`, which takes `b` as an
   axis. They are printed as `numpy.maximum`/`numpy.minimum`.
