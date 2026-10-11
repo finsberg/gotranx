@@ -47,6 +47,16 @@ not code.
   They now take `const double *__restrict missing_variables` in C, unpack it
   like the parameters, and emit `missing_index`. Code for a model without
   missing variables is unchanged.
+- `import gotranx` imported myokit, and lxml with it, although only reading and
+  writing CellML and `.mmt` files uses it. The functions in `gotranx.myokit`
+  now import it when called, and raise `GotranxImportError` as before when it
+  is missing. `import gotranx` loads about 160 fewer modules and takes about
+  50 ms less (0.29 to 0.23 s in one environment); numpy is still imported, by
+  sympy.
+- black is now a dependency. `ode2py` formats its output with black by
+  default, and without it wrote unformatted code, saying so only in a debug
+  message. The `formatters` extra still lists it, so installing that extra
+  works as before.
 - The numpy and JAX backends printed a `Max` or `Min` that reached them (for
   instance from a CellML import) as `numpy.max(a, b)`, which takes `b` as an
   axis. They are printed as `numpy.maximum`/`numpy.minimum`.
