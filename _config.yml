@@ -35,6 +35,12 @@ sphinx:
     html_last_updated_fmt: "%b %d, %Y"
     nb_execution_show_tb: True
     suppress_warnings: ["mystnb.unknown_mime_type"]
+    # gotranx.myokit imports myokit inside its functions, so `myokit.Model` in an
+    # annotation cannot be evaluated, and autodoc then keeps every annotation of that
+    # function as a string. The bare `ODE` then matches both gotranx.ODE and
+    # gotranx.ode.ODE, and -W fails the build. The alias lets the evaluation succeed.
+    autodoc_type_aliases:
+      myokit.Model: myokit.Model
     nb_custom_formats:  # https://jupyterbook.org/en/stable/file-types/jupytext.html#file-types-custom
         .py:
             - jupytext.reads

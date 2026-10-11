@@ -17,6 +17,7 @@ urls = {Homepage = "https://github.com/finsberg/gotranx"}
 requires-python = ">=3.9"
 dependencies = [
     "attrs",
+    "black",
     "lark",
     "pint",
     "rich-click",

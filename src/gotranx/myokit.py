@@ -4,18 +4,14 @@ import functools
 import re
 import warnings
 from pathlib import Path
-from typing import overload
+from types import ModuleType
+from typing import TYPE_CHECKING, overload
 from collections.abc import Sequence
 
 import sympy as sp
 
-try:
+if TYPE_CHECKING:
     import myokit
-    import myokit.formats.sympy
-    import myokit.lib.guess
-    import myokit.formats.cellml
-except ImportError:
-    myokit = None
 
 from . import atoms
 from .ode_component import BaseComponent, MyokitComponent
@@ -25,9 +21,24 @@ from .exceptions import GotranxImportError
 reserved_names = {name for name in dir(sp) if not name.startswith("_")}
 
 
+def _import_myokit() -> ModuleType:
+    """myokit, with the submodules used here, imported by the functions that need it.
+
+    Importing myokit imports numpy and lxml, which only reading and writing CellML
+    and `.mmt` files needs, so `import gotranx` leaves it alone.
+    """
+    try:
+        import myokit
+        import myokit.formats.cellml
+        import myokit.formats.sympy
+        import myokit.lib.guess
+    except ImportError as e:
+        raise GotranxImportError("myokit") from e
+    return myokit
+
+
 def assert_has_myokit():
-    if myokit is None:
-        raise GotranxImportError("myokit")
+    _import_myokit()
 
 
 _INVALID_NAME_CHARS = re.compile(r"\W+")
@@ -224,7 +235,7 @@ def mmt_to_gotran(filename: str | Path) -> ODE:
     gotranx.ode.ODE
         The gotran ODE
     """
-    assert_has_myokit()
+    myokit = _import_myokit()
     model, protocol, _ = myokit.load(filename)
 
     return myokit_to_gotran(model, protocol=protocol)
@@ -245,7 +256,7 @@ def myokit_to_gotran(model: "myokit.Model", protocol=None) -> ODE:
     gotranx.ode.ODE
         The gotran ODE
     """
-    assert_has_myokit()
+    myokit = _import_myokit()
     # Embed protocol
     if protocol is not None:
         model = model.clone()
@@ -358,6 +369,10 @@ def _sympy_reader(model: "myokit.Model") -> "myokit.formats.sympy.SymPyExpressio
     each ``Min``/``Max`` is read into nested myokit ``If`` expressions, and ``And``/``Or`` are
     folded into nested binary ones.
     """
+    _import_myokit()
+    # An import statement rather than `myokit = _import_myokit()`, so that mypy can
+    # resolve the base class below.
+    import myokit.formats.sympy
 
     class Reader(myokit.formats.sympy.SymPyExpressionReader):
         def _build_op_map(self):
@@ -397,7 +412,7 @@ def gotran_to_myokit(ode: ODE, time_component="engine", time_unit="s") -> "myoki
     myokit.Model
         The myokit model
     """
-    assert_has_myokit()
+    myokit = _import_myokit()
     model = myokit.Model(ode.name)
     model.meta["author"] = "GotranX API"
     comp = model.add_component(time_component)
@@ -506,7 +521,7 @@ def cellml_to_gotran(filename: str | Path) -> ODE:
     gotranx.ode.ODE
         The gotran ODE
     """
-    assert_has_myokit()
+    myokit = _import_myokit()
     myokit_model = myokit.formats.cellml.CellMLImporter().model(filename)
     return myokit_to_gotran(myokit_model)
 
@@ -521,6 +536,6 @@ def gotran_to_cellml(ode: ODE, filename: str | Path) -> None:
     filename : str | Path
         The filename of the cellml file
     """
-    assert_has_myokit()
+    myokit = _import_myokit()
     model = gotran_to_myokit(ode)
     myokit.formats.cellml.CellMLExporter().model(filename, model, version="1.0")
