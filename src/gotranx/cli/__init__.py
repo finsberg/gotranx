@@ -669,6 +669,18 @@ def ode2cytozoo(
         None, "--model-name", help="Julia struct name (default: the ODE name in PascalCase)"
     ),
     v_name: str = typer.Option("v", "--v-name", help="State holding the transmembrane potential"),
+    remove_component: typing.Optional[typing.List[str]] = typer.Option(
+        None,
+        "--remove-component",
+        help="Generate the model without this component (repeatable). What the rest "
+        "reads from it becomes an input: a trailing writable parameter, NaN until set",
+    ),
+    keep_component: typing.Optional[str] = typer.Option(
+        None,
+        "--keep-component",
+        help="Generate only this component. What it reads from the other components "
+        "becomes an input: a trailing writable parameter, NaN until set",
+    ),
     remove_unused: bool = typer.Option(False, "--remove-unused", help="Remove unused variables"),
     remove_singularities: bool = typer.Option(
         True,
@@ -720,6 +732,8 @@ def ode2cytozoo(
         remove_unused=remove_unused,
         remove_singularities=remove_singularities,
         verbose=verbose,
+        remove_component=remove_component,
+        keep_component=keep_component,
     )
 
 

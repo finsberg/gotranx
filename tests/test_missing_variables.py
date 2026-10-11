@@ -6,6 +6,7 @@ hold the C, Julia and CytoZoo backends to the same contract, checked against the
 """
 
 import ctypes
+import re
 import shutil
 import subprocess
 import sys
@@ -219,3 +220,99 @@ def test_cytozoo_without_missing_variables_is_unchanged(parser, trans):
     assert "NUM_MISSING" not in code
     assert "NaN" not in code
     assert "num_parameters(::Toy) = NUM_PARAMS\n" in code
+
+
+# A model to split from the command line: the membrane reads the stimulus amplitude `stim`
+# and troponin's flux `jb`, and troponin reads the membrane's calcium `c`.
+SPLIT = """
+parameters("stimulus", stim = 0.0)
+parameters("membrane", k = 0.5)
+states("membrane", v = -1.0, c = 0.4)
+parameters("troponin", k_on = 2.0)
+states("troponin", b = 0.2)
+expressions("membrane")
+dv_dt = -v - c + stim
+dc_dt = -k*c - jb
+expressions("troponin")
+jb = k_on*c*(1 - b)
+db_dt = jb
+"""
+
+
+@pytest.fixture
+def split_odefile(tmp_path):
+    path = tmp_path / "split.ode"
+    path.write_text(SPLIT)
+    return path
+
+
+def ode2cytozoo(odefile, out, *flags):
+    from typer.testing import CliRunner
+
+    from gotranx.cli import app
+
+    return CliRunner().invoke(app, ["ode2cytozoo", str(odefile), "-o", str(out), *flags])
+
+
+@pytest.mark.parametrize(
+    "flags, part, parameter_names",
+    [
+        (
+            ["--remove-component", "troponin"],
+            lambda ode: ode - ode.get_component("troponin"),
+            "(:k, :stim, :jb,)",
+        ),
+        (
+            ["--remove-component", "troponin", "--remove-component", "stimulus"],
+            lambda ode: ode - ode.get_component("troponin") - ode.get_component("stimulus"),
+            "(:k, :jb, :stim,)",
+        ),
+        (
+            ["--keep-component", "troponin", "--v-name", "b"],
+            lambda ode: ode.get_component("troponin").to_ode(),
+            "(:k_on, :c,)",
+        ),
+    ],
+)
+def test_ode2cytozoo_splits_like_the_python_api(
+    flags, part, parameter_names, split_odefile, tmp_path
+):
+    """The parameters of a half are its own, sorted, then its inputs, sorted."""
+    from gotranx.load import load_ode
+
+    out = tmp_path / "half.jl"
+    result = ode2cytozoo(split_odefile, out, "--model-name", "Half", *flags)
+    assert result.exit_code == 0, result.output
+    code = out.read_text()
+    assert f"const HALF_PARAMETER_NAMES = {parameter_names}" in code
+    v_name = flags[flags.index("--v-name") + 1] if "--v-name" in flags else "v"
+    ode = load_ode(split_odefile)
+    assert code == gotran2cytozoo.get_code(
+        part(ode), model_name="Half", v_name=v_name, source=split_odefile
+    )
+
+
+def test_ode2cytozoo_names_a_removed_split_by_default(split_odefile, tmp_path):
+    """`ode - component` is named "<ode> - <component>", which is no Julia identifier."""
+    out = tmp_path / "half.jl"
+    result = ode2cytozoo(split_odefile, out, "--remove-component", "troponin")
+    assert result.exit_code == 0, result.output
+    assert "struct SplitWithoutTroponin{" in out.read_text()
+
+
+@pytest.mark.parametrize(
+    "flags, message",
+    [
+        (["--remove-component", "nope"], "no component 'nope' in split; it has"),
+        (["--keep-component", "nope"], "no component 'nope' in split; it has"),
+        (["--remove-component", "troponin", "--keep-component", "membrane"], "not both"),
+    ],
+)
+def test_ode2cytozoo_rejects_a_bad_split(flags, message, split_odefile, tmp_path):
+    out = tmp_path / "half.jl"
+    result = ode2cytozoo(split_odefile, out, *flags)
+    assert result.exit_code != 0
+    # typer draws the message in a box, wrapped at the terminal width
+    unboxed = " ".join(re.sub("[│╭╮╰╯─]", " ", result.output).split())
+    assert message in unboxed
+    assert not out.exists()

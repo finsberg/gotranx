@@ -97,6 +97,12 @@ not code.
   them as a view of that trailing slice and convert them to the state's
   element type, as they do the parameters. Code for a model without missing
   variables is unchanged.
+- `ode2cytozoo --remove-component NAME` (repeatable) and `--keep-component
+  NAME` generate an adapter for part of a model, as `ode - ode.get_component(NAME)`
+  and `ode.get_component(NAME).to_ode()` do in Python, so a split model no
+  longer needs a script. By default, a model with components removed is
+  named `<ode>_without_<components>`: `ode - component` is named
+  `"<ode> - <component>"`, which is not a valid struct name.
 - `Min` and `Max`, with any number of arguments. C prints them as
   `fmin`/`fmax`, UFL as `ufl.min_value`/`ufl.max_value`, numpy and JAX as
   `numpy.minimum`/`numpy.maximum`, Julia and ModelingToolkit as conditionals.

@@ -5,6 +5,7 @@ from pathlib import Path
 import typer
 
 from ..codegen import CodeGenerator
+from ..ode import ODE
 from ..schemes import Scheme, get_scheme
 
 
@@ -109,3 +110,29 @@ def validate_scheme(scheme: list[Scheme] | list[str]) -> list[Scheme]:
         else:
             lst.append(s)
     return lst
+
+
+def select_components(ode: ODE, remove: list[str] | None = None, keep: str | None = None) -> ODE:
+    """The part of `ode` to generate code for: without the components in `remove`
+    (`ode - ode.get_component(name)` for each), or only the component `keep`
+    (`ode.get_component(keep).to_ode()`). Names the parts share become missing
+    variables of the result."""
+    if remove and keep is not None:
+        raise typer.BadParameter("give --remove-component or --keep-component, not both")
+    names = [c.name for c in ode.components]
+    for name in [*(remove or []), *([keep] if keep is not None else [])]:
+        if name not in names:
+            raise typer.BadParameter(
+                f"no component {name!r} in {ode.name}; it has {', '.join(names)}",
+                param_hint="--remove-component" if keep is None else "--keep-component",
+            )
+    if keep is not None:
+        return ode.get_component(keep).to_ode()
+    if not remove:
+        return ode
+    # `ode - component` is named "<ode> - <component>", which is not a valid default
+    # model name (ode2cytozoo derives the struct name from it).
+    name = f"{ode.name}_without_{'_'.join(remove)}"
+    for comp in remove:
+        ode = ode - ode.get_component(comp)
+    return ODE(components=ode.components, t=ode.t, name=name, comments=ode.comments)
