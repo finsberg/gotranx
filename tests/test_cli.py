@@ -658,3 +658,50 @@ def test_remove_singularities_rejects_a_non_boolean_in_the_config_file(
     assert result.exit_code != 0
     # The message goes to stderr, which `result.output` includes.
     assert "Invalid value for remove_singularities" in result.output
+
+
+# Finding the configuration file: the nearest pyproject.toml, from the current directory up,
+# that has a [tool.gotranx] table.
+
+
+@pytest.fixture
+def no_black(monkeypatch):
+    """Make `import black` fail, as without the `formatters` extra."""
+    import sys
+
+    monkeypatch.setitem(sys.modules, "black", None)
+    monkeypatch.setitem(sys.modules, "black.files", None)
+
+
+def test_the_cli_runs_without_black(no_black, odefile, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    outfile = tmp_path / "model.jl"
+    result = runner.invoke(gotranx.cli.app, ["ode2julia", str(odefile), "-o", str(outfile)])
+    assert result.exit_code == 0, result.output
+    assert outfile.is_file()
+
+
+def test_read_config_finds_a_pyproject_in_a_parent_directory(no_black, tmp_path, monkeypatch):
+    (tmp_path / "pyproject.toml").write_text("[tool.gotranx]\ndelta = 0.5\n")
+    (tmp_path / "src" / "models").mkdir(parents=True)
+    monkeypatch.chdir(tmp_path / "src" / "models")
+    assert gotranx.cli.utils.read_config(None) == {"delta": 0.5}
+
+
+def test_read_config_takes_the_nearest_pyproject_with_a_gotranx_table(tmp_path, monkeypatch):
+    (tmp_path / "pyproject.toml").write_text("[tool.gotranx]\ndelta = 0.5\n")
+    package = tmp_path / "package"
+    package.mkdir()
+    monkeypatch.chdir(package)
+    # A pyproject.toml without the table holds no configuration, so the search goes on.
+    (package / "pyproject.toml").write_text("[project]\nname = 'package'\n")
+    assert gotranx.cli.utils.read_config(None) == {"delta": 0.5}
+    (package / "pyproject.toml").write_text("[tool.gotranx]\ndelta = 0.25\n")
+    assert gotranx.cli.utils.read_config(None) == {"delta": 0.25}
+
+
+def test_read_config_reports_a_pyproject_it_cannot_parse(tmp_path, monkeypatch, capsys):
+    (tmp_path / "pyproject.toml").write_text("[tool.gotranx\n")
+    monkeypatch.chdir(tmp_path)
+    assert gotranx.cli.utils.read_config(None) == {}
+    assert "Could not read configuration file" in capsys.readouterr().out

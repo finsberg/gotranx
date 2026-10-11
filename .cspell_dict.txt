@@ -6,6 +6,7 @@ beeler
 betaz
 boolalg
 Cais
+capsys
 cass
 cbuild
 cellml

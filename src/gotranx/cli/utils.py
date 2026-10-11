@@ -30,14 +30,34 @@ def add_schemes(
     return comp
 
 
-def find_pyproject_toml_config() -> Path | None:
-    """Find the pyproject.toml file."""
-    from black.files import find_pyproject_toml
+def _toml_loads(text: str) -> dict[str, Any]:
+    try:
+        import tomllib  # Python >= 3.11
+    except ImportError:
+        import toml as tomllib  # type: ignore
 
-    path = find_pyproject_toml((str(Path.cwd()),))
-    if path is None:
-        return None
-    return Path(path)
+    return tomllib.loads(text)
+
+
+def find_pyproject_toml_config(start: Path | None = None) -> Path | None:
+    """The nearest `pyproject.toml` with a `[tool.gotranx]` table, searching from
+    `start` (by default the current directory) up to the root of the file system.
+
+    A `pyproject.toml` that cannot be parsed is returned too, so that
+    `read_config` reports it rather than skipping it silently.
+    """
+    start = Path.cwd() if start is None else start
+    for directory in (start, *start.parents):
+        path = directory / "pyproject.toml"
+        if not path.is_file():
+            continue
+        try:
+            config = _toml_loads(path.read_text())
+        except Exception:
+            return path
+        if "gotranx" in config.get("tool", {}):
+            return path
+    return None
 
 
 def read_config(path: Path | None) -> dict[str, Any]:
@@ -51,20 +71,8 @@ def read_config(path: Path | None) -> dict[str, Any]:
     if path is None:
         return {}
 
-    # Try to read the configuration file
     try:
-        # First try to use tomllib which is part of stdlib
-        import tomllib as toml
-    except ImportError:
-        # If tomllib is not available, try to use toml
-        try:
-            import toml  # type: ignore
-        except ImportError:
-            typer.echo("Please install 'tomllib' or 'toml' to read configuration files")
-            return {}
-
-    try:
-        config = toml.loads(Path(path).read_text())
+        config = _toml_loads(Path(path).read_text())
     except Exception:
         typer.echo(f"Could not read configuration file {path}")
         return {}

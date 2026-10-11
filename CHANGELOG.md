@@ -27,6 +27,16 @@ not code.
 
 ### Fixed
 
+- The command line needed black, which only the `formatters` extra installs:
+  without `--config`, every `ode2*` command looked for `pyproject.toml` through
+  `black.files.find_pyproject_toml`, so after a plain `pip install gotranx`,
+  `gotranx ode2julia model.ode` failed with `ModuleNotFoundError: No module
+  named 'black'`. gotranx now looks for the file itself: the nearest
+  `pyproject.toml` with a `[tool.gotranx]` table, from the current directory
+  up. Black's search stopped at the repository root, skipped a
+  `pyproject.toml` without a `[tool.black]` table, and crashed on one it could
+  not parse. A file that cannot be parsed is now reported, and the defaults
+  are used.
 - The C and Julia backends could not run a model with missing variables (an
   ODE with a component subtracted away, e.g. `ode - ode.get_component("x")`).
   `missing_index` was emitted as a second `monitor_index`: a redefinition in

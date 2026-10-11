@@ -50,6 +50,8 @@ format = "ruff"
 format = "clang-format"
 ```
 
+Without `--config`, `gotranx` reads the nearest `pyproject.toml` that has a `[tool.gotranx]` table, looking in the current directory and then in each of its parents.
+
 This will override any arguments passed from the command line. If you want to specify another configuration file, you can also pass the `--config` (or `-c`) flag where you specify a configuration file, e.g
 
 ```shell
