@@ -1,5 +1,7 @@
 from pathlib import Path
 import math
+import subprocess
+import sys
 import pytest
 import sympy as sp
 import gotranx.myokit
@@ -11,6 +13,35 @@ except ImportError:
     myokit = None
 
 here = Path(__file__).parent.absolute()
+
+
+def test_importing_gotranx_does_not_import_myokit():
+    """myokit, and numpy and lxml with it, is needed only to read or write CellML and
+    `.mmt` files, so it is imported by the functions that do that."""
+    code = "import sys, gotranx; print('myokit' in sys.modules)"
+    result = subprocess.run(
+        [sys.executable, "-c", code], capture_output=True, text=True, check=True
+    )
+    assert result.stdout.strip() == "False"
+
+
+@pytest.mark.parametrize(
+    "convert",
+    [
+        lambda: gotranx.myokit.cellml_to_gotran(here / "cellml_files" / "noble_1962.cellml"),
+        lambda: gotranx.myokit.mmt_to_gotran(here / "mmt_files" / "example.mmt"),
+        lambda: gotranx.myokit.gotran_to_myokit(
+            gotranx.load.ode_from_string("states(x=1.0)\nparameters(a=2.0)\ndx_dt = -a*x\n")
+        ),
+    ],
+    ids=["cellml_to_gotran", "mmt_to_gotran", "gotran_to_myokit"],
+)
+def test_a_converter_without_myokit_raises_gotranx_import_error(convert, monkeypatch):
+    from gotranx.exceptions import GotranxImportError
+
+    monkeypatch.setitem(sys.modules, "myokit", None)
+    with pytest.raises(GotranxImportError):
+        convert()
 
 
 @pytest.mark.skipif(myokit is None, reason="myokit not installed")
