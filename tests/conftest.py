@@ -1,3 +1,7 @@
+import os
+import shutil
+import subprocess
+
 import pytest
 from gotranx import Parser
 from gotranx import TreeToODE
@@ -35,3 +39,49 @@ def ode_unused(parser, trans):
     """
     tree = parser.parse(expr)
     return make_ode(*trans.transform(tree))
+
+
+def _unavailable(reason: str) -> None:
+    """Skip, unless GOTRANX_REQUIRE_JULIA is set. The Julia workflow sets it, so that a
+    runner on which Julia or CytoZoo.jl is missing fails instead of passing on skips."""
+    if os.environ.get("GOTRANX_REQUIRE_JULIA"):
+        pytest.fail(f"GOTRANX_REQUIRE_JULIA is set, but {reason}")
+    pytest.skip(reason)
+
+
+@pytest.fixture(scope="session")
+def julia() -> str:
+    """The `julia` executable on PATH."""
+    executable = shutil.which("julia")
+    if executable is None:
+        _unavailable("julia is not on PATH")
+    assert executable is not None  # _unavailable raises
+    return executable
+
+
+@pytest.fixture(scope="session")
+def cytozoo(julia) -> str:
+    """The `julia` executable, once CytoZoo.jl is known to load in its default environment."""
+    result = subprocess.run(
+        [julia, "--startup-file=no", "-e", "using CytoZoo"], capture_output=True, text=True
+    )
+    if result.returncode != 0:
+        _unavailable(f"CytoZoo.jl does not load in julia's default environment:\n{result.stderr}")
+    return julia
+
+
+@pytest.fixture
+def run_julia(julia, tmp_path):
+    """Run a Julia script and return the lines it printed. A failing script fails the test,
+    with Julia's error as the message."""
+
+    def run(script: str) -> list:
+        driver = tmp_path / "driver.jl"
+        driver.write_text(script)
+        result = subprocess.run(
+            [julia, "--startup-file=no", str(driver)], capture_output=True, text=True
+        )
+        assert result.returncode == 0, result.stderr
+        return result.stdout.strip().splitlines()
+
+    return run

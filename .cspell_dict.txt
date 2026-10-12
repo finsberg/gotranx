@@ -108,6 +108,7 @@ pycode
 pyplot
 pyproject
 pytest
+pytestmark
 Radau
 Rdmm
 relop
