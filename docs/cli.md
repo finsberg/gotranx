@@ -72,7 +72,7 @@ python3 -m gotranx ode2julia noble_1962.ode
 ````
 
 ````{tab-item} CytoZoo
-A [CytoZoo](https://github.com/finsberg/CytoZoo.jl) cell-model adapter: the Julia
+A [CytoZoo](https://github.com/DerangedIons/CytoZoo.jl) cell-model adapter: the Julia
 right-hand side wrapped in a `<: AbstractCardiacCellModel` struct with the index
 lookups, monitor hooks and spatial-override dispatch CytoZoo expects.
 ```shell
@@ -94,7 +94,9 @@ A part with no transmembrane potential must still name one of its states as
 `--v-name`.
 
 Note that the generated module requires a CytoZoo version providing
-`resolve_parameter`, which is not yet released.
+`resolve_parameter`, which is not yet released. The example
+[Running a model in CytoZoo.jl](../examples/cytozoo/main.jl) installs CytoZoo from
+GitHub, generates a model and solves it.
 ````
 `````
 

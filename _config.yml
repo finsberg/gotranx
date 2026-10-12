@@ -45,6 +45,9 @@ sphinx:
         .py:
             - jupytext.reads
             - fmt: py
+        .jl:  # run on the `julia` kernel, which IJulia installs
+            - jupytext.reads
+            - fmt: jl
 
   extra_extensions:
   - 'sphinx.ext.autodoc'

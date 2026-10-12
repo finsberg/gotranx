@@ -193,3 +193,6 @@ cython_debug/
 *.code-workspace
 
 # End of https://www.toptal.com/developers/gitignore/api/python,visualstudiocode
+
+# The Julia examples' environment is resolved where it is used
+examples/Manifest.toml
