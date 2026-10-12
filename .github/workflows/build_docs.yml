@@ -6,6 +6,10 @@ on:
   workflow_call:
   workflow_dispatch:
 
+# julia-actions/cache deletes the caches it replaces
+permissions:
+  actions: write
+  contents: read
 
 jobs:
 
@@ -13,6 +17,8 @@ jobs:
     runs-on: ubuntu-22.04
     env:
       PUBLISH_DIR: ./_build/html
+      # Plots.jl's GR backend draws without a display
+      GKSwstype: "100"
 
 
     steps:
@@ -26,6 +32,22 @@ jobs:
 
       - name: Install dependencies
         run: python3 -m pip install ".[docs]"
+
+      # The Julia examples (examples/*.jl) run on IJulia's kernel, named `julia` in their
+      # headers. `--project=@.` makes it use examples/Project.toml.
+      - name: Setup Julia
+        uses: julia-actions/setup-julia@v3
+        with:
+          version: "1"
+
+      - uses: julia-actions/cache@v3
+
+      - name: Install the Julia kernel and the Julia examples' packages
+        run: |
+          julia -e 'using Pkg; Pkg.add("IJulia"); using IJulia; IJulia.installkernel("Julia", "--project=@."; specname = "julia")'
+          julia --project=examples -e 'using Pkg; Pkg.instantiate()'
+          # Plots' IJulia extension, so that its precompilation is not printed in the docs
+          julia --project=examples -e 'using IJulia, Plots'
 
       - name: Build docs
         run: jupyter-book build -W --keep-going .

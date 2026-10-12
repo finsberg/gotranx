@@ -144,9 +144,9 @@ def test_julia_unpacks_missing_variables_one_based(ode):
     assert "missing_variables[0]" not in code
 
 
-@pytest.mark.skipif(shutil.which("julia") is None, reason="needs julia on PATH")
+@pytest.mark.julia
 @pytest.mark.parametrize("type_stable", [False, True])
-def test_julia_runs_and_agrees_with_python(ode, python, tmp_path, type_stable):
+def test_julia_runs_and_agrees_with_python(ode, python, run_julia, tmp_path, type_stable):
     states, parameters, rhs, monitors, step = _reference(python)
     model = tmp_path / "model.jl"
     model.write_text(gotran2julia.get_code(ode, scheme=SCHEME, type_stable=type_stable))
@@ -154,8 +154,7 @@ def test_julia_runs_and_agrees_with_python(ode, python, tmp_path, type_stable):
     def vec(a):
         return "[" + ", ".join(repr(float(x)) for x in a) + "]"
 
-    driver = tmp_path / "driver.jl"
-    driver.write_text(
+    lines = run_julia(
         f"""
         include("{model.as_posix()}")
         s = {vec(states)}; p = {vec(parameters)}; m = {vec(MISSING)}
@@ -166,10 +165,6 @@ def test_julia_runs_and_agrees_with_python(ode, python, tmp_path, type_stable):
         println(missing_index("u_in"), " ", missing_index("w_in"), " ", monitor_index("r"))
         """
     )
-    result = subprocess.run(
-        ["julia", "--startup-file=no", str(driver)], capture_output=True, text=True, check=True
-    )
-    lines = result.stdout.strip().splitlines()
     numpy.testing.assert_allclose([float(x) for x in lines[0].split()], rhs, rtol=1e-14)
     numpy.testing.assert_allclose([float(x) for x in lines[1].split()], monitors, rtol=1e-14)
     numpy.testing.assert_allclose([float(x) for x in lines[2].split()], step, rtol=1e-14)
@@ -290,6 +285,65 @@ def test_ode2cytozoo_splits_like_the_python_api(
     assert code == gotran2cytozoo.get_code(
         part(ode), model_name="Half", v_name=v_name, source=split_odefile
     )
+
+
+@pytest.mark.julia
+@pytest.mark.parametrize(
+    "flags, part, inputs",
+    [
+        (
+            ["--remove-component", "troponin"],
+            lambda ode: ode - ode.get_component("troponin"),
+            {"jb": 0.3},
+        ),
+        (
+            ["--keep-component", "troponin", "--v-name", "b"],
+            lambda ode: ode.get_component("troponin").to_ode(),
+            {"c": 0.4},
+        ),
+    ],
+)
+def test_ode2cytozoo_halves_run_in_cytozoo(
+    flags, part, inputs, split_odefile, cytozoo, run_julia, tmp_path
+):
+    """Each half takes its inputs by name, where a `connect` edge writes them, and then agrees
+    with the Python half given the same missing variables. Until then, what reads them is
+    NaN."""
+    from gotranx.load import load_ode
+
+    out = tmp_path / "half.jl"
+    result = ode2cytozoo(split_odefile, out, "--model-name", "Half", *flags)
+    assert result.exit_code == 0, result.output
+
+    half = part(load_ode(split_odefile))
+    namespace: dict = {}
+    exec(gotran2py.get_code(half), namespace)
+    states = namespace["init_state_values"]()
+    missing = numpy.zeros(len(half.missing_variables))
+    for name, value in inputs.items():
+        missing[half.missing_variables[name]] = value
+    rhs = namespace["rhs"](0.0, states, namespace["init_parameter_values"](), missing)
+
+    set_inputs = "; ".join(
+        f"model.parameters[parameter_index(model, :{name})] = {value}"
+        for name, value in inputs.items()
+    )
+    lines = run_julia(
+        f"""
+        using CytoZoo
+        module Generated
+        include("{out.as_posix()}")
+        end
+        model = Generated.Half()
+        u = default_initial_state(model); du = zeros(num_states(model))
+        model(du, u, nothing, 0.0); println(any(isnan, du))
+        {set_inputs}
+        model(du, u, nothing, 0.0); println(join(state_names(model), " ")); println(join(du, " "))
+        """
+    )
+    assert lines[0] == "true"
+    order = [namespace["state_index"](name) for name in lines[1].split()]
+    numpy.testing.assert_allclose([float(x) for x in lines[2].split()], rhs[order], rtol=1e-14)
 
 
 def test_ode2cytozoo_names_a_removed_split_by_default(split_odefile, tmp_path):

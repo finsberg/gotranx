@@ -1,0 +1,12 @@
+# The Julia environment of the Julia examples (examples/*.jl). From the repository root:
+#   julia --project=examples -e 'using Pkg; Pkg.instantiate()'
+# Julia 1.10 does not read [sources]; there, add CytoZoo.jl by URL first:
+#   julia --project=examples -e 'using Pkg; Pkg.add(url="https://github.com/DerangedIons/CytoZoo.jl")'
+
+[deps]
+CytoZoo = "ff4ab244-b974-488c-a5cc-2c6c87261b37"
+OrdinaryDiffEqBDF = "6ad6398a-0878-4a85-9266-38940aa047c8"
+Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
+
+[sources]
+CytoZoo = {url = "https://github.com/DerangedIons/CytoZoo.jl"}
