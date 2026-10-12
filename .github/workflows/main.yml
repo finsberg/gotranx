@@ -35,7 +35,8 @@ jobs:
         python -m pip install -e ".[test]"
     - name: Test with pytest
       run: |
-        python -m pytest --cov=gotranx --cov-report html --cov-report xml --cov-report term-missing -v
+        # The tests that run Julia have a workflow of their own (julia.yml)
+        python -m pytest -m "not julia" --cov=gotranx --cov-report html --cov-report xml --cov-report term-missing -v
 
     - name: Coverage report
       if: matrix.python-version == '3.10' && matrix.os == 'ubuntu-latest'
