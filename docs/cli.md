@@ -87,8 +87,8 @@ without a component, and `--keep-component NAME` generates only that component.
 What one part reads from the other becomes an input of the part: a trailing
 writable parameter, `NaN` until a CytoZoo `connect` edge sets it.
 ```shell
-python3 -m gotranx ode2cytozoo model.ode --remove-component troponin --model-name Membrane
-python3 -m gotranx ode2cytozoo model.ode --keep-component troponin --model-name Troponin --v-name b
+python3 -m gotranx ode2cytozoo model.ode --remove-component troponin --model-name Membrane -o membrane.jl
+python3 -m gotranx ode2cytozoo model.ode --keep-component troponin --model-name Troponin --v-name b -o troponin.jl
 ```
 A part with no transmembrane potential must still name one of its states as
 `--v-name`.
