@@ -68,7 +68,10 @@ class CytoZooCodeGenerator(JuliaCodeGenerator):
         return [s.name for s in self.ode.sorted_states()]
 
     def _parameter_name_list(self) -> list[str]:
-        return [p.name for p in self.ode.parameters]
+        # The missing variables follow the parameters, in missing_index order, because
+        # the adapter stores them in the parameter vector (templates.cytozoo.model_struct).
+        missing = sorted(self._missing_variables, key=self._missing_variables.__getitem__)
+        return [p.name for p in self.ode.parameters] + missing
 
     def _monitor_name_list(self) -> list[str]:
         # Mirror codegen.base.CodeGenerator.monitor_index (base.py:186) exactly:
@@ -142,18 +145,38 @@ class CytoZooCodeGenerator(JuliaCodeGenerator):
             )
         return "\n".join(lines)
 
+    def _missing_variables_assignments(self) -> str:
+        """Every missing-variable local, converted to the state's element type.
+
+        The missing variables are trailing entries of the parameter vector (see
+        `templates.cytozoo.model_struct`), so they are converted like the parameters:
+        a model built in Float64 and evaluated on Float32 states would otherwise
+        compute every term that reads one in Float64.
+        """
+        if not self._missing_variables:
+            return ""
+        lines = [
+            f"{name} = TYPE(missing_variables[{index + 1}])"
+            for name, index in self._missing_variables.items()
+        ]
+        return "\n".join(["", self._comment("Assign missing variables"), *lines, ""])
+
     def adapter(self) -> str:
         """The struct, name tuples, index lookups and interface methods."""
         name = self._model_name
         monitors = self._monitor_name_list()
         parts = [
-            templates.cytozoo.model_struct(name, len(self.ode.parameters)),
+            templates.cytozoo.model_struct(
+                name, len(self.ode.parameters), len(self._missing_variables)
+            ),
             templates.cytozoo.name_tuples(
                 name, self._state_name_list(), self._parameter_name_list(), monitors
             ),
             templates.cytozoo.index_lookups(
                 name, self._state_name_list(), self._parameter_name_list()
             ),
-            templates.cytozoo.interface_methods(name, self._potential_index(), len(monitors)),
+            templates.cytozoo.interface_methods(
+                name, self._potential_index(), len(monitors), len(self._missing_variables)
+            ),
         ]
         return self._format("\n".join(parts))

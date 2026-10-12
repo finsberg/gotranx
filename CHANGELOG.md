@@ -27,6 +27,26 @@ not code.
 
 ### Fixed
 
+- The command line needed black, which only the `formatters` extra installs:
+  without `--config`, every `ode2*` command looked for `pyproject.toml` through
+  `black.files.find_pyproject_toml`, so after a plain `pip install gotranx`,
+  `gotranx ode2julia model.ode` failed with `ModuleNotFoundError: No module
+  named 'black'`. gotranx now looks for the file itself: the nearest
+  `pyproject.toml` with a `[tool.gotranx]` table, from the current directory
+  up. Black's search stopped at the repository root, skipped a
+  `pyproject.toml` without a `[tool.black]` table, and crashed on one it could
+  not parse. A file that cannot be parsed is now reported, and the defaults
+  are used.
+- The C and Julia backends could not run a model with missing variables (an
+  ODE with a component subtracted away, e.g. `ode - ode.get_component("x")`).
+  `missing_index` was emitted as a second `monitor_index`: a redefinition in
+  C, and in Julia a method that replaced the real one, so `monitor_index`
+  returned -1 for every monitor. The functions declared a `missing_variables`
+  argument but never read it, so their bodies used undefined names (a compile
+  error in C, `UndefVarError` in Julia), and C declared it without a type.
+  They now take `const double *__restrict missing_variables` in C, unpack it
+  like the parameters, and emit `missing_index`. Code for a model without
+  missing variables is unchanged.
 - `import gotranx` imported myokit, and lxml with it, although only reading and
   writing CellML and `.mmt` files uses it. The functions in `gotranx.myokit`
   now import it when called, and raise `GotranxImportError` as before when it
@@ -88,6 +108,21 @@ not code.
   assignment calls it, so the module will not load against any CytoZoo
   currently on the registry; it needs a development checkout until a release
   carrying that function is tagged.
+- `ode2cytozoo` supports models with missing variables, which before failed
+  with a `MethodError` on the first call. They are appended to the parameter
+  vector after the parameters, in `missing_index` order, so a CytoZoo
+  `connect` edge supplies them by name, and `num_parameters` counts them. They
+  start as `NaN`, so an input nothing is connected to makes the right-hand
+  side `NaN` instead of silently reading 0. `rhs` and `monitor_values` receive
+  them as a view of that trailing slice and convert them to the state's
+  element type, as they do the parameters. Code for a model without missing
+  variables is unchanged.
+- `ode2cytozoo --remove-component NAME` (repeatable) and `--keep-component
+  NAME` generate an adapter for part of a model, as `ode - ode.get_component(NAME)`
+  and `ode.get_component(NAME).to_ode()` do in Python, so a split model no
+  longer needs a script. By default, a model with components removed is
+  named `<ode>_without_<components>`: `ode - component` is named
+  `"<ode> - <component>"`, which is not a valid struct name.
 - `Min` and `Max`, with any number of arguments. C prints them as
   `fmin`/`fmax`, UFL as `ufl.min_value`/`ufl.max_value`, numpy and JAX as
   `numpy.minimum`/`numpy.maximum`, Julia and ModelingToolkit as conditionals.

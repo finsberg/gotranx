@@ -6,6 +6,7 @@ import structlog
 from ..codegen.cytozoo import CytoZooCodeGenerator
 from ..load import load_ode
 from ..ode import ODE
+from .utils import select_components
 
 logger = structlog.get_logger()
 
@@ -87,6 +88,7 @@ def get_code(
         "import CytoZoo: num_monitors, monitor_names, monitor_values!",
         f"const NUM_STATES = {len(ode.states)};",
         f"const NUM_PARAMS = {len(ode.parameters)};",
+        *([f"const NUM_MISSING = {len(ode.missing_variables)};"] if ode.missing_variables else []),
         codegen.initial_parameter_values(),
         codegen.initial_state_values(),
         codegen.rhs(),
@@ -104,10 +106,13 @@ def main(
     remove_unused: bool = False,
     remove_singularities: bool = True,
     verbose: bool = False,
+    remove_component: list[str] | None = None,
+    keep_component: str | None = None,
 ) -> None:
     loglevel = logging.DEBUG if verbose else logging.INFO
     structlog.configure(wrapper_class=structlog.make_filtering_bound_logger(loglevel))
     ode = load_ode(fname, remove_singularities=remove_singularities)
+    ode = select_components(ode, remove=remove_component, keep=keep_component)
     code = get_code(
         ode,
         model_name=model_name,

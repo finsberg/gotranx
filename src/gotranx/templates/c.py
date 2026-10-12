@@ -45,11 +45,13 @@ def method(
     values: str,
     return_name: None = None,
     num_return_values: int = 0,
+    missing_variables: str = "",
     **kwargs,
 ):
     indent_states = indent(states, "    ")
     indent_parameters = indent(parameters, "    ")
     indent_values = indent(values, "    ")
+    indent_missing_variables = indent(missing_variables, "    ")
     return dedent(
         f"""
 void {name}({args}){{
@@ -59,7 +61,7 @@ void {name}({args}){{
 
     // Assign parameters
 {indent_parameters}
-
+{indent_missing_variables}
     // Assign expressions
 {indent_values}
 }}
@@ -102,4 +104,4 @@ def monitor_index(data: dict[str, int]) -> str:
 
 
 def missing_index(data: dict[str, int]) -> str:
-    return method_index(data, "monitor")
+    return method_index(data, "missing")

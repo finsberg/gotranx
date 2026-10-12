@@ -6,6 +6,7 @@ beeler
 betaz
 boolalg
 Cais
+capsys
 cass
 cbuild
 cellml
@@ -141,6 +142,7 @@ timesteps
 tols
 tpsd
 transmembrane
+troponin
 TRPN
 tsdp
 tspd

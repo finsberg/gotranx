@@ -106,6 +106,8 @@ class Shape(str, Enum):
 
 class CodeGenerator(abc.ABC):
     variable_prefix = ""
+    #: How a function declares its missing-variables argument (C needs a type).
+    missing_variables_argument = "missing_variables"
 
     def __init__(
         self,
@@ -321,7 +323,7 @@ class CodeGenerator(abc.ABC):
 
         arguments = rhs.arguments
         if self._missing_variables:
-            arguments += ["missing_variables"]
+            arguments += [self.missing_variables_argument]
 
         values_lst = []
         index = 0
@@ -383,7 +385,7 @@ class CodeGenerator(abc.ABC):
 
         arguments = rhs.arguments
         if self._missing_variables:
-            arguments += ["missing_variables"]
+            arguments += [self.missing_variables_argument]
 
         values_lst = []
         index = 0
@@ -429,7 +431,7 @@ class CodeGenerator(abc.ABC):
 
         arguments = rhs.arguments
         if self._missing_variables:
-            arguments += ["missing_variables"]
+            arguments += [self.missing_variables_argument]
 
         values_lst = []
         N = len(values)
@@ -495,7 +497,7 @@ class CodeGenerator(abc.ABC):
 
         arguments = rhs.arguments
         if self._missing_variables:
-            arguments += ["missing_variables"]
+            arguments += [self.missing_variables_argument]
 
         dt = sympy.Symbol("dt")
         eqs = f(

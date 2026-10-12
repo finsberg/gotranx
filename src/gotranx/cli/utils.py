@@ -5,6 +5,7 @@ from pathlib import Path
 import typer
 
 from ..codegen import CodeGenerator
+from ..ode import ODE
 from ..schemes import Scheme, get_scheme
 
 
@@ -29,14 +30,34 @@ def add_schemes(
     return comp
 
 
-def find_pyproject_toml_config() -> Path | None:
-    """Find the pyproject.toml file."""
-    from black.files import find_pyproject_toml
+def _toml_loads(text: str) -> dict[str, Any]:
+    try:
+        import tomllib  # Python >= 3.11
+    except ImportError:
+        import toml as tomllib  # type: ignore
 
-    path = find_pyproject_toml((str(Path.cwd()),))
-    if path is None:
-        return None
-    return Path(path)
+    return tomllib.loads(text)
+
+
+def find_pyproject_toml_config(start: Path | None = None) -> Path | None:
+    """The nearest `pyproject.toml` with a `[tool.gotranx]` table, searching from
+    `start` (by default the current directory) up to the root of the file system.
+
+    A `pyproject.toml` that cannot be parsed is returned too, so that
+    `read_config` reports it rather than skipping it silently.
+    """
+    start = Path.cwd() if start is None else start
+    for directory in (start, *start.parents):
+        path = directory / "pyproject.toml"
+        if not path.is_file():
+            continue
+        try:
+            config = _toml_loads(path.read_text())
+        except Exception:
+            return path
+        if "gotranx" in config.get("tool", {}):
+            return path
+    return None
 
 
 def read_config(path: Path | None) -> dict[str, Any]:
@@ -50,20 +71,8 @@ def read_config(path: Path | None) -> dict[str, Any]:
     if path is None:
         return {}
 
-    # Try to read the configuration file
     try:
-        # First try to use tomllib which is part of stdlib
-        import tomllib as toml
-    except ImportError:
-        # If tomllib is not available, try to use toml
-        try:
-            import toml  # type: ignore
-        except ImportError:
-            typer.echo("Please install 'tomllib' or 'toml' to read configuration files")
-            return {}
-
-    try:
-        config = toml.loads(Path(path).read_text())
+        config = _toml_loads(Path(path).read_text())
     except Exception:
         typer.echo(f"Could not read configuration file {path}")
         return {}
@@ -109,3 +118,29 @@ def validate_scheme(scheme: list[Scheme] | list[str]) -> list[Scheme]:
         else:
             lst.append(s)
     return lst
+
+
+def select_components(ode: ODE, remove: list[str] | None = None, keep: str | None = None) -> ODE:
+    """The part of `ode` to generate code for: without the components in `remove`
+    (`ode - ode.get_component(name)` for each), or only the component `keep`
+    (`ode.get_component(keep).to_ode()`). Names the parts share become missing
+    variables of the result."""
+    if remove and keep is not None:
+        raise typer.BadParameter("give --remove-component or --keep-component, not both")
+    names = [c.name for c in ode.components]
+    for name in [*(remove or []), *([keep] if keep is not None else [])]:
+        if name not in names:
+            raise typer.BadParameter(
+                f"no component {name!r} in {ode.name}; it has {', '.join(names)}",
+                param_hint="--remove-component" if keep is None else "--keep-component",
+            )
+    if keep is not None:
+        return ode.get_component(keep).to_ode()
+    if not remove:
+        return ode
+    # `ode - component` is named "<ode> - <component>", which is not a valid default
+    # model name (ode2cytozoo derives the struct name from it).
+    name = f"{ode.name}_without_{'_'.join(remove)}"
+    for comp in remove:
+        ode = ode - ode.get_component(comp)
+    return ODE(components=ode.components, t=ode.t, name=name, comments=ode.comments)
