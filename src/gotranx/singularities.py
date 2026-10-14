@@ -44,6 +44,7 @@ __all__ = [
     "MIN_HALF_WIDTH",
     "RemovablePole",
     "agrees_numerically",
+    "branch_at",
     "branch_points",
     "default_values",
     "denominator_factors",
@@ -838,6 +839,132 @@ def branch_points(
     return points
 
 
+def _outermost_piecewise(expr: sympy.Expr) -> list[sympy.Piecewise]:
+    """The ``Piecewise`` nodes of ``expr`` that are not inside another one."""
+    found: dict[sympy.Piecewise, None] = {}
+    stack = [expr]
+    while stack:
+        node = stack.pop()
+        if isinstance(node, sympy.Piecewise):
+            found[node] = None
+        else:
+            stack.extend(node.args)
+    return list(found)
+
+
+def _outside_branches(expr: sympy.Expr) -> sympy.Expr:
+    """``expr`` with every outermost ``Piecewise`` replaced by a fresh symbol.
+
+    What a guard on the whole of ``expr`` has to cover: a pole inside a branch
+    is guarded within that branch (see :func:`rewrite`), and a condition is
+    never guarded.
+    """
+    mapping = {node: sympy.Dummy() for node in _outermost_piecewise(expr)}
+    if not mapping:
+        return expr
+    with sympy.core.parameters.evaluate(False):
+        return expr.xreplace(mapping)
+
+
+def _is_guard(node: sympy.Piecewise) -> bool:
+    """Whether ``node`` has the shape :func:`guard` emits."""
+    if len(node.args) != 2 or node.args[1].cond is not sympy.true:
+        return False
+    condition = node.args[0].cond
+    return isinstance(condition, sympy.StrictLessThan) and isinstance(condition.lhs, sympy.Abs)
+
+
+def branch_at(
+    expr: sympy.Expr,
+    var: sympy.Symbol,
+    center: float,
+    defaults: Mapping[sympy.Symbol, float],
+) -> sympy.Expr | None:
+    """``expr`` with each ``Piecewise`` on ``var`` reduced to its branch at ``center``.
+
+    Where no condition on ``var`` changes within a window (see
+    :func:`branch_points`), each such ``Piecewise`` *is* that one branch
+    throughout the window, so a pole of ``expr`` there can be expanded as a
+    pole of the reduced expression. sympy cannot expand it unreduced: it
+    expands each branch and returns a ``Piecewise`` of series, which is not
+    the polynomial a guard needs.
+
+    Parameters
+    ----------
+    expr : sympy.Expr
+        The expression, already inlined in ``var``.
+    var : sympy.Symbol
+        The variable the pole lives in.
+    center : float
+        Where the pole is.
+    defaults : Mapping[sympy.Symbol, float]
+        Default values for the other symbols in the conditions.
+
+    Returns
+    -------
+    sympy.Expr | None
+        The reduced expression, or None if a condition on ``var`` cannot be
+        decided at ``center`` and the defaults.
+    """
+    values = {symbol: sympy.Float(x) for symbol, x in defaults.items() if symbol != var}
+    values[var] = sympy.Float(center)
+
+    def reduce(node: sympy.Expr) -> sympy.Expr | None:
+        mapping = {}
+        for piecewise in _outermost_piecewise(node):
+            if not any(var in condition.free_symbols for _, condition in piecewise.args):
+                continue
+            for branch, condition in piecewise.args:
+                truth = condition.xreplace(values)
+                if truth is sympy.true:
+                    chosen = reduce(branch)
+                    if chosen is None:
+                        return None
+                    mapping[piecewise] = chosen
+                    break
+                if truth is not sympy.false:
+                    return None
+            else:
+                return None
+        if not mapping:
+            return node
+        with sympy.core.parameters.evaluate(False):
+            return node.xreplace(mapping)
+
+    return reduce(expr)
+
+
+def _rewrite_branches(
+    expr: sympy.Expr,
+    definitions: Mapping[sympy.Symbol, sympy.Expr],
+    states: frozenset[sympy.Symbol],
+    defaults: Mapping[sympy.Symbol, float],
+    order: int,
+) -> sympy.Expr:
+    """``expr`` with each branch of its ``Piecewise`` nodes guarded on its own.
+
+    A branch is evaluated only where its condition holds, so a guard on its
+    own pole is right wherever that condition changes, even next to the pole.
+    Conditions are left alone, and so is a ``Piecewise`` :func:`guard` made:
+    guarding its fallback branch again would nest a second guard in the first.
+    Returns ``expr`` itself, the identical object, if no branch changes.
+    """
+    mapping = {}
+    for piecewise in _outermost_piecewise(expr):
+        if _is_guard(piecewise):
+            continue
+        branches = [
+            (rewrite(branch, definitions, states, defaults, order=order), condition)
+            for branch, condition in piecewise.args
+        ]
+        if any(new is not old for (new, _), (old, _) in zip(branches, piecewise.args)):
+            mapping[piecewise] = sympy.Piecewise(*branches, evaluate=False)
+    if not mapping:
+        return expr
+    with sympy.core.parameters.evaluate(False):
+        return expr.xreplace(mapping)
+
+
 @dataclasses.dataclass(frozen=True)
 class RemovablePole:
     """A removable pole and the replacement that covers it.
@@ -917,7 +1044,11 @@ def removable_poles(
     defaults: Mapping[sympy.Symbol, float],
     order: int = 3,
 ) -> tuple[RemovablePole, ...]:
-    """Every removable pole of ``expr`` in a state variable.
+    """Every removable pole of ``expr`` in a state variable, outside its conditionals.
+
+    A denominator inside a branch of a ``Piecewise`` is not considered here:
+    :func:`rewrite` guards each branch on its own. Nor is one inside a
+    condition, which is never guarded.
 
     Only expressions whose denominator contains a state-dependent symbol are
     examined at all; a denominator that is a parameter or a literal cannot
@@ -934,7 +1065,9 @@ def removable_poles(
       ``-K_buf_c +- sqrt(-Buf_c*K_buf_c)``, imaginary for positive
       parameters);
     * no conditional on its variable changes within :data:`MAX_HALF_WIDTH`
-      of it (see :func:`branch_points`);
+      of it (see :func:`branch_points`), so that each such conditional is a
+      single branch across the window and the expression is expanded with
+      that branch in its place (see :func:`branch_at`);
     * it is removable, by leading exponent;
     * a truncated series exists; and
     * that series agrees numerically with the original at the window edge,
@@ -963,7 +1096,7 @@ def removable_poles(
     state_dependent = set(states) | _depending_on(definitions, set(states))
 
     denominator_symbols: set[sympy.Symbol] = set()
-    for factor in denominator_factors(expr):
+    for factor in denominator_factors(_outside_branches(expr)):
         denominator_symbols |= factor.free_symbols & state_dependent
     if not denominator_symbols:
         return ()
@@ -979,13 +1112,14 @@ def removable_poles(
             continue
         # Cheap pass on the float form: most candidates have no root in a
         # matched shape at all, and rationalizing is the expensive step.
-        if not any(factor_roots(factor, var) for factor in denominator_factors(rewritten)):
+        outside = denominator_factors(_outside_branches(rewritten))
+        if not any(factor_roots(factor, var) for factor in outside):
             continue
         exact = _exact(rewritten)
         branches = branch_points(rewritten, var, state_dependent - {var}, defaults)
 
         seen: set[sympy.Expr] = set()
-        for factor in denominator_factors(exact):
+        for factor in denominator_factors(_outside_branches(exact)):
             for value in factor_roots(factor, var):
                 if value.free_symbols & states:
                     logger.debug(
@@ -1012,8 +1146,22 @@ def removable_poles(
                         value=str(value),
                     )
                     continue
+                local, local_exact = rewritten, exact
+                if branches:
+                    reduced = branch_at(rewritten, var, center, defaults)
+                    if reduced is None:
+                        logger.debug(
+                            "Skipping a pole beside a conditional undecided at it",
+                            var=str(var),
+                            value=str(value),
+                        )
+                        continue
+                    if reduced is not rewritten:
+                        local, local_exact = reduced, _exact(reduced)
 
-                pole = _pole_at(rewritten, exact, var, value, order, defaults, variations)
+                pole = _pole_at(
+                    local, local_exact, var, value, order, defaults, variations, whole=rewritten
+                )
                 if pole is not None:
                     found.append(pole)
     return tuple(sorted(found, key=lambda pole: (str(pole.var), str(pole.value))))
@@ -1027,8 +1175,14 @@ def _pole_at(
     order: int,
     defaults: Mapping[sympy.Symbol, float],
     variations: Sequence[Mapping[sympy.Symbol, float]] = (),
+    whole: sympy.Expr | None = None,
 ) -> RemovablePole | None:
     """Classify and, if removable, build the guard for one candidate pole.
+
+    ``rewritten`` and ``exact`` are what is expanded; ``whole``, if given,
+    is the expression they equal across the window -- itself, with its
+    conditionals on ``var`` -- which the replacement is checked against
+    numerically, and which the guard falls back to outside the window.
 
     Tried on the expression as written first, and on the exact copy only if
     that fails. The float form is much the cheaper of the two -- the exact
@@ -1061,15 +1215,16 @@ def _pole_at(
     if replacement is not None:
         replacement = sympy.nfloat(replacement, n=17)
         delta = half_width(rewritten, var, value, order, defaults, replacement)
+        whole = rewritten if whole is None else whole
         if delta is not None and agrees_numerically(
-            rewritten, replacement, var, value, delta, defaults, variations=variations
+            whole, replacement, var, value, delta, defaults, variations=variations
         ):
             return RemovablePole(
                 var=var,
                 value=sympy.nfloat(value, n=17),
                 replacement=replacement,
                 half_width=delta,
-                rewritten=rewritten,
+                rewritten=whole,
             )
 
     logger.warning(
@@ -1159,7 +1314,9 @@ def rewrite(
 ) -> sympy.Expr:
     """Guard every removable pole of ``expr``, or return it unchanged.
 
-    This is the one entry point the model layer needs.
+    This is the one entry point the model layer needs. The branches of each
+    ``Piecewise`` are guarded first, each on its own (see
+    :func:`_rewrite_branches`), and then the expression around them.
 
     Parameters
     ----------
@@ -1180,6 +1337,7 @@ def rewrite(
         The guarded expression, or ``expr`` itself -- the identical object, so
         callers can test with ``is`` -- if it has no removable pole.
     """
+    expr = _rewrite_branches(expr, definitions, states, defaults, order)
     poles = removable_poles(expr, definitions, states, defaults, order=order)
     if not poles:
         return expr

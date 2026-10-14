@@ -550,26 +550,84 @@ def test_branch_points_cannot_locate_a_condition_on_another_state():
     assert singularities.branch_points(expr, B, {B_xB, N}, {N: 0.5}) is None
 
 
-def test_removable_poles_skips_a_pole_the_model_already_guards():
+def test_rewrite_leaves_a_model_s_own_guard_alone():
     """
-    About B = 0 the series takes the branch just above it, here the 0 below
-    1e-12, so the pole looks removable with a replacement of 0. Every point of
-    a window wider than 1e-12 takes the other branch, B_xB/B, where it is not:
-    gotranx 2.5 replaced xB with 0 for |B| < 0.1.
+    The branch B_xB/B is judged on its own, and its pole is genuine. Judged as
+    a whole, the expression expands to 0 about B = 0 -- the branch just above
+    it -- and gotranx 2.5 replaced xB with 0 for |B| < 0.1.
     """
     defaults = {B: 0.0, B_xB: 0.0}
-    assert singularities.removable_poles(OWN_GUARD, {}, frozenset({B, B_xB}), defaults) == ()
-
-
-def test_removable_poles_skips_a_pole_a_conditional_changes_near():
-    """The GHK pole at v = 0 under a condition switching at 0.05 mV, inside the
-    widest window, is skipped before any series is taken. It used to reach the
-    numeric check, which dropped it with a warning."""
-    expr = sympy.Piecewise((GHK, v < 0.05), (0, True))
     with capture_logs() as logs:
-        poles = singularities.removable_poles(expr, GHK_DEFINITIONS, frozenset({v}), GHK_DEFAULTS)
-    assert poles == ()
+        rewritten = singularities.rewrite(OWN_GUARD, {}, frozenset({B, B_xB}), defaults)
+    assert rewritten is OWN_GUARD
     assert not [entry for entry in logs if entry["log_level"] == "warning"]
+
+
+def _ghk_at(expr, value):
+    """``expr`` at v = ``value`` and the GHK defaults, in 50-digit arithmetic."""
+    numbers = {s: sympy.Float(x, 50) for s, x in GHK_DEFAULTS.items() if s != v}
+    exact = expr.xreplace(GHK_DEFINITIONS).xreplace(numbers)
+    return float(exact.subs(v, sympy.Float(value, 50)).evalf(50))
+
+
+@pytest.mark.parametrize("switch", [50.0, 0.05])
+def test_rewrite_guards_a_pole_inside_a_branch(switch):
+    """
+    A branch is evaluated only where its condition holds, so its own pole is
+    guarded within it, wherever the condition changes -- at 50 mV, or at
+    0.05 mV, inside the window. The guard sits in the branch, the condition
+    is kept, and guarding again changes nothing.
+    """
+    expr = sympy.Piecewise((GHK, v < switch), (0, True))
+    guarded = singularities.rewrite(expr, GHK_DEFINITIONS, frozenset({v}), GHK_DEFAULTS)
+    (branch, condition), (other, _) = guarded.args
+    assert condition == (v < switch) and other == 0
+    assert branch.has(sympy.Abs), "the branch was not guarded"
+    for value in (1e-9, -1e-9, 0.02):
+        got = float(
+            branch.xreplace({s: sympy.Float(x) for s, x in GHK_DEFAULTS.items() if s != v}).subs(
+                v, value
+            )
+        )
+        assert got == pytest.approx(_ghk_at(GHK, value), rel=1e-12)
+    again = singularities.rewrite(guarded, GHK_DEFINITIONS, frozenset({v}), GHK_DEFAULTS)
+    assert again is guarded
+
+
+@pytest.mark.parametrize(("switch", "guarded"), [(50.0, True), (0.05, False)])
+def test_rewrite_guards_a_pole_beside_a_conditional_that_changes_elsewhere(switch, guarded):
+    """
+    The pole of GHK*Piecewise((1 + v, v < switch), (2, True)) is outside the
+    conditional. With the switch at 50 mV the conditional is 1 + v across the
+    window, and the pole is guarded as GHK*(1 + v)'s; sympy alone expands the
+    conditional branch by branch, and the guard was dropped. At 0.05 mV it
+    changes inside the window, and the pole is left alone -- silently, without
+    the warning a failed series used to bring.
+    """
+    expr = GHK * sympy.Piecewise((1 + v, v < switch), (2, True))
+    with capture_logs() as logs:
+        result = singularities.rewrite(expr, GHK_DEFINITIONS, frozenset({v}), GHK_DEFAULTS)
+    assert not [entry for entry in logs if entry["log_level"] == "warning"]
+    assert (result is not expr) == guarded
+    if guarded:
+        numbers = {s: sympy.Float(x) for s, x in GHK_DEFAULTS.items() if s != v}
+        for value in (1e-9, -1e-9, 0.02):
+            got = float(result.xreplace(numbers).subs(v, value))
+            assert got == pytest.approx(_ghk_at(GHK * (1 + v), value), rel=1e-12)
+
+
+def test_branch_at_reduces_each_conditional_on_the_variable_to_its_branch():
+    t = sympy.Symbol("t", real=True)
+    inner = sympy.Piecewise((x, x > -1), (2 * x, True))
+    expr = sympy.Piecewise((inner, x < 1), (0, True)) + sympy.Piecewise((a, t < 1), (0, True))
+    reduced = singularities.branch_at(expr, x, 0.0, {})
+    assert reduced - (x + sympy.Piecewise((a, t < 1), (0, True))) == 0
+
+
+def test_branch_at_gives_up_on_a_condition_it_cannot_decide():
+    t = sympy.Symbol("t", real=True)
+    expr = sympy.Piecewise((x, (x < 1) & (t < 1)), (0, True))
+    assert singularities.branch_at(expr, x, 0.0, {}) is None
 
 
 def test_agrees_numerically_rejects_a_replacement_right_only_at_the_initial_state():

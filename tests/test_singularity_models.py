@@ -334,3 +334,51 @@ def test_a_model_guarding_its_own_division_is_left_alone():
     assert {a.name: a.expr for a in ode.sorted_assignments()} == {
         a.name: a.expr for a in plain.sorted_assignments()
     }
+
+
+TOY_CONDITIONAL = """
+parameters(C=1.0)
+states("Membrane", V=-80.0, n=0.1)
+expressions("Membrane")
+alpha_n = Conditional(Lt(V, 50), (V + 10)/(exp((V + 10)/10) - 1), 0)
+dn_dt = alpha_n*(1 - n) - 0.125*n
+dV_dt = -alpha_n*(V + 77)/C
+"""
+
+
+def test_toy_model_guards_a_pole_inside_a_conditional():
+    """
+    The toy model's gate rate under a conditional is guarded within its branch,
+    and gives what the unconditional one does at the pole: alpha_n = 10 and a
+    diagonal of 23.5 (see test_toy_model_guard_evaluates_to_the_true_limit). Its
+    generated stepper is finite exactly at the pole. gotranx 2.5 dropped this
+    guard: sympy expands a Piecewise branch by branch, and a Piecewise of series
+    is not the polynomial a guard needs.
+    """
+    import gotranx.cli.gotran2py
+    from gotranx.schemes import Scheme
+
+    ode = ode_from_string(TOY_CONDITIONAL, remove_singularities=True)
+    alpha_n = [a for a in ode.sorted_assignments() if a.name == "alpha_n"][0]
+    branch, condition = alpha_n.expr.args[0]
+    assert condition == (make_symbol("V") < 50)
+    assert branch.has(sympy.Abs), "the branch was not guarded"
+
+    values = _environment(ode, {make_symbol("V"): -10.0})
+    assert abs(values[make_symbol("alpha_n")] - 10.0) < 1e-12
+    assert abs(_evaluate(diagonal_jacobian(ode)["V"], values) - 23.5) < 1e-9
+
+    def step_at_the_pole(ode):
+        code = gotranx.cli.gotran2py.get_code(ode, scheme=[Scheme.generalized_rush_larsen])
+        namespace: dict = {}
+        exec(compile(code, "<toy>", "exec"), namespace)
+        states = namespace["init_state_values"]()
+        states[namespace["state_index"]("V")] = -10.0
+        with np.errstate(all="ignore"):
+            return namespace["generalized_rush_larsen"](
+                states, 0.0, 1e-3, namespace["init_parameter_values"]()
+            )
+
+    assert np.all(np.isfinite(step_at_the_pole(ode)))
+    unguarded = ode_from_string(TOY_CONDITIONAL, remove_singularities=False)
+    assert not np.all(np.isfinite(step_at_the_pole(unguarded)))
