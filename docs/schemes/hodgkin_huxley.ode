@@ -1,0 +1,67 @@
+# Hodgkin-Huxley model of the squid giant axon
+#
+# Hodgkin AL, Huxley AF. A quantitative description of membrane current and its
+# application to conduction and excitation in nerve. J Physiol. 1952;117(4):500-544.
+# https://doi.org/10.1113/jphysiol.1952.sp004764
+#
+# Written with the modern sign convention (resting potential at -65 mV).
+
+parameters("membrane",
+Cm = ScalarParam(1.0, unit="uF/cm**2", description="Membrane capacitance"),
+stim_amp = ScalarParam(10.0, unit="uA/cm**2", description="Stimulus amplitude"),
+stim_start = ScalarParam(1.0, unit="ms", description="Stimulus start"),
+stim_duration = ScalarParam(1.0, unit="ms", description="Stimulus duration")
+)
+
+parameters("sodium_channel",
+g_Na = ScalarParam(120.0, unit="mS/cm**2", description="Maximal sodium conductance"),
+E_Na = ScalarParam(50.0, unit="mV", description="Sodium reversal potential")
+)
+
+parameters("potassium_channel",
+g_K = ScalarParam(36.0, unit="mS/cm**2", description="Maximal potassium conductance"),
+E_K = ScalarParam(-77.0, unit="mV", description="Potassium reversal potential")
+)
+
+parameters("leakage_current",
+g_L = ScalarParam(0.3, unit="mS/cm**2", description="Leak conductance"),
+E_L = ScalarParam(-54.387, unit="mV", description="Leak reversal potential")
+)
+
+states("membrane",
+V = ScalarParam(-65.0, unit="mV", description="Membrane potential")
+)
+
+states("sodium_channel_m_gate",
+m = ScalarParam(0.05, description="Sodium activation gate")
+)
+
+states("sodium_channel_h_gate",
+h = ScalarParam(0.6, description="Sodium inactivation gate")
+)
+
+states("potassium_channel_n_gate",
+n = ScalarParam(0.32, description="Potassium activation gate")
+)
+
+expressions("sodium_channel_m_gate")
+alpha_m = 0.1 * (V + 40.0) / (1.0 - exp(-(V + 40.0) / 10.0))  # 1/ms
+beta_m = 4.0 * exp(-(V + 65.0) / 18.0)  # 1/ms
+dm_dt = alpha_m * (1 - m) - beta_m * m
+
+expressions("sodium_channel_h_gate")
+alpha_h = 0.07 * exp(-(V + 65.0) / 20.0)  # 1/ms
+beta_h = 1.0 / (1.0 + exp(-(V + 35.0) / 10.0))  # 1/ms
+dh_dt = alpha_h * (1 - h) - beta_h * h
+
+expressions("potassium_channel_n_gate")
+alpha_n = 0.01 * (V + 55.0) / (1.0 - exp(-(V + 55.0) / 10.0))  # 1/ms
+beta_n = 0.125 * exp(-(V + 65.0) / 80.0)  # 1/ms
+dn_dt = alpha_n * (1 - n) - beta_n * n
+
+expressions("membrane")
+i_Na = g_Na * m**3 * h * (V - E_Na)  # uA/cm**2
+i_K = g_K * n**4 * (V - E_K)  # uA/cm**2
+i_L = g_L * (V - E_L)  # uA/cm**2
+i_stim = Conditional(And(Ge(t, stim_start), Le(t, stim_start + stim_duration)), stim_amp, 0.0)  # uA/cm**2
+dV_dt = (i_stim - i_Na - i_K - i_L) / Cm  # mV/ms
