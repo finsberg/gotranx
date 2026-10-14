@@ -25,6 +25,12 @@ parts:
     chapters:
     - file: "docs/about"
     - file: "docs/grammar"
+    - file: "docs/schemes/index"
+      sections:
+      - file: "docs/schemes/forward_euler"
+      - file: "docs/schemes/rush_larsen"
+      - file: "docs/schemes/generalized_rush_larsen"
+      - file: "docs/schemes/hybrid_rush_larsen"
     - file: "docs/history"
   - caption: Reference
     chapters:
