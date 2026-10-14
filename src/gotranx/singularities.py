@@ -31,7 +31,7 @@ Two sympy entry points are deliberately *not* used here:
 from __future__ import annotations
 
 import dataclasses
-from typing import Mapping
+from typing import Mapping, Sequence
 
 import sympy
 from structlog import get_logger
@@ -44,6 +44,7 @@ __all__ = [
     "MIN_HALF_WIDTH",
     "RemovablePole",
     "agrees_numerically",
+    "branch_points",
     "default_values",
     "denominator_factors",
     "factor_roots",
@@ -54,6 +55,7 @@ __all__ = [
     "removable_poles",
     "rewrite",
     "taylor",
+    "varied",
 ]
 
 logger = get_logger()
@@ -692,6 +694,7 @@ def agrees_numerically(
     delta: float,
     defaults: Mapping[sympy.Symbol, float],
     tolerance: float = 1e-6,
+    variations: Sequence[Mapping[sympy.Symbol, float]] = (),
 ) -> bool:
     """Spot-check a replacement against the expression it replaces.
 
@@ -705,6 +708,14 @@ def agrees_numerically(
     center. ``delta`` is placed where the two branches cross over, so both are
     accurate there; closer in, the direct formula is the inaccurate one and a
     disagreement would say nothing about the replacement.
+
+    It is repeated at each of ``variations``, because the defaults alone can
+    pass a wrong replacement: the default of a state is its *initial* value,
+    often zero, and an expression can vanish there identically. ``B_xB/B``
+    with ``B_xB = 0`` is zero across any window, so a replacement of zero
+    agrees with it, though ``B_xB`` is never zero again once the model runs.
+    A variation at which either side cannot be evaluated proves nothing and
+    is skipped; the defaults must evaluate.
 
     Parameters
     ----------
@@ -722,6 +733,10 @@ def agrees_numerically(
         Default values for parameters and other states.
     tolerance : float, optional
         Largest acceptable relative disagreement, by default 1e-6.
+    variations : Sequence[Mapping[sympy.Symbol, float]], optional
+        Further values for the other symbols at which to repeat the check,
+        such as :func:`varied` makes. ``value`` is located at ``defaults``
+        throughout.
 
     Returns
     -------
@@ -731,16 +746,96 @@ def agrees_numerically(
     center = _numeric(value, defaults)
     if center is None:
         return False
-    for point in (center - delta, center + delta):
-        substitution = {var: sympy.Float(point)}
-        original = _numeric(expr.subs(substitution), defaults)
-        proposed = _numeric(replacement.subs(substitution), defaults)
-        if original is None or proposed is None:
-            return False
-        scale = max(abs(original), abs(proposed), 1e-300)
-        if abs(original - proposed) / scale > tolerance:
-            return False
+    for values, required in ((defaults, True), *((v, False) for v in variations)):
+        for point in (center - delta, center + delta):
+            substitution = {var: sympy.Float(point)}
+            original = _numeric(expr.subs(substitution), values)
+            proposed = _numeric(replacement.subs(substitution), values)
+            if original is None or proposed is None:
+                if required:
+                    return False
+                break
+            scale = max(abs(original), abs(proposed), 1e-300)
+            if abs(original - proposed) / scale > tolerance:
+                return False
     return True
+
+
+def varied(
+    defaults: Mapping[sympy.Symbol, float],
+    symbols: set[sympy.Symbol] | frozenset[sympy.Symbol],
+) -> dict[sympy.Symbol, float]:
+    """``defaults`` with each of ``symbols`` moved off its default value.
+
+    Used to check a replacement away from the model's initial state, where
+    states are often exactly zero; see :func:`agrees_numerically`. Each value
+    ``x`` becomes ``1.25 x + 0.25``: no longer zero, still positive if it
+    was not negative, and deterministic, since it ends up deciding generated
+    code.
+    """
+    values = dict(defaults)
+    for symbol in symbols:
+        if symbol in values:
+            values[symbol] = 1.25 * values[symbol] + 0.25
+    return values
+
+
+def branch_points(
+    expr: sympy.Expr,
+    var: sympy.Symbol,
+    state_dependent: set[sympy.Symbol],
+    defaults: Mapping[sympy.Symbol, float],
+) -> list[float] | None:
+    """Where the ``Piecewise`` conditions of ``expr`` change in ``var``.
+
+    A guard replaces ``expr`` with one Taylor series across its whole window,
+    and the series is taken about the pole, so it describes only the branch
+    that holds just above it. That is wrong if a condition on ``var`` changes
+    inside the window. ``Piecewise((B_xB/B, B > 1e-12), (0, True))`` -- a
+    model guarding its own pole -- expands to ``0`` about ``B = 0``, and looks
+    removable, while every point of a window wider than 1e-12 takes the other
+    branch, which has a genuine pole.
+
+    Only inequalities split the line. ``Eq`` and ``Ne`` conditions pick out
+    single points and are ignored.
+
+    Parameters
+    ----------
+    expr : sympy.Expr
+        The expression, already inlined in ``var``.
+    var : sympy.Symbol
+        The variable the pole lives in.
+    state_dependent : set[sympy.Symbol]
+        The states and the intermediates that depend on them.
+    defaults : Mapping[sympy.Symbol, float]
+        Default values to locate the points at.
+
+    Returns
+    -------
+    list[float] | None
+        The real points, at default parameter values, or None if one cannot
+        be located: its condition depends on another state, so it moves as
+        the model runs, or has no shape :func:`factor_roots` can solve.
+    """
+    points: list[float] = []
+    for piecewise in expr.atoms(sympy.Piecewise):
+        for _, condition in piecewise.args:
+            if condition in (sympy.true, sympy.false):
+                continue
+            for relation in condition.atoms(sympy.core.relational.Relational):
+                if var not in relation.free_symbols or isinstance(relation, (sympy.Eq, sympy.Ne)):
+                    continue
+                boundary = relation.lhs - relation.rhs
+                if (boundary.free_symbols - {var}) & state_dependent:
+                    return None
+                roots = factor_roots(boundary, var)
+                if not roots:
+                    return None
+                for root in roots:
+                    point = _numeric(root, defaults)
+                    if point is not None:
+                        points.append(point)
+    return points
 
 
 @dataclasses.dataclass(frozen=True)
@@ -838,9 +933,13 @@ def removable_poles(
       (tentusscher_panfilov's ``Ca_i`` buffering roots are
       ``-K_buf_c +- sqrt(-Buf_c*K_buf_c)``, imaginary for positive
       parameters);
+    * no conditional on its variable changes within :data:`MAX_HALF_WIDTH`
+      of it (see :func:`branch_points`);
     * it is removable, by leading exponent;
     * a truncated series exists; and
-    * that series agrees numerically with the original at the window edge.
+    * that series agrees numerically with the original at the window edge,
+      at the defaults and with every other state moved off its default (see
+      :func:`agrees_numerically`).
 
     Parameters
     ----------
@@ -870,6 +969,7 @@ def removable_poles(
         return ()
 
     found: list[RemovablePole] = []
+    variations = (varied(defaults, state_dependent),)
     for var in sorted(_underlying_states(denominator_symbols, definitions, states), key=str):
         rewritten = inline(expr, definitions, var)
         if rewritten is None or sympy.count_ops(rewritten) > MAX_SERIES_OPS:
@@ -882,6 +982,7 @@ def removable_poles(
         if not any(factor_roots(factor, var) for factor in denominator_factors(rewritten)):
             continue
         exact = _exact(rewritten)
+        branches = branch_points(rewritten, var, state_dependent - {var}, defaults)
 
         seen: set[sympy.Expr] = set()
         for factor in denominator_factors(exact):
@@ -893,7 +994,8 @@ def removable_poles(
                         value=str(value),
                     )
                     continue
-                if _numeric(value, defaults) is None:
+                center = _numeric(value, defaults)
+                if center is None:
                     logger.debug(
                         "Skipping a pole whose location is not a real number",
                         var=str(var),
@@ -903,8 +1005,15 @@ def removable_poles(
                 if value in seen:
                     continue
                 seen.add(value)
+                if branches is None or any(abs(b - center) <= MAX_HALF_WIDTH for b in branches):
+                    logger.debug(
+                        "Skipping a pole a conditional on its variable branches near",
+                        var=str(var),
+                        value=str(value),
+                    )
+                    continue
 
-                pole = _pole_at(rewritten, exact, var, value, order, defaults)
+                pole = _pole_at(rewritten, exact, var, value, order, defaults, variations)
                 if pole is not None:
                     found.append(pole)
     return tuple(sorted(found, key=lambda pole: (str(pole.var), str(pole.value))))
@@ -917,6 +1026,7 @@ def _pole_at(
     value: sympy.Expr,
     order: int,
     defaults: Mapping[sympy.Symbol, float],
+    variations: Sequence[Mapping[sympy.Symbol, float]] = (),
 ) -> RemovablePole | None:
     """Classify and, if removable, build the guard for one candidate pole.
 
@@ -952,7 +1062,7 @@ def _pole_at(
         replacement = sympy.nfloat(replacement, n=17)
         delta = half_width(rewritten, var, value, order, defaults, replacement)
         if delta is not None and agrees_numerically(
-            rewritten, replacement, var, value, delta, defaults
+            rewritten, replacement, var, value, delta, defaults, variations=variations
         ):
             return RemovablePole(
                 var=var,

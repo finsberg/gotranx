@@ -6,6 +6,7 @@ import random
 
 import pytest
 import sympy
+from structlog.testing import capture_logs
 
 from gotranx import singularities
 
@@ -525,3 +526,75 @@ def test_numeric_substitutes_only_the_expressions_own_symbols():
     a, unrelated = sympy.symbols("a unrelated")
     # sympy.Float("not a number") raises, so only `a`'s default may be converted
     assert singularities._numeric(a + 1, {a: 2.0, unrelated: "not a number"}) == 3.0
+
+
+# A state guarding its own division, as a mean strain over an occupancy:
+# xB = B_xB/B where B > 1e-12, and 0 below. Both states start at zero.
+B, B_xB, N = sympy.symbols("B B_xB N", real=True)
+OWN_GUARD = sympy.Piecewise((B_xB / B, B > 1e-12), (0.0, True))
+
+
+def test_branch_points_finds_where_a_condition_on_the_variable_changes():
+    assert singularities.branch_points(OWN_GUARD, B, {B_xB}, {B: 0.0, B_xB: 0.0}) == [1e-12]
+
+
+def test_branch_points_ignores_point_conditions():
+    """An Eq or Ne picks out a single point, around which nothing else changes."""
+    expr = sympy.Piecewise((x / (sympy.exp(x) - 1), sympy.Ne(x, 0)), (1, True))
+    assert singularities.branch_points(expr, x, set(), {}) == []
+
+
+def test_branch_points_cannot_locate_a_condition_on_another_state():
+    """B > N changes wherever N is, and N changes as the model runs."""
+    expr = sympy.Piecewise((B_xB / B, B > N), (0.0, True))
+    assert singularities.branch_points(expr, B, {B_xB, N}, {N: 0.5}) is None
+
+
+def test_removable_poles_skips_a_pole_the_model_already_guards():
+    """
+    About B = 0 the series takes the branch just above it, here the 0 below
+    1e-12, so the pole looks removable with a replacement of 0. Every point of
+    a window wider than 1e-12 takes the other branch, B_xB/B, where it is not:
+    gotranx 2.5 replaced xB with 0 for |B| < 0.1.
+    """
+    defaults = {B: 0.0, B_xB: 0.0}
+    assert singularities.removable_poles(OWN_GUARD, {}, frozenset({B, B_xB}), defaults) == ()
+
+
+def test_removable_poles_skips_a_pole_a_conditional_changes_near():
+    """The GHK pole at v = 0 under a condition switching at 0.05 mV, inside the
+    widest window, is skipped before any series is taken. It used to reach the
+    numeric check, which dropped it with a warning."""
+    expr = sympy.Piecewise((GHK, v < 0.05), (0, True))
+    with capture_logs() as logs:
+        poles = singularities.removable_poles(expr, GHK_DEFINITIONS, frozenset({v}), GHK_DEFAULTS)
+    assert poles == ()
+    assert not [entry for entry in logs if entry["log_level"] == "warning"]
+
+
+def test_agrees_numerically_rejects_a_replacement_right_only_at_the_initial_state():
+    """
+    With B_xB at its initial value 0, B_xB/B is 0 at every B, and so is a wrong
+    replacement of 0. Moved off the initial state, it is not.
+    """
+    defaults = {B_xB: 0.0}
+    args = (B_xB / B, sympy.Integer(0), B, sympy.Integer(0), 0.1, defaults)
+    assert singularities.agrees_numerically(*args)
+    variations = (singularities.varied(defaults, {B_xB}),)
+    assert not singularities.agrees_numerically(*args, variations=variations)
+
+
+def test_agrees_numerically_skips_a_variation_it_cannot_evaluate():
+    """A variation outside the expression's domain proves nothing either way."""
+    rate = 0.2 * (V + 23) / (1 - sympy.exp(-0.04 * (V + 23))) + sympy.sqrt(-a)
+    replacement = singularities.taylor(rate, V, sympy.Integer(-23), 3)
+    defaults = {a: -1.0}
+    variations = ({a: 1.0},)  # sqrt(-1): complex
+    assert singularities.agrees_numerically(
+        rate, replacement, V, sympy.Integer(-23), 1e-2, defaults, variations=variations
+    )
+
+
+def test_varied_moves_each_value_off_its_default():
+    values = singularities.varied({B: 0.0, B_xB: 2.0, N: -4.0, x: 1.0}, {B, B_xB, N})
+    assert values == {B: 0.25, B_xB: 2.75, N: -4.75, x: 1.0}

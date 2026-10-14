@@ -27,6 +27,17 @@ not code.
 
 ### Fixed
 
+- Singularity removal could replace a pole that a model guards itself with
+  the value of that guard, across a far wider window.
+  `xB = Conditional(Gt(B, 1e-12), B_xB/B, 0)`, a mean strain over an
+  occupancy, was emitted as `0` wherever `|B| < 0.1`, silently. Two checks let
+  it through. The Taylor series about `B = 0` takes the branch that holds just
+  above it, the `0` below 1e-12, so the pole looked removable; a pole is now
+  skipped when a condition on its variable changes within the widest window
+  (0.1), or depends on another state and so could change anywhere. And the
+  numeric spot check of the replacement ran only at the initial state, where
+  `B_xB = 0` makes `B_xB/B` zero at every `B`; it is now repeated with every
+  other state moved off its initial value. No bundled model's guards change.
 - The command line needed black, which only the `formatters` extra installs:
   without `--config`, every `ode2*` command looked for `pyproject.toml` through
   `black.files.find_pyproject_toml`, so after a plain `pip install gotranx`,

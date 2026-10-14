@@ -82,9 +82,11 @@ gotranx ode2py file.ode -c folder/pyproject.toml
   with a truncated Taylor series. Without it the generated code divides by
   zero at exactly that point (numpy warns and returns `nan`; numba crashes),
   and the Rush-Larsen linearization is wrong by an O(1) amount, possibly with
-  the wrong sign, in a neighborhood of it. `false` emits the expressions
-  exactly as written. Must be a boolean: `"false"` is rejected rather than
-  read as a truthy string
+  the wrong sign, in a neighborhood of it. A pole under a conditional on the
+  same variable that changes near it -- a model's own guard, such as
+  `Conditional(Gt(B, 1e-12), x/B, 0)` -- is left as written. `false` emits
+  the expressions exactly as written. Must be a boolean: `"false"` is
+  rejected rather than read as a truthy string
 
 ### Python specific options (under `tool.gotranx.python`)
 

@@ -11,6 +11,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 import sympy
+from structlog.testing import capture_logs
 
 import gotranx
 from gotranx.atoms import make_symbol
@@ -303,3 +304,33 @@ def test_stays_stable_at_dt_0_02_over_300_ms(name, state):
     # has not exercised the guard at all.
     assert highest > 0.0, f"{name}: {state} never crossed 0 (peak {highest:.1f} mV)"
     assert -120.0 < lowest and highest < 80.0, (lowest, highest)
+
+
+OWN_GUARD = """
+parameters(k=1.0, xC0=0.01)
+states("bridges", B=0.0, C=0.0, B_xB=0.0, C_xC=0.0)
+expressions("bridges")
+xB = Conditional(Gt(B, 1e-12), B_xB/B, 0.0)
+xC = Conditional(Gt(C, 1e-12), C_xC/C, xC0)
+dB_dt = k*(1 - B - C)
+dC_dt = k*B - k*C
+dB_xB_dt = -k*B_xB + xB*B
+dC_xC_dt = -k*C_xC + xC0*k*B + xC*C
+"""
+
+
+def test_a_model_guarding_its_own_division_is_left_alone():
+    """
+    Mean strains over occupancies that start at zero, as in a
+    stiffness-distortion muscle model. gotranx 2.5 took xB for a removable
+    pole at B = 0 and replaced it with 0 for |B| < 0.1, silently; it tried
+    the same for xC, and dropped it with a warning only because xC0 is not
+    zero.
+    """
+    with capture_logs() as logs:
+        ode = ode_from_string(OWN_GUARD, remove_singularities=True)
+    assert not [entry for entry in logs if entry["log_level"] == "warning"]
+    plain = ode_from_string(OWN_GUARD, remove_singularities=False)
+    assert {a.name: a.expr for a in ode.sorted_assignments()} == {
+        a.name: a.expr for a in plain.sorted_assignments()
+    }
