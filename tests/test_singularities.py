@@ -6,6 +6,7 @@ import random
 
 import pytest
 import sympy
+from structlog.testing import capture_logs
 
 from gotranx import singularities
 
@@ -525,3 +526,133 @@ def test_numeric_substitutes_only_the_expressions_own_symbols():
     a, unrelated = sympy.symbols("a unrelated")
     # sympy.Float("not a number") raises, so only `a`'s default may be converted
     assert singularities._numeric(a + 1, {a: 2.0, unrelated: "not a number"}) == 3.0
+
+
+# A state guarding its own division, as a mean strain over an occupancy:
+# xB = B_xB/B where B > 1e-12, and 0 below. Both states start at zero.
+B, B_xB, N = sympy.symbols("B B_xB N", real=True)
+OWN_GUARD = sympy.Piecewise((B_xB / B, B > 1e-12), (0.0, True))
+
+
+def test_branch_points_finds_where_a_condition_on_the_variable_changes():
+    assert singularities.branch_points(OWN_GUARD, B, {B_xB}, {B: 0.0, B_xB: 0.0}) == [1e-12]
+
+
+def test_branch_points_ignores_point_conditions():
+    """An Eq or Ne picks out a single point, around which nothing else changes."""
+    expr = sympy.Piecewise((x / (sympy.exp(x) - 1), sympy.Ne(x, 0)), (1, True))
+    assert singularities.branch_points(expr, x, set(), {}) == []
+
+
+def test_branch_points_cannot_locate_a_condition_on_another_state():
+    """B > N changes wherever N is, and N changes as the model runs."""
+    expr = sympy.Piecewise((B_xB / B, B > N), (0.0, True))
+    assert singularities.branch_points(expr, B, {B_xB, N}, {N: 0.5}) is None
+
+
+def test_rewrite_leaves_a_model_s_own_guard_alone():
+    """
+    The branch B_xB/B is judged on its own, and its pole is genuine. Judged as
+    a whole, the expression expands to 0 about B = 0 -- the branch just above
+    it -- and gotranx 2.5 replaced xB with 0 for |B| < 0.1.
+    """
+    defaults = {B: 0.0, B_xB: 0.0}
+    with capture_logs() as logs:
+        rewritten = singularities.rewrite(OWN_GUARD, {}, frozenset({B, B_xB}), defaults)
+    assert rewritten is OWN_GUARD
+    assert not [entry for entry in logs if entry["log_level"] == "warning"]
+
+
+def _ghk_at(expr, value):
+    """``expr`` at v = ``value`` and the GHK defaults, in 50-digit arithmetic."""
+    numbers = {s: sympy.Float(x, 50) for s, x in GHK_DEFAULTS.items() if s != v}
+    exact = expr.xreplace(GHK_DEFINITIONS).xreplace(numbers)
+    return float(exact.subs(v, sympy.Float(value, 50)).evalf(50))
+
+
+@pytest.mark.parametrize("switch", [50.0, 0.05])
+def test_rewrite_guards_a_pole_inside_a_branch(switch):
+    """
+    A branch is evaluated only where its condition holds, so its own pole is
+    guarded within it, wherever the condition changes -- at 50 mV, or at
+    0.05 mV, inside the window. The guard sits in the branch, the condition
+    is kept, and guarding again changes nothing.
+    """
+    expr = sympy.Piecewise((GHK, v < switch), (0, True))
+    guarded = singularities.rewrite(expr, GHK_DEFINITIONS, frozenset({v}), GHK_DEFAULTS)
+    (branch, condition), (other, _) = guarded.args
+    assert condition == (v < switch) and other == 0
+    assert branch.has(sympy.Abs), "the branch was not guarded"
+    for value in (1e-9, -1e-9, 0.02):
+        got = float(
+            branch.xreplace({s: sympy.Float(x) for s, x in GHK_DEFAULTS.items() if s != v}).subs(
+                v, value
+            )
+        )
+        assert got == pytest.approx(_ghk_at(GHK, value), rel=1e-12)
+    again = singularities.rewrite(guarded, GHK_DEFINITIONS, frozenset({v}), GHK_DEFAULTS)
+    assert again is guarded
+
+
+@pytest.mark.parametrize(("switch", "guarded"), [(50.0, True), (0.05, False)])
+def test_rewrite_guards_a_pole_beside_a_conditional_that_changes_elsewhere(switch, guarded):
+    """
+    The pole of GHK*Piecewise((1 + v, v < switch), (2, True)) is outside the
+    conditional. With the switch at 50 mV the conditional is 1 + v across the
+    window, and the pole is guarded as GHK*(1 + v)'s; sympy alone expands the
+    conditional branch by branch, and the guard was dropped. At 0.05 mV it
+    changes inside the window, and the pole is left alone -- silently, without
+    the warning a failed series used to bring.
+    """
+    expr = GHK * sympy.Piecewise((1 + v, v < switch), (2, True))
+    with capture_logs() as logs:
+        result = singularities.rewrite(expr, GHK_DEFINITIONS, frozenset({v}), GHK_DEFAULTS)
+    assert not [entry for entry in logs if entry["log_level"] == "warning"]
+    assert (result is not expr) == guarded
+    if guarded:
+        numbers = {s: sympy.Float(x) for s, x in GHK_DEFAULTS.items() if s != v}
+        for value in (1e-9, -1e-9, 0.02):
+            got = float(result.xreplace(numbers).subs(v, value))
+            assert got == pytest.approx(_ghk_at(GHK * (1 + v), value), rel=1e-12)
+
+
+def test_branch_at_reduces_each_conditional_on_the_variable_to_its_branch():
+    t = sympy.Symbol("t", real=True)
+    inner = sympy.Piecewise((x, x > -1), (2 * x, True))
+    expr = sympy.Piecewise((inner, x < 1), (0, True)) + sympy.Piecewise((a, t < 1), (0, True))
+    reduced = singularities.branch_at(expr, x, 0.0, {})
+    assert reduced - (x + sympy.Piecewise((a, t < 1), (0, True))) == 0
+
+
+def test_branch_at_gives_up_on_a_condition_it_cannot_decide():
+    t = sympy.Symbol("t", real=True)
+    expr = sympy.Piecewise((x, (x < 1) & (t < 1)), (0, True))
+    assert singularities.branch_at(expr, x, 0.0, {}) is None
+
+
+def test_agrees_numerically_rejects_a_replacement_right_only_at_the_initial_state():
+    """
+    With B_xB at its initial value 0, B_xB/B is 0 at every B, and so is a wrong
+    replacement of 0. Moved off the initial state, it is not.
+    """
+    defaults = {B_xB: 0.0}
+    args = (B_xB / B, sympy.Integer(0), B, sympy.Integer(0), 0.1, defaults)
+    assert singularities.agrees_numerically(*args)
+    variations = (singularities.varied(defaults, {B_xB}),)
+    assert not singularities.agrees_numerically(*args, variations=variations)
+
+
+def test_agrees_numerically_skips_a_variation_it_cannot_evaluate():
+    """A variation outside the expression's domain proves nothing either way."""
+    rate = 0.2 * (V + 23) / (1 - sympy.exp(-0.04 * (V + 23))) + sympy.sqrt(-a)
+    replacement = singularities.taylor(rate, V, sympy.Integer(-23), 3)
+    defaults = {a: -1.0}
+    variations = ({a: 1.0},)  # sqrt(-1): complex
+    assert singularities.agrees_numerically(
+        rate, replacement, V, sympy.Integer(-23), 1e-2, defaults, variations=variations
+    )
+
+
+def test_varied_moves_each_value_off_its_default():
+    values = singularities.varied({B: 0.0, B_xB: 2.0, N: -4.0, x: 1.0}, {B, B_xB, N})
+    assert values == {B: 0.25, B_xB: 2.75, N: -4.75, x: 1.0}

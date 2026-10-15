@@ -11,6 +11,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 import sympy
+from structlog.testing import capture_logs
 
 import gotranx
 from gotranx.atoms import make_symbol
@@ -303,3 +304,81 @@ def test_stays_stable_at_dt_0_02_over_300_ms(name, state):
     # has not exercised the guard at all.
     assert highest > 0.0, f"{name}: {state} never crossed 0 (peak {highest:.1f} mV)"
     assert -120.0 < lowest and highest < 80.0, (lowest, highest)
+
+
+OWN_GUARD = """
+parameters(k=1.0, xC0=0.01)
+states("bridges", B=0.0, C=0.0, B_xB=0.0, C_xC=0.0)
+expressions("bridges")
+xB = Conditional(Gt(B, 1e-12), B_xB/B, 0.0)
+xC = Conditional(Gt(C, 1e-12), C_xC/C, xC0)
+dB_dt = k*(1 - B - C)
+dC_dt = k*B - k*C
+dB_xB_dt = -k*B_xB + xB*B
+dC_xC_dt = -k*C_xC + xC0*k*B + xC*C
+"""
+
+
+def test_a_model_guarding_its_own_division_is_left_alone():
+    """
+    Mean strains over occupancies that start at zero, as in a
+    stiffness-distortion muscle model. gotranx 2.5 took xB for a removable
+    pole at B = 0 and replaced it with 0 for |B| < 0.1, silently; it tried
+    the same for xC, and dropped it with a warning only because xC0 is not
+    zero.
+    """
+    with capture_logs() as logs:
+        ode = ode_from_string(OWN_GUARD, remove_singularities=True)
+    assert not [entry for entry in logs if entry["log_level"] == "warning"]
+    plain = ode_from_string(OWN_GUARD, remove_singularities=False)
+    assert {a.name: a.expr for a in ode.sorted_assignments()} == {
+        a.name: a.expr for a in plain.sorted_assignments()
+    }
+
+
+TOY_CONDITIONAL = """
+parameters(C=1.0)
+states("Membrane", V=-80.0, n=0.1)
+expressions("Membrane")
+alpha_n = Conditional(Lt(V, 50), (V + 10)/(exp((V + 10)/10) - 1), 0)
+dn_dt = alpha_n*(1 - n) - 0.125*n
+dV_dt = -alpha_n*(V + 77)/C
+"""
+
+
+def test_toy_model_guards_a_pole_inside_a_conditional():
+    """
+    The toy model's gate rate under a conditional is guarded within its branch,
+    and gives what the unconditional one does at the pole: alpha_n = 10 and a
+    diagonal of 23.5 (see test_toy_model_guard_evaluates_to_the_true_limit). Its
+    generated stepper is finite exactly at the pole. gotranx 2.5 dropped this
+    guard: sympy expands a Piecewise branch by branch, and a Piecewise of series
+    is not the polynomial a guard needs.
+    """
+    import gotranx.cli.gotran2py
+    from gotranx.schemes import Scheme
+
+    ode = ode_from_string(TOY_CONDITIONAL, remove_singularities=True)
+    alpha_n = [a for a in ode.sorted_assignments() if a.name == "alpha_n"][0]
+    branch, condition = alpha_n.expr.args[0]
+    assert condition == (make_symbol("V") < 50)
+    assert branch.has(sympy.Abs), "the branch was not guarded"
+
+    values = _environment(ode, {make_symbol("V"): -10.0})
+    assert abs(values[make_symbol("alpha_n")] - 10.0) < 1e-12
+    assert abs(_evaluate(diagonal_jacobian(ode)["V"], values) - 23.5) < 1e-9
+
+    def step_at_the_pole(ode):
+        code = gotranx.cli.gotran2py.get_code(ode, scheme=[Scheme.generalized_rush_larsen])
+        namespace: dict = {}
+        exec(compile(code, "<toy>", "exec"), namespace)
+        states = namespace["init_state_values"]()
+        states[namespace["state_index"]("V")] = -10.0
+        with np.errstate(all="ignore"):
+            return namespace["generalized_rush_larsen"](
+                states, 0.0, 1e-3, namespace["init_parameter_values"]()
+            )
+
+    assert np.all(np.isfinite(step_at_the_pole(ode)))
+    unguarded = ode_from_string(TOY_CONDITIONAL, remove_singularities=False)
+    assert not np.all(np.isfinite(step_at_the_pole(unguarded)))

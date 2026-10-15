@@ -25,8 +25,29 @@ before. Pass `--no-remove-singularities` (or `remove_singularities=False` to
 expressions exactly as written. `ode2cellml` never guards: it exports a model,
 not code.
 
+A pole inside a branch of a `Conditional` is guarded within that branch, and
+the condition is kept. A branch is evaluated only where its condition holds,
+so this is right wherever the condition changes. Such a pole used to be
+dropped with a warning, because sympy expands a `Piecewise` branch by branch,
+and a `Piecewise` of series is not the polynomial a guard needs. For a pole
+outside a conditional, each conditional on the pole's variable is reduced to
+its branch at the pole before expanding, when no condition changes within
+the widest window (0.1); when one does, or depends on another state, the
+pole is left alone.
+
 ### Fixed
 
+- Singularity removal could replace a pole that a model guards itself with
+  the value of that guard, across a far wider window.
+  `xB = Conditional(Gt(B, 1e-12), B_xB/B, 0)`, a mean strain over an
+  occupancy, was emitted as `0` wherever `|B| < 0.1`, silently. Two checks let
+  it through. The Taylor series about `B = 0` took the branch that holds just
+  above it, the `0` below 1e-12, so the pole looked removable; the branch
+  `B_xB/B` is now judged on its own (see above), and its pole is genuine. And
+  the numeric spot check of the replacement ran only at the initial state,
+  where `B_xB = 0` makes `B_xB/B` zero at every `B`; it is now repeated with
+  every other state moved off its initial value. No bundled model's guards
+  change.
 - The command line needed black, which only the `formatters` extra installs:
   without `--config`, every `ode2*` command looked for `pyproject.toml` through
   `black.files.find_pyproject_toml`, so after a plain `pip install gotranx`,
