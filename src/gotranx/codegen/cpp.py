@@ -37,10 +37,29 @@ class GotranCppCodePrinter(_CXXCodePrinterBase, GotranCCodePrinter):
     def __init__(self, float_type: str = "double", *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.float_type = float_type
+        if self._single_precision:
+            # The C printer prints pi, E, sqrt(2), log(10), ... as the double macros
+            # M_PI, M_E, M_SQRT2, M_LN10, ...; print them as float literals instead
+            self.math_macros: dict = {}
 
     @property
     def _single_precision(self) -> bool:
         return self.float_type == "float"
+
+    def _print_NumberSymbol(self, expr):
+        if self._single_precision:
+            return f"{float(expr)!r}f"
+        return super()._print_NumberSymbol(expr)
+
+    def _print_Pi(self, expr):
+        if self._single_precision:
+            return self._print_NumberSymbol(expr)
+        return super()._print_Pi(expr)
+
+    def _print_Exp1(self, expr):
+        if self._single_precision:
+            return self._print_NumberSymbol(expr)
+        return super()._print_Exp1(expr)
 
     def _print_Float(self, flt):
         if self._single_precision:

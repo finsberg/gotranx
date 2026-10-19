@@ -16,12 +16,15 @@ def test_a_failed_compile_shows_the_compilers_diagnostics(c_compiler, tmp_path):
     assert "parentheses" in str(info.value)
 
 
-def test_cc_with_arguments_is_split(monkeypatch, tmp_path):
-    # e.g. CC="ccache gcc": the first word is the program, the rest its leading arguments
-    monkeypatch.setenv("CC", "env cc")
+def test_cc_with_arguments_is_split(c_compiler, monkeypatch, tmp_path):
+    # e.g. CC="ccache gcc": the first word is the program, the rest its leading arguments.
+    # `env <compiler>` stands in for a wrapper, with the compiler the other tests use
+    if shutil.which("env") is None:
+        pytest.skip("needs `env` on PATH")
+    monkeypatch.setenv("CC", f"env {c_compiler.command[-1]}")
     compiler = find_c_compiler()
     assert compiler is not None
-    assert compiler.command == (shutil.which("env"), "cc")
+    assert compiler.command == (shutil.which("env"), c_compiler.command[-1])
     source = tmp_path / "ok.c"
     source.write_text("int f(void) { return 1; }\n")
     assert compiler.shared_library(source).is_file()

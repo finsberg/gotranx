@@ -665,7 +665,9 @@ def ode2cpp(
     cpp_config = config_data.get("cpp", {})
     to = cpp_config.get("to", to)
     format = CFormat(cpp_config.get("format", format))
-    namespace = cpp_config.get("namespace", namespace)
+    # A namespace is per model, so an explicit --namespace wins over the config file
+    if namespace is None:
+        namespace = cpp_config.get("namespace")
     float_type = FloatType(cpp_config.get("float_type", float_type))
 
     gotran2cpp.main(

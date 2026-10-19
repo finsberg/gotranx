@@ -9,6 +9,7 @@ the same ctypes tests. They need a C and a C++ compiler (`conftest.c_compiler`,
 """
 
 import ctypes
+import re
 from pathlib import Path
 
 import numpy
@@ -274,3 +275,19 @@ def test_cpp_compiles_with_missing_variables(cxx_compiler, tmp_path):
     code = gotran2cpp.get_code(ode, scheme=list(Scheme), format=CFormat.none, namespace="split")
     assert "missing_variables" in code
     compile_code(code, "cpp", cxx_compiler, tmp_path)
+
+
+def test_cpp_float_compiles_math_constants_without_promotion(cxx_compiler, tmp_path):
+    # pi (the DSL's reserved constant), sqrt(2) and log(10) print as double macros in C
+    ode = ode_from_string(
+        """
+        parameters("m", r=0.5)
+        states("m", x=1.0)
+        expressions("m")
+        dx_dt = -pi*r*x + sqrt(2)*log(x)/log(10)
+        """
+    )
+    code = gotran2cpp.get_code(ode, scheme=list(Scheme), format=CFormat.none, float_type="float")
+    assert re.search(r"\bM_[A-Z0-9_]+\b", code) is None  # no double macro (M_PI, ...)
+    strict = cxx_compiler.with_flags("-Wdouble-promotion", "-Wfloat-conversion")
+    compile_code(code, "cpp", strict, tmp_path)

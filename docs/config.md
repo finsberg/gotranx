@@ -51,7 +51,6 @@ format = "clang-format"
 
 [tool.gotranx.cpp]
 format = "clang-format"
-namespace = "noble"
 float_type = "double"
 ```
 

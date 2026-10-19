@@ -39,6 +39,11 @@ def test_cpp_printer_double_literals():
         (sympy.Rational(1, 3), "1.0f/3.0f"),
         (sympy.Max(0, x), "std::fmax(0.0f, x)"),
         (sympy.IndexedBase("states", shape=(3,))[0], "states[0]"),
+        # The C printer turns constants into double macros (M_PI, M_SQRT2, M_LN10, ...)
+        (sympy.pi * x, "3.141592653589793f*x"),
+        (sympy.E * x, "2.718281828459045f*x"),
+        (sympy.sqrt(2) * x, "std::sqrt(2.0f)*x"),
+        (sympy.log(x) / sympy.log(10), "std::log(x)/std::log(10.0f)"),
     ],
 )
 def test_cpp_printer_float_literals(expr, expected):

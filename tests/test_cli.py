@@ -382,6 +382,19 @@ def test_ode2cpp_namespace_and_float_type(odefile):
     outfile.unlink()
 
 
+def test_ode2cpp_namespace_flag_wins_over_the_config_file(odefile, tmp_path):
+    # A namespace is per model, so an explicit --namespace must not be overridden by a
+    # project-wide config file
+    config = tmp_path / "pyproject.toml"
+    config.write_text('[tool.gotranx.cpp]\nnamespace = "cfg"\n')
+    with mock.patch("gotranx.cli.gotran2cpp.main") as main:
+        result = runner.invoke(
+            gotranx.cli.app, ["ode2cpp", str(odefile), "-c", str(config), "--namespace", "mine"]
+        )
+    assert result.exit_code == 0, result.stdout
+    assert main.call_args.kwargs["namespace"] == "mine"
+
+
 def test_ode2cpp_config_file(odefile, tmp_path):
     config = tmp_path / "pyproject.toml"
     config.write_text(
