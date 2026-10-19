@@ -11,17 +11,25 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.set-matrix.outputs.versions }}
+      oldest: ${{ steps.set-matrix.outputs.oldest }}
     steps:
       - id: set-matrix
         run: |
+          set -o pipefail
           # Fetch JSON from endoflife.date and filter out versions where the EOL date has passed
-          VERSIONS=$(curl -s https://endoflife.date/api/python.json | jq -c '[.[] | select(.eol > (now | todate | .[0:10])) | .cycle]')
+          VERSIONS=$(curl -fsSL --retry 3 https://endoflife.date/api/python.json | jq -c '[.[] | select(.eol > (now | todate | .[0:10])) | .cycle]')
+          if [ -z "$VERSIONS" ] || [ "$VERSIONS" = "[]" ]; then
+            echo "::error::Could not get the active Python versions from endoflife.date"
+            exit 1
+          fi
           echo "versions=$VERSIONS" >> $GITHUB_OUTPUT
+          echo "oldest=$(echo "$VERSIONS" | jq -r '.[-1]')" >> $GITHUB_OUTPUT
 
 
   build:
 
     name: Test on ${{ matrix.os }} with Python ${{ matrix.python-version }}
+    needs: get-active-python-versions
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -56,7 +64,7 @@ jobs:
         python -m pytest -m "not julia and not cuda" --cov=gotranx --cov-report html --cov-report xml --cov-report term-missing -v
 
     - name: Coverage report
-      if: matrix.python-version == '3.10' && matrix.os == 'ubuntu-latest'
+      if: matrix.python-version == needs.get-active-python-versions.outputs.oldest && matrix.os == 'ubuntu-latest'
       run: |
         python3 -m coverage report | sed 's/^/    /' >> $GITHUB_STEP_SUMMARY
         python3 -m coverage json
@@ -64,7 +72,7 @@ jobs:
         echo "total=$TOTAL" >> $GITHUB_ENV
 
     - name: Upload HTML report.
-      if: matrix.python-version == '3.10' && matrix.os == 'ubuntu-latest'
+      if: matrix.python-version == needs.get-active-python-versions.outputs.oldest && matrix.os == 'ubuntu-latest'
       uses: actions/upload-artifact@v7
       with:
         name: html-report
