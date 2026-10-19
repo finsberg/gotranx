@@ -58,7 +58,7 @@ with the initial conditions $x(0) = 1$ and $y(0) = 0$ and the parameter $a$ with
 gotranx ode2py file.ode --scheme explicit_euler -o file.py
 ```
 which will create a file `file.py` containing functions for solving the ODE.
-The same ODE can be turned into C (`ode2c`), Julia (`ode2julia`), a
+The same ODE can be turned into C (`ode2c`), C++ (`ode2cpp`), Julia (`ode2julia`), a
 ModelingToolkit system (`ode2mtk`), UFL (`ode2ufl`), Markdown (`ode2md`),
 CellML (`ode2cellml`) or a [CytoZoo](https://github.com/finsberg/CytoZoo.jl)
 cell-model adapter (`ode2cytozoo` -- whose output needs a CytoZoo providing

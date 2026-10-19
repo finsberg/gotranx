@@ -2,7 +2,9 @@ import pytest
 import sympy
 from sympy.codegen.ast import Assignment
 
+from gotranx.cli import gotran2cpp
 from gotranx.codegen import CFormat
+from gotranx.schemes import Scheme
 from gotranx.codegen.cpp import CppCodeGenerator, GotranCppCodePrinter
 from gotranx.exceptions import InvalidNamespace
 from gotranx.ode import make_ode
@@ -116,3 +118,14 @@ def test_cpp_namespace_defaults_to_the_ode_name(ode):
 def test_cpp_invalid_namespace_is_rejected(ode, name):
     with pytest.raises(InvalidNamespace, match="--namespace"):
         CppCodeGenerator(ode, namespace=name)
+
+
+def test_cpp_get_code_layout(ode):
+    code = gotran2cpp.get_code(ode, scheme=list(Scheme), format=CFormat.none)
+    assert code.splitlines()[0] == "#pragma once"
+    assert "namespace lorentz {" in code
+    assert "constexpr int NUM_STATES = 3;" in code
+    assert "inline void forward_generalized_rush_larsen(" in code
+    assert code.rstrip().endswith("}  // namespace lorentz")
+    inside = code.split("namespace lorentz {", 1)[1]
+    assert "#include" not in inside

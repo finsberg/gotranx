@@ -65,6 +65,17 @@ python3 -m gotranx ode2c noble_1962.ode --to .h
 ```
 ````
 
+````{tab-item} C++
+A C++17 header (`.hpp`) with everything in a namespace, named after the ODE unless you pass `--namespace`
+```shell
+python3 -m gotranx ode2cpp noble_1962.ode --namespace noble
+```
+Use `--float-type float` for single precision
+```shell
+python3 -m gotranx ode2cpp noble_1962.ode --float-type float
+```
+````
+
 ````{tab-item} Julia
 ```shell
 python3 -m gotranx ode2julia noble_1962.ode
