@@ -11,11 +11,13 @@ betaz
 boolalg
 Cais
 capsys
+cardiomyocyte
 cass
 cbuild
 cellml
 cellmlfile
 cfile
+cipa
 cmodel
 codegen
 codeprinter
@@ -78,6 +80,7 @@ lambdified
 lambdify
 leadterm
 LIBFILE
+libm
 linalg
 linearizable
 linearization
@@ -86,6 +89,7 @@ linestyle
 linspace
 literalinclude
 lmbda
+loadtxt
 logicalfunc
 mathcal
 mathrm
@@ -94,6 +98,7 @@ modelparameters
 MPLBACKEND
 mpmath
 mpmathify
+MSVC
 myokit
 nbeats
 ndarray
@@ -111,6 +116,7 @@ Nørsett
 odeblock
 odefile
 odefiles
+ohara
 ordmm
 ORDMMLAND
 Ostermann
@@ -176,12 +182,14 @@ Tveito
 ureg
 userfunc
 Veneziani
-vffrt
 VFFRT
+vffrt
 VFRT
 vfrt
-Windkessel
+Werror
+Wextra
 windkessel
+Windkessel
 workdps
 workprec
 xlabel

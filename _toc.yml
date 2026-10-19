@@ -17,6 +17,7 @@ parts:
     - file: "examples/split-ode/main.py"
     - file: "examples/ufl_backend.py"
     - file: "examples/compile-c-extension/main.py"
+    - file: "examples/c-single-cell/main.py"
     - file: "docs/vectorized_computations"
     - file: "examples/lorentz_julia.jl"
     - file: "examples/cytozoo/main.jl"

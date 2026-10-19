@@ -5,12 +5,12 @@ from structlog import get_logger
 logger = get_logger()
 
 
-def init_state_values(name, state_names, state_values, code):
+def init_state_values(name, state_names, state_values, code, float_type="double"):
     indented_code = indent(code, "    ")
     indent_values = indent(", ".join(f"{n}={v}" for n, v in zip(state_names, state_values)), "    ")
     return dedent(
         f"""
-void init_state_values(double* {name}){{
+void init_state_values({float_type}* {name}){{
     /*
 {indent_values}
     */
@@ -20,14 +20,14 @@ void init_state_values(double* {name}){{
     )
 
 
-def init_parameter_values(name, parameter_names, parameter_values, code):
+def init_parameter_values(name, parameter_names, parameter_values, code, float_type="double"):
     indented_code = indent(code, "    ")
     indent_values = indent(
         ", ".join(f"{n}={v}" for n, v in zip(parameter_names, parameter_values)), "    "
     )
     return dedent(
         f"""
-void init_parameter_values(double* {name}){{
+void init_parameter_values({float_type}* {name}){{
     /*
 {indent_values}
     */

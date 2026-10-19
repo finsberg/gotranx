@@ -4,7 +4,9 @@ from unittest import mock
 
 import pytest
 from gotranx.schemes import get_scheme
+from gotranx import templates
 from gotranx.codegen import CCodeGenerator
+from gotranx.codegen import CFormat
 from gotranx.codegen import RHSArgument
 from gotranx.ode import make_ode
 
@@ -582,3 +584,65 @@ def test_c_codegen_monitor(codegen: CCodeGenerator):
         "\n}"
         "\n"
     )
+
+
+def test_c_float_type_reaches_every_signature_and_local(ode):
+    class FloatC(CCodeGenerator):
+        float_type = "float"
+
+    codegen = FloatC(ode, format=CFormat.none)
+    code = "\n".join(
+        [
+            codegen.rhs(),
+            codegen.monitor_values(),
+            codegen.initial_state_values(),
+            codegen.initial_parameter_values(),
+            codegen.scheme(get_scheme("forward_explicit_euler")),
+        ]
+    )
+    assert "double" not in code
+    assert "const float t" in code
+    assert "const float *__restrict states" in code
+    assert "float* values" in code
+    assert "void init_state_values(float* states)" in code
+    assert "const float x = states[0];" in code
+
+
+def test_c_restrict_attribute_reaches_every_pointer(ode):
+    class RestrictC(CCodeGenerator):
+        restrict = "__restrict__"
+
+    code = RestrictC(ode, format=CFormat.none).rhs()
+    assert "const double *__restrict__ states" in code
+    assert "__restrict " not in code
+
+
+def test_method_kwargs_reach_every_method_template(ode, monkeypatch):
+    seen = []
+    original = templates.c.method
+    monkeypatch.setattr(templates.c, "method", lambda **kw: seen.append(kw) or original(**kw))
+
+    class HookC(CCodeGenerator):
+        def _method_kwargs(self):
+            return {"marker": "X"}
+
+    codegen = HookC(ode, format=CFormat.none)
+    codegen.rhs()
+    codegen.monitor_values()
+    codegen.missing_values({"x": 0})
+    codegen.scheme(get_scheme("forward_explicit_euler"))
+    assert [kw.get("marker") for kw in seen] == ["X"] * 4
+
+
+def test_c_subclass_class_attributes_still_override_the_derived_strings(ode):
+    # variable_prefix and missing_variables_argument were class attributes before float_type
+    # and restrict existed; a subclass that sets them must keep working
+    class Old(CCodeGenerator):
+        variable_prefix = "const float "
+        missing_variables_argument = "const float *missing_variables"
+
+    codegen = Old(ode, format=CFormat.none)
+    assert codegen.variable_prefix == "const float "
+    assert codegen.missing_variables_argument == "const float *missing_variables"
+    assert "const float x = states[0];" in codegen.rhs()
+    assert CCodeGenerator.variable_prefix == "const double "

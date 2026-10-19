@@ -7,9 +7,6 @@ hold the C, Julia and CytoZoo backends to the same contract, checked against the
 
 import ctypes
 import re
-import shutil
-import subprocess
-import sys
 
 import numpy
 import pytest
@@ -80,19 +77,10 @@ def test_c_takes_and_unpacks_missing_variables(ode):
     assert "const double w_in = missing_variables[1];" in code
 
 
-def _compiler():
-    return shutil.which("cc") or shutil.which("gcc") or shutil.which("clang")
-
-
-@pytest.mark.skipif(_compiler() is None or sys.platform == "win32", reason="needs a C compiler")
-def test_c_compiles_and_agrees_with_python(ode, python, tmp_path):
+def test_c_compiles_and_agrees_with_python(ode, python, c_compiler, tmp_path):
     source = tmp_path / "model.c"
-    library = tmp_path / "model.so"
     source.write_text(gotran2c.get_code(ode, scheme=SCHEME, format=CFormat.none))
-    subprocess.run(
-        [_compiler(), "-shared", "-fPIC", "-o", str(library), str(source), "-lm"], check=True
-    )
-    lib = ctypes.CDLL(str(library))
+    lib = ctypes.CDLL(str(c_compiler.shared_library(source)))
     for name in ("state_index", "monitor_index", "missing_index"):
         getattr(lib, name).argtypes = [ctypes.c_char_p]
         getattr(lib, name).restype = ctypes.c_int

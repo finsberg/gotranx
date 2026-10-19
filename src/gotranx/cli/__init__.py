@@ -533,6 +533,7 @@ def ode2c(
         scheme=scheme,
         remove_unused=remove_unused,
         remove_singularities=remove_singularities,
+        format=format,
         verbose=verbose,
         stiff_states=stiff_states,
         delta=delta,
