@@ -16,6 +16,7 @@ cbuild
 cellml
 cellmlfile
 cfile
+cipa
 cmodel
 codegen
 codeprinter
@@ -78,6 +79,7 @@ lambdified
 lambdify
 leadterm
 LIBFILE
+libm
 linalg
 linearizable
 linearization
@@ -94,6 +96,7 @@ modelparameters
 MPLBACKEND
 mpmath
 mpmathify
+MSVC
 myokit
 nbeats
 ndarray
@@ -111,6 +114,7 @@ Nørsett
 odeblock
 odefile
 odefiles
+ohara
 ordmm
 ORDMMLAND
 Ostermann
@@ -176,10 +180,12 @@ Tveito
 ureg
 userfunc
 Veneziani
-vffrt
 VFFRT
+vffrt
 VFRT
 vfrt
+Werror
+Wextra
 Windkessel
 windkessel
 workdps
