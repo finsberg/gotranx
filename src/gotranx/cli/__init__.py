@@ -6,9 +6,18 @@ import warnings
 import typer
 
 from ..schemes import Scheme, get_scheme
-from ..codegen import PythonFormat, CFormat
+from ..codegen import PythonFormat, CFormat, FloatType
 from ..codegen.base import Shape
-from . import gotran2c, gotran2py, gotran2julia, gotran2cytozoo, gotran2md, gotran2mtk, gotran2ufl
+from . import (
+    gotran2c,
+    gotran2cpp,
+    gotran2py,
+    gotran2julia,
+    gotran2cytozoo,
+    gotran2md,
+    gotran2mtk,
+    gotran2ufl,
+)
 from . import utils
 
 app = typer.Typer()
@@ -538,6 +547,143 @@ def ode2c(
         stiff_states=stiff_states,
         delta=delta,
         cse=cse,
+    )
+
+
+@app.command()
+def ode2cpp(
+    fname: typing.Optional[Path] = typer.Argument(
+        None,
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        writable=False,
+        readable=True,
+        resolve_path=True,
+    ),
+    to: str = typer.Option(
+        ".hpp",
+        "--to",
+        help="Generate code to another programming language",
+    ),
+    outname: typing.Optional[str] = typer.Option(
+        None,
+        "-o",
+        "--outname",
+        help="Output name",
+    ),
+    remove_unused: bool = typer.Option(
+        False,
+        "--remove-unused",
+        help="Remove unused variables",
+    ),
+    remove_singularities: bool = typer.Option(
+        True,
+        "--remove-singularities/--no-remove-singularities",
+        help=(
+            "Replace a small neighborhood of every removable singularity "
+            "(e.g. x/(exp(x) - 1) at x = 0) with a truncated Taylor series"
+        ),
+    ),
+    version: bool = typer.Option(
+        None,
+        "--version",
+        callback=version_callback,
+        is_eager=True,
+        help="Show version",
+    ),
+    license: bool = typer.Option(
+        None,
+        "--license",
+        callback=license_callback,
+        is_eager=True,
+        help="Show license",
+    ),
+    config: typing.Optional[Path] = typer.Option(
+        None,
+        "-c",
+        "--config",
+        help="Read configuration options from a configuration file",
+    ),
+    verbose: bool = typer.Option(
+        False,
+        "--verbose",
+        "-v",
+        help="Verbose output",
+    ),
+    scheme: typing.Annotated[
+        typing.List[Scheme],
+        typer.Option(help="Numerical scheme for solving the ODE"),
+    ] = [],
+    stiff_states: typing.Annotated[
+        typing.List[str],
+        typer.Option("-s", "--stiff-states", help="Stiff states for the hybrid rush larsen scheme"),
+    ] = [],
+    delta: float = typer.Option(
+        1e-8,
+        help="Delta value for the rush larsen schemes",
+    ),
+    cse: bool = typer.Option(
+        True,
+        "--cse/--no-cse",
+        help=(
+            "Factor out subexpressions shared by the linearized expressions "
+            "in the rush larsen schemes. --no-cse inlines them instead, "
+            "emitting no temporaries"
+        ),
+    ),
+    format: CFormat = typer.Option(
+        CFormat.clang_format,
+        "--format",
+        "-f",
+        help="Formatter for the output code",
+    ),
+    namespace: typing.Optional[str] = typer.Option(
+        None,
+        "--namespace",
+        help="Namespace of the generated code (default: the name of the ODE)",
+    ),
+    float_type: FloatType = typer.Option(
+        FloatType.double,
+        "--float-type",
+        help="Floating point type of the generated code",
+    ),
+):
+    if fname is None:
+        return typer.echo("No file specified")
+
+    config_data = utils.read_config(config)
+    verbose = config_data.get("verbose", verbose)
+    delta = config_data.get("delta", delta)
+    stiff_states = config_data.get("stiff_states", stiff_states)
+    cse = utils.validate_cse(config_data.get("cse", cse))
+    remove_singularities = utils.validate_remove_singularities(
+        config_data.get("remove_singularities", remove_singularities)
+    )
+    scheme = config_data.get("scheme", scheme)
+    scheme = utils.validate_scheme(scheme)
+    cpp_config = config_data.get("cpp", {})
+    to = cpp_config.get("to", to)
+    format = CFormat(cpp_config.get("format", format))
+    # A namespace is per model, so an explicit --namespace wins over the config file
+    if namespace is None:
+        namespace = cpp_config.get("namespace")
+    float_type = FloatType(cpp_config.get("float_type", float_type))
+
+    gotran2cpp.main(
+        fname=fname,
+        suffix=to,
+        outname=outname,
+        scheme=scheme,
+        remove_unused=remove_unused,
+        remove_singularities=remove_singularities,
+        format=format,
+        verbose=verbose,
+        stiff_states=stiff_states,
+        delta=delta,
+        cse=cse,
+        namespace=namespace,
+        float_type=float_type,
     )
 
 

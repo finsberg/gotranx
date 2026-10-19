@@ -26,8 +26,10 @@ coeff
 coeffs
 conds
 cpath
+cstring
 ctypeslib
 CUDA
+cxxcode
 Cyto
 cytozoo
 DCELL
@@ -37,6 +39,7 @@ dpst
 dpts
 dspt
 dstp
+dthis
 dtps
 dtsp
 dunused
@@ -58,6 +61,7 @@ fmin
 funcname
 gammasu
 geomspace
+getfixturevalue
 gotran
 gotranx
 Hairer
@@ -126,6 +130,7 @@ panfilov
 pdst
 pdts
 Perego
+printmethod
 psdt
 pstd
 ptds
@@ -178,6 +183,7 @@ troponin
 TRPN
 tsdp
 tspd
+Tusscher
 Tveito
 ureg
 userfunc
@@ -186,8 +192,10 @@ VFFRT
 vffrt
 VFRT
 vfrt
+Wdouble
 Werror
 Wextra
+Wfloat
 windkessel
 Windkessel
 workdps

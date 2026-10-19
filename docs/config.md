@@ -48,6 +48,10 @@ format = "ruff"
 
 [tool.gotranx.c]
 format = "clang-format"
+
+[tool.gotranx.cpp]
+format = "clang-format"
+float_type = "double"
 ```
 
 Without `--config`, `gotranx` reads the nearest `pyproject.toml` that has a `[tool.gotranx]` table, looking in the current directory and then in each of its parents.

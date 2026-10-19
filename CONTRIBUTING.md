@@ -59,7 +59,7 @@ in the root of the repository. To run the tests you can execute the command
 ```
 python3 -m pytest
 ```
-Some tests compile the generated C code with a C compiler (`$CC`, or the first of `cc`, `gcc` and `clang` on your `PATH`) and are skipped if none is found, or on Windows. Set `GOTRANX_REQUIRE_CC=1` to make a missing compiler fail these tests instead, as the CI does on Linux and macOS.
+Some tests compile the generated C and C++ code with a C compiler (`$CC`, or the first of `cc`, `gcc` and `clang` on your `PATH`) and a C++ compiler (`$CXX`, or the first of `c++`, `g++` and `clang++`). `$CC` and `$CXX` may include arguments, e.g. `CC="ccache gcc"`. The tests are skipped if no compiler is found, or on Windows. Set `GOTRANX_REQUIRE_CC=1` to make a missing compiler fail these tests instead, as the CI does on Linux and macOS.
 
 You can read more about using pytest in the [official documentation of pytest](https://docs.pytest.org/).
 

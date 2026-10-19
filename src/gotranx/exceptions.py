@@ -142,6 +142,19 @@ class MissingPotentialState(GotranxError, ValueError):
 
 
 @dataclass
+class InvalidNamespace(GotranxError, ValueError):
+    name: str
+
+    def __str__(self) -> str:
+        return (
+            f"{self.name!r} is not a valid C++ namespace, so the generated code would not "
+            "compile. A valid name starts with a letter or underscore, contains only "
+            "letters, digits and underscores, and is not a C++ keyword -- e.g. "
+            "'noble_1962'. Pass a different name with namespace= (CLI: --namespace)."
+        )
+
+
+@dataclass
 class InvalidModelName(GotranxError, ValueError):
     name: str
 

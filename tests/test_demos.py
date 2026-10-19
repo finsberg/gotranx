@@ -35,7 +35,10 @@ def test_examples(example, tmpdir, env):
     if not (example / "main.py").exists():
         return
 
-    if example.name in ("compile-c-extension", "c-single-cell") and platform.system() == "Windows":
+    if (
+        example.name in ("compile-c-extension", "c-single-cell", "cpp-single-cell")
+        and platform.system() == "Windows"
+    ):
         pytest.skip(f"Skipping {example.name} example on Windows")
         return
 
