@@ -80,11 +80,12 @@ int main(int argc, char *argv[])
         // The cell model, in place: the scheme reads and writes the same states
         tor_ord::generalized_rush_larsen<<<blocks, threads>>>(states, t, cable::dt, d_parameters,
                                                              states, n_cells);
+        CHECK(cudaGetLastError());
         // The diffusion of the potential, and the stimulus at the start of the cable
         cable::diffuse<<<blocks, threads>>>(potential, v_new, n_cells, cable::stimulus(t));
+        CHECK(cudaGetLastError());
         CHECK(cudaMemcpy(potential, v_new, sizeof(double) * n_cells, cudaMemcpyDeviceToDevice));
     }
-    CHECK(cudaGetLastError());
     CHECK(cudaDeviceSynchronize());
 
     std::fclose(out);
