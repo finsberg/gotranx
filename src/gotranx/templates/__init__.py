@@ -2,6 +2,7 @@ from __future__ import annotations
 import typing
 
 from . import c
+from . import cpp
 from . import python
 from . import jax
 from . import julia
@@ -198,4 +199,4 @@ class Template(typing.Protocol):
         """
 
 
-__all__ = ["c", "python", "jax", "julia", "markdown", "mtk", "Template", "ufl", "cytozoo"]
+__all__ = ["c", "cpp", "python", "jax", "julia", "markdown", "mtk", "Template", "ufl", "cytozoo"]

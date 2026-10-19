@@ -2,7 +2,10 @@ import pytest
 import sympy
 from sympy.codegen.ast import Assignment
 
-from gotranx.codegen.cpp import GotranCppCodePrinter
+from gotranx.codegen import CFormat
+from gotranx.codegen.cpp import CppCodeGenerator, GotranCppCodePrinter
+from gotranx.exceptions import InvalidNamespace
+from gotranx.ode import make_ode
 
 x, y = sympy.symbols("x y")
 
@@ -42,3 +45,74 @@ def test_cpp_printer_float_literals(expr, expected):
 
 def test_cpp_printer_renames_cxx_keywords():
     assert GotranCppCodePrinter().doprint(sympy.Symbol("new") * 2) == "2*new_"
+
+
+@pytest.fixture(scope="module")
+def ode(trans, parser):
+    expr = """
+    parameters(a=0)
+    parameters("My component",
+    sigma=ScalarParam(12.0, description="Some description"),
+    rho=21.0,
+    beta=2.4
+    )
+    states("My component", x=1.0, y=2.0,z=3.05)
+
+    expressions("My component")
+    dy_dt = x*(rho - z) - y # millivolt
+    dx_dt = sigma*(-x + y)
+    dz_dt = -beta*z + x*y
+    """
+    tree = parser.parse(expr)
+    return make_ode(*trans.transform(tree), name="lorentz")
+
+
+@pytest.fixture(scope="module")
+def codegen(ode) -> CppCodeGenerator:
+    return CppCodeGenerator(ode, format=CFormat.none)
+
+
+def test_cpp_rhs_signature(codegen):
+    assert (
+        "inline void rhs(const double t, const double *__restrict states, "
+        "const double *__restrict parameters, double* values){"
+    ) in codegen.rhs()
+
+
+def test_cpp_initial_state_values(codegen):
+    code = codegen.initial_state_values()
+    assert "inline void init_state_values(double* states){" in code
+    assert "states[0] = 1.0;" in code
+
+
+def test_cpp_index_functions_are_inline_and_use_std_strcmp(codegen):
+    code = codegen.state_index()
+    assert "inline int state_index(const char name[])" in code
+    assert 'std::strcmp(name, "x") == 0' in code
+
+
+def test_cpp_constants(codegen):
+    assert codegen.constants().splitlines() == [
+        "constexpr int NUM_STATES = 3;",
+        "constexpr int NUM_PARAMS = 4;",
+        "constexpr int NUM_MONITORED = 3;",
+    ]
+
+
+def test_cpp_float_type(ode):
+    codegen = CppCodeGenerator(ode, format=CFormat.none, float_type="float")
+    code = codegen.rhs() + codegen.initial_state_values()
+    assert "double" not in code
+    assert "const float x = states[0];" in code
+    assert "states[2] = 3.05f;" in code
+
+
+def test_cpp_namespace_defaults_to_the_ode_name(ode):
+    assert CppCodeGenerator(ode).namespace == "lorentz"
+    assert CppCodeGenerator(ode, namespace="other").namespace == "other"
+
+
+@pytest.mark.parametrize("name", ["1962_noble", "my.model", "my model", "default", "namespace"])
+def test_cpp_invalid_namespace_is_rejected(ode, name):
+    with pytest.raises(InvalidNamespace, match="--namespace"):
+        CppCodeGenerator(ode, namespace=name)

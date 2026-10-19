@@ -1,9 +1,19 @@
 from __future__ import annotations
 
+import enum
+
 from sympy.printing.c import C99CodePrinter
 from sympy.printing.cxx import CXX17CodePrinter, _CXXCodePrinterBase
 
-from .c import GotranCCodePrinter
+from .. import templates
+from ..exceptions import InvalidNamespace
+from ..ode import ODE
+from .c import CCodeGenerator, Format, GotranCCodePrinter
+
+
+class FloatType(str, enum.Enum):
+    double = "double"
+    float = "float"
 
 
 class GotranCppCodePrinter(_CXXCodePrinterBase, GotranCCodePrinter):
@@ -53,3 +63,49 @@ class GotranCppCodePrinter(_CXXCodePrinterBase, GotranCCodePrinter):
             index = ", ".join(str(int(i)) for i in expr.indices)
             return f"{self._print(expr.base.label)}[{index}]"
         return super()._print_Indexed(expr)
+
+
+def valid_namespace(name: str) -> bool:
+    return name.isascii() and name.isidentifier() and name not in CXX17CodePrinter.reserved_words
+
+
+class CppCodeGenerator(CCodeGenerator):
+    """C++17 code: the C generator's functions, `inline` and in a namespace.
+
+    `gotran2cpp.get_code` puts the pieces in `namespace <namespace> { ... }`; the
+    namespace defaults to the ODE's name.
+    """
+
+    def __init__(
+        self,
+        ode: ODE,
+        format: Format = Format.clang_format,
+        remove_unused: bool = False,
+        namespace: str | None = None,
+        float_type: FloatType | str = FloatType.double,
+    ) -> None:
+        # Before CCodeGenerator.__init__, which derives the type strings from it
+        self.float_type = FloatType(float_type).value
+        super().__init__(ode, format=format, remove_unused=remove_unused)
+        self._printer = GotranCppCodePrinter(float_type=self.float_type)
+        name = namespace or ode.name
+        if not valid_namespace(name):
+            raise InvalidNamespace(name)
+        self.namespace = name
+
+    @property
+    def template(self):
+        return templates.cpp
+
+    def imports(self) -> str:
+        return self._format("\n".join(["#pragma once", "#include <cmath>", "#include <cstring>\n"]))
+
+    def constants(self) -> str:
+        num_monitored = len(self.ode.state_derivatives) + len(self.ode.intermediates)
+        return "\n".join(
+            [
+                f"constexpr int NUM_STATES = {len(self.ode.states)};",
+                f"constexpr int NUM_PARAMS = {len(self.ode.parameters)};",
+                f"constexpr int NUM_MONITORED = {num_monitored};",
+            ]
+        )

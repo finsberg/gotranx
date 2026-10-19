@@ -26,6 +26,7 @@ coeff
 coeffs
 conds
 cpath
+cstring
 ctypeslib
 CUDA
 cxxcode
