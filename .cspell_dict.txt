@@ -3,6 +3,7 @@ afterload
 allclose
 arange
 Artebrant
+ascontiguousarray
 atol
 autouse
 axhline
