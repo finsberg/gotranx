@@ -1,3 +1,4 @@
+import re
 from textwrap import dedent
 from unittest import mock
 import gotranx
@@ -12,6 +13,11 @@ except ImportError:
 
 here = Path(__file__).parent.absolute()
 runner = CliRunner()
+
+
+def strip_ansi(text: str) -> str:
+    # Typer forces colour when GITHUB_ACTIONS is set, which splits words like --namespace
+    return re.sub(r"\x1b\[[0-9;]*m", "", text)
 
 
 @pytest.fixture(scope="session")
@@ -403,8 +409,9 @@ def test_an_invalid_namespace_is_a_usage_error(command, odefile, tmp_path):
         [command, str(odefile), "-o", str(tmp_path / "out"), "--namespace", "1abc"],
     )
     assert result.exit_code == 2
-    assert "Invalid value for --namespace" in result.output
-    assert "'1abc' is not a valid C++ namespace" in result.output
+    output = strip_ansi(result.output)
+    assert "Invalid value for --namespace" in output
+    assert "'1abc' is not a valid C++ namespace" in output
     assert not (tmp_path / "out.hpp").exists() and not (tmp_path / "out.cuh").exists()
 
 
