@@ -20,12 +20,14 @@ cellml
 cellmlfile
 cfile
 cipa
+cmap
 cmodel
 codegen
 codeprinter
 codspeed
 coeff
 coeffs
+colorbar
 conds
 cpath
 cstdint
@@ -72,6 +74,7 @@ Hairer
 Hochbruck
 hprint
 Hustad
+imshow
 inds
 infty
 inlines
@@ -199,6 +202,7 @@ VFFRT
 vffrt
 VFRT
 vfrt
+viridis
 Wdouble
 Werror
 Wextra

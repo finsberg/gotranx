@@ -79,3 +79,21 @@ def test_nvcc_missing_variables(nvcc, cuda_arch, tmp_path):
     ode = full - full.get_component("inputs")
     code = gotran2cuda.get_code(ode, scheme=list(Scheme), format=CFormat.none, namespace="split")
     compile_cuda(code, nvcc.with_flags(f"-arch={cuda_arch}"), tmp_path)
+
+
+CABLE_DEMO = HERE / ".." / "examples" / "cuda-cable"
+
+
+def test_nvcc_builds_the_cable_demo(nvcc, cuda_arch, tmp_path):
+    ode = load_ode(CABLE_DEMO / "ToRORd_dyn_chloride.ode")
+    code = gotran2cuda.get_code(
+        ode, scheme=[Scheme.generalized_rush_larsen], format=CFormat.none, namespace="tor_ord"
+    )
+    (tmp_path / "tor_ord.cuh").write_text(code)
+    for name in ("main.cu", "cable.cuh"):
+        (tmp_path / name).write_text((CABLE_DEMO / name).read_text())
+    # Links against the CUDA runtime, which needs no GPU either
+    executable = nvcc.with_flags(f"-arch={cuda_arch}").executable(
+        tmp_path / "main.cu", output=tmp_path / "cable"
+    )
+    assert executable.is_file()

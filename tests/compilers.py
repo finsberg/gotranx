@@ -56,6 +56,12 @@ class Compiler:
         self._run(["-c", "-o", str(output), str(source)])
         return output
 
+    def executable(self, *sources: Path, output: Path) -> Path:
+        """Compile and link `sources` into the program `output`, and return its path.
+        Raises `CompileError` like `shared_library`."""
+        self._run(["-o", str(output), *map(str, sources)])
+        return output
+
     def shared_library(self, *sources: Path) -> Path:
         """Compile and link `sources` into a shared library next to the first one, and
         return its path.

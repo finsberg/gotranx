@@ -260,3 +260,67 @@ def test_cuda_missing_values_agree_with_python(tor_ord, cxx_compiler, tmp_path):
     out = numpy.zeros((len(values), N_CELLS))
     kernels.run("missing_values", T, cells, parameters, out, n_cells=N_CELLS)
     assert_close(out, python["missing_values"](T, cells, parameters))
+
+
+# --- The cable demo (examples/cuda-cable) -------------------------------------------------------
+
+CABLE_DEMO = HERE / ".." / "examples" / "cuda-cable"
+
+
+def test_cuda_cable_propagates(cxx_compiler, tmp_path):
+    """The demo's kernels and constants (`cable.cuh`), with the host loop of `main.cu` on the
+    CPU: a short cable, stimulated at one end, must conduct a wave to the other."""
+    ode = load_ode(CABLE_DEMO / "ToRORd_dyn_chloride.ode")
+    code = gotran2cuda.get_code(
+        ode, scheme=[Scheme.generalized_rush_larsen], format=CFormat.none, namespace="tor_ord"
+    )
+    (tmp_path / "tor_ord.cuh").write_text(code)
+    source = tmp_path / "cable.cpp"
+    source.write_text(
+        """
+#include "cuda_emulation.h"
+#include "tor_ord.cuh"
+#include "cable.cuh"
+#include <vector>
+
+// The time each cell's potential first exceeds 0 mV, or -1
+extern "C" void simulate(long long n_cells, double t_end, double* activation)
+{
+    std::vector<double> parameters(tor_ord::NUM_PARAMS);
+    tor_ord::init_parameter_values(parameters.data());
+    parameters[tor_ord::parameter_index("i_Stim_Amplitude")] = 0.0;
+    const int v = tor_ord::state_index("v");
+    std::vector<double> states(tor_ord::NUM_STATES * n_cells), v_new(n_cells);
+    gotranx_launch(n_cells, 1, [&] { tor_ord::init_state_values(states.data(), n_cells); });
+    for (long long c = 0; c < n_cells; ++c) activation[c] = -1;
+
+    const double dt = cable::dt;
+    const int steps = static_cast<int>(t_end / dt);
+    for (int step = 0; step < steps; ++step) {
+        const double t = step * dt;
+        double* s = states.data();
+        gotranx_launch(n_cells, 1, [&] {
+            tor_ord::generalized_rush_larsen(s, t, dt, parameters.data(), s, n_cells);
+        });
+        const double stimulus = cable::stimulus(t);
+        gotranx_launch(n_cells, 1, [&] {
+            cable::diffuse(s + v * n_cells, v_new.data(), n_cells, stimulus);
+        });
+        for (long long c = 0; c < n_cells; ++c) {
+            s[v * n_cells + c] = v_new[c];
+            if (activation[c] < 0 && v_new[c] > 0) activation[c] = t + dt;
+        }
+    }
+}
+"""
+    )
+    compiler = cxx_compiler.with_flags("-I", str(HERE), "-I", str(tmp_path), "-I", str(CABLE_DEMO))
+    lib = ctypes.CDLL(str(compiler.shared_library(source)))
+    lib.simulate.argtypes = [ctypes.c_longlong, ctypes.c_double, ctypes.c_void_p]
+
+    n_cells = 40
+    activation = numpy.zeros(n_cells)
+    lib.simulate(n_cells, 30.0, activation.ctypes.data)
+    assert (activation > 0).all(), activation
+    assert (numpy.diff(activation) >= 0).all(), activation
+    assert activation[-1] > activation[0]
