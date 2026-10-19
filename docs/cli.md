@@ -87,6 +87,7 @@ The kernels follow these conventions:
 - The parameters are shared by all cells.
 - A scheme may update the states in place, i.e. you can pass the same array as `states` and `values`.
 - `init_parameter_values` and the index lookups (`state_index`, ...) are host functions.
+- The header contains kernels, so it can only be included from code compiled with `nvcc` (a `.cu` file), not from a `.cpp` file compiled with a host compiler. Use `ode2cpp` for the host code.
 
 `--namespace` and `--float-type` work as for C++.
 ````

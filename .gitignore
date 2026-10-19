@@ -201,4 +201,5 @@ docs/superpowers/
 # Built and written by the CUDA cable demo (examples/cuda-cable/main.md)
 examples/cuda-cable/cable
 examples/cuda-cable/v.csv
+examples/cuda-cable/v.png
 examples/cuda-cable/tor_ord.cuh

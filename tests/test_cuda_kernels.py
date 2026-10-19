@@ -329,3 +329,28 @@ extern "C" void simulate(long long n_cells, double t_end, double* activation)
     assert (activation > 0).all(), activation
     assert (numpy.diff(activation) >= 0).all(), activation
     assert activation[-1] > activation[0]
+
+
+def test_cuda_cable_diffuse_leaves_a_single_cell_alone(cxx_compiler, tmp_path):
+    # A cell without neighbors has nothing to diffuse to, and must not read past the end:
+    # v[1] holds a sentinel that would show up in v_new
+    source = tmp_path / "diffuse.cpp"
+    source.write_text(
+        """
+#include "cuda_emulation.h"
+#include "cable.cuh"
+
+extern "C" double diffuse_one(double v0)
+{
+    const double v[2] = {v0, 1e6};
+    double v_new = 0;
+    gotranx_launch(1, 1, [&] { cable::diffuse(v, &v_new, 1, 0.0); });
+    return v_new;
+}
+"""
+    )
+    compiler = cxx_compiler.with_flags("-I", str(HERE), "-I", str(CABLE_DEMO))
+    lib = ctypes.CDLL(str(compiler.shared_library(source)))
+    lib.diffuse_one.argtypes = [ctypes.c_double]
+    lib.diffuse_one.restype = ctypes.c_double
+    assert lib.diffuse_one(-90.0) == -90.0

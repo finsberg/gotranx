@@ -1,13 +1,16 @@
-"""Plot the potential along the cable over time, as written by main.cu (v.csv)."""
+"""Plot the potential along the cable over time, as written by main.cu (v.csv), into an
+image next to it (v.png)."""
 
 import sys
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
 
 dx = 0.1  # mm, as in cable.cuh
 
-data = np.loadtxt(sys.argv[1] if len(sys.argv) > 1 else "v.csv", delimiter=",")
+csv = Path(sys.argv[1] if len(sys.argv) > 1 else "v.csv")
+data = np.loadtxt(csv, delimiter=",")
 t, v = data[:, 0], data[:, 1:]
 x = np.arange(v.shape[1]) * dx
 
@@ -23,4 +26,4 @@ ax.set_xlabel("Time (ms)")
 ax.set_ylabel("Position along the cable (mm)")
 fig.colorbar(image, ax=ax, label="Membrane potential (mV)")
 fig.tight_layout()
-fig.savefig("cable.png", dpi=150)
+fig.savefig(csv.with_suffix(".png"), dpi=150)

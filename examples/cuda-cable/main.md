@@ -39,6 +39,8 @@ of the model is a kernel that solves one cell per thread, and follows these conv
   `values`.
 - `init_parameter_values` and the index lookups (`state_index`, `parameter_index`, ...) are
   ordinary host functions.
+- The header contains kernels, so it can only be included from code compiled with `nvcc`
+  (a `.cu` file), not from a `.cpp` file compiled with a host compiler.
 
 For example, the scheme is
 
@@ -85,7 +87,7 @@ python3 plot.py v.csv
   which the generated code has plenty of: every function assigns every parameter, whether it
   needs it or not.
 
-`plot.py` draws the potential along the cable over time, `cable.png`:
+`plot.py` draws the potential along the cable over time into `v.png`, next to `v.csv`:
 
 ```{figure} cable.png
 :alt: The membrane potential along the cable over time
