@@ -28,6 +28,7 @@ conds
 cpath
 ctypeslib
 CUDA
+cxxcode
 Cyto
 cytozoo
 DCELL
@@ -126,6 +127,7 @@ panfilov
 pdst
 pdts
 Perego
+printmethod
 psdt
 pstd
 ptds
