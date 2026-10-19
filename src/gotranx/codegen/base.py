@@ -264,6 +264,14 @@ class CodeGenerator(abc.ABC):
         """
         return {}
 
+    def _method_kwargs(self) -> dict[str, typing.Any]:
+        """Extra keyword arguments for every `method` template call.
+
+        Empty by default. A backend whose functions need more than the shared
+        arguments (e.g. a qualifier such as `inline` or `__global__`) overrides it.
+        """
+        return {}
+
     def _state_assignments(self, states: sympy.IndexedBase, remove_unused: bool) -> str:
         return "\n".join(
             self._doprint(state.symbol, states[i], use_variable_prefix=True)
@@ -348,6 +356,7 @@ class CodeGenerator(abc.ABC):
             values_type=rhs.values_type,
             missing_variables=missing_variables,
             post_function_signature=rhs.post_function_signature,
+            **self._method_kwargs(),
         )
 
         return self._format(code)
@@ -417,6 +426,7 @@ class CodeGenerator(abc.ABC):
             values_type="numpy.zeros(shape)",
             missing_variables=missing_variables,
             post_function_signature=rhs.post_function_signature,
+            **self._method_kwargs(),
         )
 
         return self._format(code)
@@ -468,6 +478,7 @@ class CodeGenerator(abc.ABC):
             values_type="numpy.zeros(shape)",
             missing_variables=missing_variables,
             post_function_signature=rhs.post_function_signature,
+            **self._method_kwargs(),
         )
 
         return self._format(code)
@@ -522,6 +533,7 @@ class CodeGenerator(abc.ABC):
             values_type=rhs.values_type,
             missing_variables=missing_variables,
             post_function_signature=rhs.post_function_signature,
+            **self._method_kwargs(),
         )
         return self._format(code)
 

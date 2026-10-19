@@ -80,13 +80,19 @@ class GotranCCodePrinter(C99CodePrinter):
 
 
 class CCodeGenerator(CodeGenerator):
-    variable_prefix = "const double "
-    missing_variables_argument = "const double *__restrict missing_variables"
+    #: The floating point type of every state, parameter, value and local
+    float_type = "double"
+    #: How a pointer argument is declared free of aliasing
+    restrict = "__restrict"
 
     def __init__(
         self, ode: ODE, format: Format = Format.clang_format, remove_unused: bool = False
     ) -> None:
         super().__init__(ode, remove_unused=remove_unused)
+        self.variable_prefix = f"const {self.float_type} "
+        self.missing_variables_argument = (
+            f"const {self.float_type} *{self.restrict} missing_variables"
+        )
         self._printer = GotranCCodePrinter()
         setattr(self, "_formatter", get_formatter(format=format))
 
@@ -97,6 +103,13 @@ class CCodeGenerator(CodeGenerator):
     @property
     def template(self):
         return templates.c
+
+    def _init_value_kwargs(self) -> dict[str, typing.Any]:
+        return {"float_type": self.float_type}
+
+    def _pointer(self, name: str, const: bool = True) -> str:
+        prefix = "const " if const else ""
+        return f"{prefix}{self.float_type} *{self.restrict} {name}"
 
     def imports(self) -> str:
         return self._format(
@@ -112,13 +125,12 @@ class CCodeGenerator(CodeGenerator):
         self, order: RHSArgument | str = RHSArgument.stp, const_states: bool = True
     ) -> Func:
         value = RHSArgument.get_value(order)
-        states_prefix = "const " if const_states else ""
         argument_dict = {
-            "s": states_prefix + "double *__restrict states",
-            "t": "const double t",
-            "p": "const double *__restrict parameters",
+            "s": self._pointer("states", const=const_states),
+            "t": f"const {self.float_type} t",
+            "p": self._pointer("parameters"),
         }
-        argument_list = [argument_dict[v] for v in value] + ["double* values"]
+        argument_list = [argument_dict[v] for v in value] + [f"{self.float_type}* values"]
         states = sympy.IndexedBase("states", shape=(self.ode.num_states,))
         parameters = sympy.IndexedBase("parameters", shape=(self.ode.num_parameters,))
         values = sympy.IndexedBase("values", shape=(self.ode.num_states,))
@@ -137,14 +149,13 @@ class CCodeGenerator(CodeGenerator):
         const_states: bool = True,
     ) -> Func:
         value = SchemeArgument.get_value(order)
-        states_prefix = "const " if const_states else ""
         argument_dict = {
-            "s": states_prefix + "double *__restrict states",
-            "t": "const double t",
-            "d": "const double dt",
-            "p": "const double *__restrict parameters",
+            "s": self._pointer("states", const=const_states),
+            "t": f"const {self.float_type} t",
+            "d": f"const {self.float_type} dt",
+            "p": self._pointer("parameters"),
         }
-        argument_list = [argument_dict[v] for v in value] + ["double* values"]
+        argument_list = [argument_dict[v] for v in value] + [f"{self.float_type}* values"]
         states = sympy.IndexedBase("states", shape=(self.ode.num_states,))
         parameters = sympy.IndexedBase("parameters", shape=(self.ode.num_parameters,))
         values = sympy.IndexedBase("values", shape=(self.ode.num_states,))
