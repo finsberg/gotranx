@@ -11,6 +11,7 @@ betaz
 boolalg
 Cais
 capsys
+cardiomyocyte
 cass
 cbuild
 cellml
@@ -88,6 +89,7 @@ linestyle
 linspace
 literalinclude
 lmbda
+loadtxt
 logicalfunc
 mathcal
 mathrm
@@ -186,8 +188,8 @@ VFRT
 vfrt
 Werror
 Wextra
-Windkessel
 windkessel
+Windkessel
 workdps
 workprec
 xlabel
