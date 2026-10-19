@@ -85,7 +85,7 @@ python3 plot.py v.csv
   which the generated code has plenty of: every function assigns every parameter, whether it
   needs it or not.
 
-`plot.py` draws the potential along the cable over time, `cable.png`:
+`plot.py` draws the potential along the cable over time into `v.png`, next to `v.csv`:
 
 ```{figure} cable.png
 :alt: The membrane potential along the cable over time
