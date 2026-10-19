@@ -25,6 +25,13 @@ C_FLAGS = [
 ]
 
 
+class CompileError(subprocess.CalledProcessError):
+    """A failed compile, whose message includes the compiler's diagnostics."""
+
+    def __str__(self) -> str:
+        return "\n".join([super().__str__(), self.stdout or "", self.stderr or ""]).strip()
+
+
 @dataclasses.dataclass(frozen=True)
 class Compiler:
     path: str
@@ -32,7 +39,8 @@ class Compiler:
     def shared_library(self, source: Path) -> Path:
         """Compile `source` to a shared library next to it, and return its path.
 
-        Raises `subprocess.CalledProcessError`, with the compiler's output, if it fails.
+        Raises `CompileError` (a `subprocess.CalledProcessError`), whose message includes
+        the compiler's output, if it fails.
         """
         library = source.with_suffix(".so")
         result = subprocess.run(
@@ -41,7 +49,7 @@ class Compiler:
             text=True,
         )
         if result.returncode != 0:
-            raise subprocess.CalledProcessError(
+            raise CompileError(
                 result.returncode, result.args, output=result.stdout, stderr=result.stderr
             )
         return library

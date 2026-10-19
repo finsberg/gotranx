@@ -84,15 +84,20 @@ class CCodeGenerator(CodeGenerator):
     float_type = "double"
     #: How a pointer argument is declared free of aliasing
     restrict = "__restrict"
+    # Derived from float_type and restrict in __init__, unless a subclass sets them itself
+    variable_prefix = "const double "
+    missing_variables_argument = "const double *__restrict missing_variables"
 
     def __init__(
         self, ode: ODE, format: Format = Format.clang_format, remove_unused: bool = False
     ) -> None:
         super().__init__(ode, remove_unused=remove_unused)
-        self.variable_prefix = f"const {self.float_type} "
-        self.missing_variables_argument = (
-            f"const {self.float_type} *{self.restrict} missing_variables"
-        )
+        if not self._overridden("variable_prefix"):
+            self.variable_prefix = f"const {self.float_type} "
+        if not self._overridden("missing_variables_argument"):
+            self.missing_variables_argument = (
+                f"const {self.float_type} *{self.restrict} missing_variables"
+            )
         self._printer = GotranCCodePrinter()
         setattr(self, "_formatter", get_formatter(format=format))
 
@@ -103,6 +108,15 @@ class CCodeGenerator(CodeGenerator):
     @property
     def template(self):
         return templates.c
+
+    def _overridden(self, name: str) -> bool:
+        """Whether a subclass of CCodeGenerator sets the class attribute `name` itself."""
+        for cls in type(self).__mro__:
+            if cls is CCodeGenerator:
+                return False
+            if name in vars(cls):
+                return True
+        return False
 
     def _init_value_kwargs(self) -> dict[str, typing.Any]:
         return {"float_type": self.float_type}

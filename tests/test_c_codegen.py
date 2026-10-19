@@ -632,3 +632,17 @@ def test_method_kwargs_reach_every_method_template(ode, monkeypatch):
     codegen.missing_values({"x": 0})
     codegen.scheme(get_scheme("forward_explicit_euler"))
     assert [kw.get("marker") for kw in seen] == ["X"] * 4
+
+
+def test_c_subclass_class_attributes_still_override_the_derived_strings(ode):
+    # variable_prefix and missing_variables_argument were class attributes before float_type
+    # and restrict existed; a subclass that sets them must keep working
+    class Old(CCodeGenerator):
+        variable_prefix = "const float "
+        missing_variables_argument = "const float *missing_variables"
+
+    codegen = Old(ode, format=CFormat.none)
+    assert codegen.variable_prefix == "const float "
+    assert codegen.missing_variables_argument == "const float *missing_variables"
+    assert "const float x = states[0];" in codegen.rhs()
+    assert CCodeGenerator.variable_prefix == "const double "
