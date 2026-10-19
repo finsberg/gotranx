@@ -39,6 +39,7 @@ dpst
 dpts
 dspt
 dstp
+dthis
 dtps
 dtsp
 dunused
@@ -60,6 +61,7 @@ fmin
 funcname
 gammasu
 geomspace
+getfixturevalue
 gotran
 gotranx
 Hairer
@@ -189,8 +191,10 @@ VFFRT
 vffrt
 VFRT
 vfrt
+Wdouble
 Werror
 Wextra
+Wfloat
 windkessel
 Windkessel
 workdps

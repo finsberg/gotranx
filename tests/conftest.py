@@ -4,7 +4,7 @@ import subprocess
 import sys
 
 import pytest
-from compilers import Compiler, find_c_compiler
+from compilers import Compiler, find_c_compiler, find_cxx_compiler
 from gotranx import Parser
 from gotranx import TreeToODE
 from gotranx.ode import make_ode
@@ -45,23 +45,34 @@ def ode_unused(parser, trans):
 
 def _unavailable(reason: str, env: str = "GOTRANX_REQUIRE_JULIA") -> None:
     """Skip, unless the environment variable `env` is set (to a non-empty value). CI sets
-    GOTRANX_REQUIRE_JULIA in the Julia workflow and GOTRANX_REQUIRE_CC on Linux and macOS, so
+    GOTRANX_REQUIRE_JULIA in the Julia workflow and GOTRANX_REQUIRE_CC (C and C++) on Linux and
+    macOS, so
     that a runner on which the tool is missing fails instead of passing on skips."""
     if os.environ.get(env):
         pytest.fail(f"{env} is set, but {reason}")
     pytest.skip(reason)
 
 
+def _compiler(find, missing: str) -> Compiler:
+    if sys.platform == "win32":
+        pytest.skip("Compile tests do not run on Windows yet (MSVC support is deferred)")
+    compiler = find()
+    if compiler is None:
+        _unavailable(missing, env="GOTRANX_REQUIRE_CC")
+    assert compiler is not None  # _unavailable raises
+    return compiler
+
+
 @pytest.fixture(scope="session")
 def c_compiler() -> Compiler:
     """A C compiler (`$CC`, cc, gcc or clang) for the tests that compile generated C."""
-    if sys.platform == "win32":
-        pytest.skip("C compile tests do not run on Windows yet (MSVC support is deferred)")
-    compiler = find_c_compiler()
-    if compiler is None:
-        _unavailable("no C compiler found ($CC, cc, gcc, clang)", env="GOTRANX_REQUIRE_CC")
-    assert compiler is not None  # _unavailable raises
-    return compiler
+    return _compiler(find_c_compiler, "no C compiler found ($CC, cc, gcc, clang)")
+
+
+@pytest.fixture(scope="session")
+def cxx_compiler() -> Compiler:
+    """A C++ compiler (`$CXX`, c++, g++ or clang++) for the tests that compile generated C++."""
+    return _compiler(find_cxx_compiler, "no C++ compiler found ($CXX, c++, g++, clang++)")
 
 
 @pytest.fixture(scope="session")
