@@ -97,3 +97,22 @@ def test_nvcc_builds_the_cable_demo(nvcc, cuda_arch, tmp_path):
         tmp_path / "main.cu", output=tmp_path / "cable"
     )
     assert executable.is_file()
+
+
+def test_nvcc_links_a_header_included_from_two_translation_units(nvcc, cuda_arch, tmp_path):
+    # A solver split over several .cu files must be able to include the model in each
+    ode = load_ode(HERE / "odefiles" / "lorentz.ode")
+    (tmp_path / "model.cuh").write_text(
+        gotran2cuda.get_code(ode, scheme=list(Scheme), format=CFormat.none)
+    )
+    a = tmp_path / "a.cu"
+    a.write_text(
+        '#include "model.cuh"\nint b();\nint main() { return b() - lorentz::NUM_STATES; }\n'
+    )
+    b = tmp_path / "b.cu"
+    b.write_text('#include "model.cuh"\nint b() { return lorentz::NUM_STATES; }\n')
+    compiler = nvcc.with_flags(f"-arch={cuda_arch}")
+    assert compiler.executable(a, b, output=tmp_path / "program").is_file()
+    # and with separate compilation of device code
+    rdc = compiler.with_flags("-rdc=true")
+    assert rdc.executable(a, b, output=tmp_path / "program_rdc").is_file()

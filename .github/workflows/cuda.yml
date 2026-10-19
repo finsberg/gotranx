@@ -12,7 +12,8 @@ on:
 jobs:
   test:
     name: CUDA ${{ matrix.cuda }}
-    runs-on: ubuntu-latest
+    # Pinned: CUDA 12's nvcc refuses a gcc newer than 13, the one Ubuntu 24.04 has
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
@@ -41,11 +42,13 @@ jobs:
         with:
           cuda: "12.6.3"
           method: network
-          sub-packages: '["nvcc", "cudart"]'
+          # cudart-dev has cuda_runtime.h and libcudart_static.a, which nvcc needs to link
+          sub-packages: '["nvcc", "cudart", "cudart-dev"]'
 
       - name: Install nvcc (CUDA 13)
         if: matrix.cuda == '13'
-        run: python -m pip install nvidia-cuda-nvcc
+        # Pinned to 13, so that a new major version does not quietly replace it
+        run: python -m pip install "nvidia-cuda-nvcc==13.*"
 
       - name: Install gotranx
         run: python -m pip install -e ".[test]"

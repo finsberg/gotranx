@@ -34,7 +34,9 @@ class GPUKernelMixin:
     `_method_kwargs` and `_init_value_kwargs` hooks.
     """
 
-    kernel_qualifier = "__global__"
+    # static: a kernel has external linkage, so a header with non-static kernels cannot be
+    # included from two translation units of one program (`inline` is ignored for kernels)
+    kernel_qualifier = "static __global__"
     index_type = "std::int64_t"
     thread_index_expr = "static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x"
     #: Names the kernels use for their own locals and arguments

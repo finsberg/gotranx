@@ -83,7 +83,10 @@ class Kernels:
         source.write_text("\n".join(lines) + "\n")
         # Every model gets its own directory, and so its own library: ctypes would return an
         # already loaded library for a path it has loaded before
-        self.lib = ctypes.CDLL(str(compiler.with_flags("-I", str(HERE)).shared_library(source)))
+        # The kernels are `static __global__`; with __global__ defined away, the ones this
+        # test does not wrap are unused static functions, which only the emulation sees
+        flags = ("-I", str(HERE), "-Wno-unused-function")
+        self.lib = ctypes.CDLL(str(compiler.with_flags(*flags).shared_library(source)))
         for name, kind in kernels.items():
             argtypes = list(ARGTYPES[kind])
             if missing and kind != "init":
@@ -314,7 +317,9 @@ extern "C" void simulate(long long n_cells, double t_end, double* activation)
 }
 """
     )
-    compiler = cxx_compiler.with_flags("-I", str(HERE), "-I", str(tmp_path), "-I", str(CABLE_DEMO))
+    compiler = cxx_compiler.with_flags(
+        "-I", str(HERE), "-I", str(tmp_path), "-I", str(CABLE_DEMO), "-Wno-unused-function"
+    )
     lib = ctypes.CDLL(str(compiler.shared_library(source)))
     lib.simulate.argtypes = [ctypes.c_longlong, ctypes.c_double, ctypes.c_void_p]
 

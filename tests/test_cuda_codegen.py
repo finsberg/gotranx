@@ -66,7 +66,7 @@ def codegen(ode) -> CUDACodeGenerator:
 def test_cuda_rhs_kernel(codegen):
     code = codegen.rhs()
     assert (
-        "__global__ void rhs(const double t, const double *states, "
+        "static __global__ void rhs(const double t, const double *states, "
         "const double *__restrict__ parameters, double* values, "
         "const std::int64_t n_cells){"
     ) in code

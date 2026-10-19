@@ -26,7 +26,7 @@ inline double stimulus(double t)
 // One explicit step of dv/dt = D d^2v/dx^2 with no flux through the ends, from v into
 // v_new, plus `stimulus` on the first n_stimulated cells. One thread per cell; v is the row
 // of the potential in the state-major states, &states[v_index * n_cells].
-__global__ void diffuse(const double *v, double *v_new, const std::int64_t n_cells,
+static __global__ void diffuse(const double *v, double *v_new, const std::int64_t n_cells,
                         const double stimulus)
 {
     const std::int64_t cell = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
