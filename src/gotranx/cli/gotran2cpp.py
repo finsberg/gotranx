@@ -66,6 +66,31 @@ def get_code(
         namespace=namespace,
         float_type=float_type,
     )
+    return assemble(
+        codegen,
+        scheme=scheme,
+        format=format,
+        missing_values=missing_values,
+        delta=delta,
+        stiff_states=stiff_states,
+        cse=cse,
+    )
+
+
+def assemble(
+    codegen: CppCodeGenerator,
+    scheme: list[Scheme] | None = None,
+    format: Format = Format.clang_format,
+    missing_values: dict[str, int] | None = None,
+    delta: float = 1e-8,
+    stiff_states: list[str] | None = None,
+    cse: bool = True,
+) -> str:
+    """The header: the includes, then every function of `codegen` in its namespace.
+
+    Shared by the C++ and the CUDA code (`gotran2cuda`), whose generators differ only in
+    what each piece looks like.
+    """
     formatter = get_formatter(format=format)
 
     if missing_values is not None:

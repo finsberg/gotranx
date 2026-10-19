@@ -76,6 +76,21 @@ python3 -m gotranx ode2cpp noble_1962.ode --float-type float
 ```
 ````
 
+````{tab-item} CUDA
+A CUDA header (`.cuh`) with one kernel per function, for solving many cells at once on an NVIDIA GPU
+```shell
+python3 -m gotranx ode2cuda noble_1962.ode --scheme generalized_rush_larsen
+```
+The kernels follow these conventions:
+- One thread per cell, and every kernel takes the number of cells, `n_cells`, as its last argument.
+- The states of all cells are stored state-major: state `i` of cell `cell` is `states[i * n_cells + cell]`, the same layout as an array of shape `(num_states, n_cells)` in the Python backend. The values a kernel writes, and any missing variables, use the same layout.
+- The parameters are shared by all cells.
+- A scheme may update the states in place, i.e. you can pass the same array as `states` and `values`.
+- `init_parameter_values` and the index lookups (`state_index`, ...) are host functions.
+
+`--namespace` and `--float-type` work as for C++.
+````
+
 ````{tab-item} Julia
 ```shell
 python3 -m gotranx ode2julia noble_1962.ode

@@ -418,6 +418,78 @@ def test_ode2cpp_config_file(odefile, tmp_path):
     assert kwargs["suffix"] == ".h"
 
 
+def test_ode2cuda(odefile, all_schemes):
+    outfile = odefile.with_suffix(".cuh")
+    result = runner.invoke(
+        gotranx.cli.app, ["ode2cuda", str(odefile), "-o", str(outfile)] + all_schemes
+    )
+    assert result.exit_code == 0, result.stdout
+    assert "lorentz.cuh" in result.stdout
+    code = outfile.read_text()
+    assert "namespace lorentz" in code
+    for scheme in gotranx.schemes.Scheme:
+        assert scheme.value in code
+    outfile.unlink()
+
+
+def test_ode2cuda_namespace_and_float_type(odefile):
+    outfile = odefile.with_suffix(".cuh")
+    result = runner.invoke(
+        gotranx.cli.app,
+        [
+            "ode2cuda",
+            str(odefile),
+            "-o",
+            str(outfile),
+            "--namespace",
+            "lz",
+            "--float-type",
+            "float",
+        ],
+    )
+    assert result.exit_code == 0, result.stdout
+    code = outfile.read_text()
+    assert "namespace lz" in code
+    assert "double" not in code
+    outfile.unlink()
+
+
+def test_ode2cuda_namespace_flag_wins_over_the_config_file(odefile, tmp_path):
+    # A namespace is per model, so an explicit --namespace must not be overridden by a
+    # project-wide config file
+    config = tmp_path / "pyproject.toml"
+    config.write_text('[tool.gotranx.cuda]\nnamespace = "cfg"\n')
+    with mock.patch("gotranx.cli.gotran2cuda.main") as main:
+        result = runner.invoke(
+            gotranx.cli.app, ["ode2cuda", str(odefile), "-c", str(config), "--namespace", "mine"]
+        )
+    assert result.exit_code == 0, result.stdout
+    assert main.call_args.kwargs["namespace"] == "mine"
+
+
+def test_ode2cuda_config_file(odefile, tmp_path):
+    config = tmp_path / "pyproject.toml"
+    config.write_text(
+        dedent(
+            """
+            [tool.gotranx.cuda]
+            namespace = "cfg"
+            float_type = "float"
+            format = "none"
+            to = ".h"
+            """
+        )
+    )
+    with mock.patch("gotranx.cli.gotran2cuda.main") as main:
+        result = runner.invoke(gotranx.cli.app, ["ode2cuda", str(odefile), "-c", str(config)])
+    assert result.exit_code == 0, result.stdout
+    kwargs = main.call_args.kwargs
+    assert kwargs["namespace"] == "cfg"
+    assert kwargs["float_type"] == gotranx.codegen.FloatType.float
+    assert kwargs["format"] == gotranx.codegen.CFormat.none
+    assert kwargs["suffix"] == ".h"
+
+
 def test_ode2julia_config_file(odefile, config_file):
     outfile = odefile.with_suffix(".jl")
     result = runner.invoke(

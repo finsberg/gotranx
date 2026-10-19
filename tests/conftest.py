@@ -4,7 +4,7 @@ import subprocess
 import sys
 
 import pytest
-from compilers import Compiler, find_c_compiler, find_cxx_compiler
+from compilers import Compiler, find_c_compiler, find_cxx_compiler, find_nvcc
 from gotranx import Parser
 from gotranx import TreeToODE
 from gotranx.ode import make_ode
@@ -67,6 +67,27 @@ def _compiler(find, missing: str) -> Compiler:
 def c_compiler() -> Compiler:
     """A C compiler (`$CC`, cc, gcc or clang) for the tests that compile generated C."""
     return _compiler(find_c_compiler, "no C compiler found ($CC, cc, gcc, clang)")
+
+
+@pytest.fixture(scope="session")
+def nvcc() -> Compiler:
+    """nvcc (`$NVCC`, on PATH, or from the pip package nvidia-cuda-nvcc), for the tests
+    marked `cuda`. nvcc compiles without a GPU."""
+    compiler = find_nvcc()
+    if compiler is None:
+        _unavailable(
+            "nvcc not found ($NVCC, PATH or pip install nvidia-cuda-nvcc)",
+            env="GOTRANX_REQUIRE_NVCC",
+        )
+    assert compiler is not None  # _unavailable raises
+    return compiler
+
+
+def pytest_generate_tests(metafunc):
+    # The GPU architectures the `cuda` tests compile for, e.g. GOTRANX_CUDA_ARCHS=sm_70,sm_90
+    if "cuda_arch" in metafunc.fixturenames:
+        archs = os.environ.get("GOTRANX_CUDA_ARCHS", "sm_75,sm_90").split(",")
+        metafunc.parametrize("cuda_arch", [arch.strip() for arch in archs if arch.strip()])
 
 
 @pytest.fixture(scope="session")

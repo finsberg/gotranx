@@ -61,6 +61,8 @@ python3 -m pytest
 ```
 Some tests compile the generated C and C++ code with a C compiler (`$CC`, or the first of `cc`, `gcc` and `clang` on your `PATH`) and a C++ compiler (`$CXX`, or the first of `c++`, `g++` and `clang++`). `$CC` and `$CXX` may include arguments, e.g. `CC="ccache gcc"`. The tests are skipped if no compiler is found, or on Windows. Set `GOTRANX_REQUIRE_CC=1` to make a missing compiler fail these tests instead, as the CI does on Linux and macOS.
 
+The tests marked `cuda` compile the generated CUDA code with `nvcc`, which does not need a GPU. They are skipped unless `nvcc` is found: `$NVCC`, `nvcc` on your `PATH`, or the one from `python3 -m pip install nvidia-cuda-nvcc`. Run them with `python3 -m pytest -m cuda`, and choose the GPU architectures with e.g. `GOTRANX_CUDA_ARCHS=sm_75,sm_90` (the default). The CUDA workflow sets `GOTRANX_REQUIRE_NVCC=1`, so a missing `nvcc` fails instead.
+
 You can read more about using pytest in the [official documentation of pytest](https://docs.pytest.org/).
 
 ## Documentation

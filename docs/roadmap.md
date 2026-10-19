@@ -15,7 +15,7 @@ The plan is to have all the features from the old [gotran](https://github.com/Co
     - [x] jax (working but missing tests)
     - [x] C++
     - [ ] Julia (in progress)
-    - [ ] CUDA
+    - [x] CUDA
     - [ ] OpenCL
     - [ ] Rust
     - [ ] Latex

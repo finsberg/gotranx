@@ -2,7 +2,9 @@ Acta
 afterload
 allclose
 arange
+archs
 Artebrant
+ascontiguousarray
 atol
 autouse
 axhline
@@ -18,14 +20,17 @@ cellml
 cellmlfile
 cfile
 cipa
+cmap
 cmodel
 codegen
 codeprinter
 codspeed
 coeff
 coeffs
+colorbar
 conds
 cpath
+cstdint
 cstring
 ctypeslib
 CUDA
@@ -55,6 +60,7 @@ fgrl
 figsize
 Finsberg
 fitzhughnagumo
+fixturenames
 flatnonzero
 fmax
 fmin
@@ -68,6 +74,7 @@ Hairer
 Hochbruck
 hprint
 Hustad
+imshow
 inds
 infty
 inlines
@@ -98,6 +105,7 @@ logicalfunc
 mathcal
 mathrm
 matplotlib
+metafunc
 modelparameters
 MPLBACKEND
 mpmath
@@ -116,6 +124,7 @@ nsimplify
 numba
 Numerica
 numpy
+nvcc
 Nørsett
 odeblock
 odefile
@@ -135,6 +144,7 @@ psdt
 pstd
 ptds
 ptsd
+ptxas
 pycode
 pyplot
 pyproject
@@ -192,6 +202,7 @@ VFFRT
 vffrt
 VFRT
 vfrt
+viridis
 Wdouble
 Werror
 Wextra
@@ -201,6 +212,7 @@ Windkessel
 workdps
 workprec
 xlabel
+Xptxas
 xrelplace
 xreplace
 ylabel
