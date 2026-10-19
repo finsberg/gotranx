@@ -142,6 +142,19 @@ class MissingPotentialState(GotranxError, ValueError):
 
 
 @dataclass
+class ReservedName(GotranxError, ValueError):
+    name: str
+    backend: str
+
+    def __str__(self) -> str:
+        return (
+            f"The model has a variable named {self.name!r}, which the generated "
+            f"{self.backend} code uses for its own purposes, so the code would not compile. "
+            "Please rename the variable in the .ode file."
+        )
+
+
+@dataclass
 class InvalidNamespace(GotranxError, ValueError):
     name: str
 
