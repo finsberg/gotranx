@@ -1,4 +1,5 @@
 from textwrap import dedent
+from unittest import mock
 import gotranx
 import pytest
 from pathlib import Path
@@ -336,6 +337,22 @@ def test_ode2c_config_file(odefile, config_file):
     code = outfile.read_text()
     assert "hybrid_rush_larsen" in code
     outfile.unlink()
+
+
+@pytest.mark.parametrize("args", [["-f", "none"], ["--format", "none"]])
+def test_ode2c_passes_the_format_flag_on(args, odefile):
+    with mock.patch("gotranx.cli.gotran2c.main") as main:
+        result = runner.invoke(gotranx.cli.app, ["ode2c", str(odefile), *args])
+    assert result.exit_code == 0, result.stdout
+    assert main.call_args.kwargs["format"] == gotranx.codegen.CFormat.none
+
+
+def test_ode2c_passes_the_format_from_the_config_file_on(odefile, config_file):
+    # config_file sets [tool.gotranx.c] format = "none"
+    with mock.patch("gotranx.cli.gotran2c.main") as main:
+        result = runner.invoke(gotranx.cli.app, ["ode2c", str(odefile), "-c", str(config_file)])
+    assert result.exit_code == 0, result.stdout
+    assert main.call_args.kwargs["format"] == gotranx.codegen.CFormat.none
 
 
 def test_ode2julia_config_file(odefile, config_file):
