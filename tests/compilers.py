@@ -9,6 +9,7 @@ Windows.
 from __future__ import annotations
 
 import dataclasses
+import importlib.util
 import os
 import shlex
 import shutil
@@ -20,6 +21,9 @@ from pathlib import Path
 WARNINGS = ("-Wall", "-Wextra", "-Werror", "-Wno-unused-variable", "-Wno-unused-parameter")
 C_FLAGS = ("-std=c99", *WARNINGS)
 CXX_FLAGS = ("-std=c++17", *WARNINGS)
+# nvcc: every warning is an error, except #177 "variable was declared but never referenced"
+# (the unused variables above)
+CUDA_FLAGS = ("-std=c++17", "-Werror", "all-warnings", "-diag-suppress", "177")
 
 
 class CompileError(subprocess.CalledProcessError):
@@ -37,6 +41,20 @@ class Compiler:
 
     def with_flags(self, *extra: str) -> Compiler:
         return dataclasses.replace(self, flags=(*self.flags, *extra))
+
+    def _run(self, args: list[str]) -> None:
+        result = subprocess.run([*self.command, *self.flags, *args], capture_output=True, text=True)
+        if result.returncode != 0:
+            raise CompileError(
+                result.returncode, result.args, output=result.stdout, stderr=result.stderr
+            )
+
+    def object_file(self, source: Path) -> Path:
+        """Compile `source` (without linking) to an object file next to it, and return its
+        path. Raises `CompileError` like `shared_library`."""
+        output = source.with_suffix(".o")
+        self._run(["-c", "-o", str(output), str(source)])
+        return output
 
     def shared_library(self, *sources: Path) -> Path:
         """Compile and link `sources` into a shared library next to the first one, and
@@ -87,3 +105,29 @@ def find_c_compiler() -> Compiler | None:
 def find_cxx_compiler() -> Compiler | None:
     """`$CXX` (which may carry arguments), otherwise the first of c++, g++ and clang++."""
     return _find("CXX", ("c++", "g++", "clang++"), CXX_FLAGS)
+
+
+def _pip_nvcc() -> str | None:
+    """nvcc from the pip package nvidia-cuda-nvcc (nvidia/cu<major>/bin/nvcc), the newest."""
+    spec = importlib.util.find_spec("nvidia")
+    if spec is None or spec.submodule_search_locations is None:
+        return None
+    candidates = [
+        path
+        for location in spec.submodule_search_locations
+        for path in Path(location).glob("cu*/bin/nvcc")
+        if path.parent.parent.name[2:].isdigit()
+    ]
+    if not candidates:
+        return None
+    return str(max(candidates, key=lambda path: int(path.parent.parent.name[2:])))
+
+
+def find_nvcc() -> Compiler | None:
+    """`$NVCC` (which may carry arguments), otherwise nvcc on PATH, otherwise the nvcc of
+    the pip package nvidia-cuda-nvcc."""
+    found = _find("NVCC", ("nvcc",), CUDA_FLAGS)
+    if found is not None or os.environ.get("NVCC"):
+        return found
+    program = _pip_nvcc()
+    return None if program is None else Compiler(command=(program,), flags=CUDA_FLAGS)

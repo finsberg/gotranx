@@ -99,7 +99,8 @@ testpaths = ["tests"]
 markers = [
     "benchmark: mark a test as a benchmark.",
     "example: mark a test as an example.",
-    "julia: mark a test that runs generated code in Julia."
+    "julia: mark a test that runs generated code in Julia.",
+    "cuda: mark a test that compiles generated code with nvcc."
 ]
 
 
