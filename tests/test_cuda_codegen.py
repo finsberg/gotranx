@@ -1,7 +1,9 @@
 import pytest
 import sympy
 
+from gotranx.cli import gotran2cuda
 from gotranx.codegen import CFormat
+from gotranx.schemes import Scheme
 from gotranx.codegen.cuda import CUDACodeGenerator, CUDACodePrinter
 from gotranx.exceptions import ReservedName
 from gotranx.load import ode_from_string
@@ -116,3 +118,14 @@ def test_cuda_reserved_names_are_rejected(name):
     )
     with pytest.raises(ReservedName, match=name):
         CUDACodeGenerator(ode)
+
+
+def test_cuda_get_code_layout(ode):
+    code = gotran2cuda.get_code(ode, scheme=list(Scheme), format=CFormat.none)
+    assert code.splitlines()[0] == "#pragma once"
+    # nvcc includes it implicitly, and without it the header compiles on the host too
+    assert "cuda_runtime.h" not in code
+    assert "#include <cstdint>" in code
+    assert "namespace lorentz {" in code
+    assert "__global__ void forward_generalized_rush_larsen(" in code
+    assert code.rstrip().endswith("}  // namespace lorentz")
