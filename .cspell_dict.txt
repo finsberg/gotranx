@@ -183,6 +183,7 @@ troponin
 TRPN
 tsdp
 tspd
+Tusscher
 Tveito
 ureg
 userfunc
