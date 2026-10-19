@@ -32,9 +32,11 @@ static __global__ void diffuse(const double *v, double *v_new, const std::int64_
     const std::int64_t cell = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
     if (cell >= n_cells) return;
 
-    // At the ends, the missing neighbour mirrors the existing one (no flux)
-    const double left = cell > 0 ? v[cell - 1] : v[cell + 1];
-    const double right = cell < n_cells - 1 ? v[cell + 1] : v[cell - 1];
+    // At the ends, the missing neighbour mirrors the existing one (no flux). A cable of one
+    // cell has neither, and the cell is its own neighbour
+    const bool has_left = cell > 0, has_right = cell < n_cells - 1;
+    const double left = has_left ? v[cell - 1] : has_right ? v[cell + 1] : v[cell];
+    const double right = has_right ? v[cell + 1] : has_left ? v[cell - 1] : v[cell];
     v_new[cell] = v[cell] + alpha * (left - 2.0 * v[cell] + right);
     if (cell < n_stimulated) v_new[cell] += stimulus;
 }
