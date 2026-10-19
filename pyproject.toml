@@ -14,7 +14,7 @@ classifiers = [
 ]
 keywords = ["parser", "lark", "gotran", "ode"]
 urls = {Homepage = "https://github.com/finsberg/gotranx"}
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 dependencies = [
     "attrs",
     "black",
@@ -26,9 +26,6 @@ dependencies = [
     "typer",
     "myokit",
     "click",
-    "toml; python_version < '3.11'",
-    'graphlib-backport;python_version < "3.9"',
-    'typing_extensions;python_version < "3.9"',
 ]
 
 [project.readme]
@@ -146,8 +143,8 @@ exclude = [
 # Same as Black.
 line-length = 100
 
-# Assume Python 3.10.
-target-version = "py310"
+# Assume Python 3.11.
+target-version = "py311"
 
 [tool.ruff.lint]
 # Enable pycodestyle (`E`) and Pyflakes (`F`) codes by default.

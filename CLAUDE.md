@@ -19,7 +19,8 @@ python3 -m pip install -e ".[docs]"     # docs build deps
 pre-commit install                      # install git hooks (ruff, mypy, cspell, ...)
 ```
 
-Python >= 3.9 is required (CI runs 3.9–3.13 on Linux/macOS/Windows).
+Python >= 3.11 is required (CI runs every Python version that has not reached end of life, on
+Linux/macOS/Windows).
 
 ## Common commands
 
