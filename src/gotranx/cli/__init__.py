@@ -8,6 +8,7 @@ import typer
 from ..schemes import Scheme, get_scheme
 from ..codegen import PythonFormat, CFormat, FloatType
 from ..codegen.base import Shape
+from ..exceptions import InvalidNamespace
 from . import (
     gotran2c,
     gotran2cpp,
@@ -671,21 +672,25 @@ def ode2cpp(
         namespace = cpp_config.get("namespace")
     float_type = FloatType(cpp_config.get("float_type", float_type))
 
-    gotran2cpp.main(
-        fname=fname,
-        suffix=to,
-        outname=outname,
-        scheme=scheme,
-        remove_unused=remove_unused,
-        remove_singularities=remove_singularities,
-        format=format,
-        verbose=verbose,
-        stiff_states=stiff_states,
-        delta=delta,
-        cse=cse,
-        namespace=namespace,
-        float_type=float_type,
-    )
+    try:
+        gotran2cpp.main(
+            fname=fname,
+            suffix=to,
+            outname=outname,
+            scheme=scheme,
+            remove_unused=remove_unused,
+            remove_singularities=remove_singularities,
+            format=format,
+            verbose=verbose,
+            stiff_states=stiff_states,
+            delta=delta,
+            cse=cse,
+            namespace=namespace,
+            float_type=float_type,
+        )
+    except InvalidNamespace as e:
+        # The default namespace is the ODE's name, so it is only checked once the ODE is loaded
+        raise typer.BadParameter(str(e), param_hint="--namespace") from e
 
 
 @app.command()
@@ -808,21 +813,25 @@ def ode2cuda(
         namespace = cuda_config.get("namespace")
     float_type = FloatType(cuda_config.get("float_type", float_type))
 
-    gotran2cuda.main(
-        fname=fname,
-        suffix=to,
-        outname=outname,
-        scheme=scheme,
-        remove_unused=remove_unused,
-        remove_singularities=remove_singularities,
-        format=format,
-        verbose=verbose,
-        stiff_states=stiff_states,
-        delta=delta,
-        cse=cse,
-        namespace=namespace,
-        float_type=float_type,
-    )
+    try:
+        gotran2cuda.main(
+            fname=fname,
+            suffix=to,
+            outname=outname,
+            scheme=scheme,
+            remove_unused=remove_unused,
+            remove_singularities=remove_singularities,
+            format=format,
+            verbose=verbose,
+            stiff_states=stiff_states,
+            delta=delta,
+            cse=cse,
+            namespace=namespace,
+            float_type=float_type,
+        )
+    except InvalidNamespace as e:
+        # The default namespace is the ODE's name, so it is only checked once the ODE is loaded
+        raise typer.BadParameter(str(e), param_hint="--namespace") from e
 
 
 @app.command()

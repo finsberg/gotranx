@@ -395,6 +395,19 @@ def test_ode2cpp_namespace_flag_wins_over_the_config_file(odefile, tmp_path):
     assert main.call_args.kwargs["namespace"] == "mine"
 
 
+@pytest.mark.parametrize("command", ["ode2cpp", "ode2cuda"])
+def test_an_invalid_namespace_is_a_usage_error(command, odefile, tmp_path):
+    # A one-line error naming the option, not a traceback
+    result = runner.invoke(
+        gotranx.cli.app,
+        [command, str(odefile), "-o", str(tmp_path / "out"), "--namespace", "1abc"],
+    )
+    assert result.exit_code == 2
+    assert "Invalid value for --namespace" in result.output
+    assert "'1abc' is not a valid C++ namespace" in result.output
+    assert not (tmp_path / "out.hpp").exists() and not (tmp_path / "out.cuh").exists()
+
+
 def test_ode2cpp_config_file(odefile, tmp_path):
     config = tmp_path / "pyproject.toml"
     config.write_text(
