@@ -68,26 +68,65 @@ The program `main.cu` then
 
 ## Running the demo
 
-Generate `tor_ord.cuh` as above, then compile and run the program
+Generate `tor_ord.cuh` as above, then compile and run the program on a machine with an NVIDIA
+GPU
 
 ```shell
-nvcc -std=c++17 -O3 -arch=sm_80 -diag-suppress 177 main.cu -o cable
+nvcc -std=c++17 -O3 -arch=native -diag-suppress 177 main.cu -o cable
 ./cable v.csv
 python3 plot.py v.csv
 ```
 
-Choose `-arch` for your GPU (e.g. `sm_80` for an A100, `sm_90` for an H100).
-`-diag-suppress 177` silences a warning about variables that are declared but not used, which
-the generated code has plenty of: every function assigns every parameter, whether it needs it
-or not. `plot.py` draws the potential along the cable over time, `cable.png`.
+- `-arch=native` compiles for the GPU of the machine you compile on. If you compile on a
+  machine without the GPU (e.g. the login node of a cluster), give the GPU's architecture
+  instead, e.g. `-arch=sm_70` for a V100, `sm_80` for an A100 or `sm_90` for an H100. You can
+  look it up with `nvidia-smi --query-gpu=name,compute_cap --format=csv` (7.0 means `sm_70`).
+- `-diag-suppress 177` silences a warning about variables that are declared but not used,
+  which the generated code has plenty of: every function assigns every parameter, whether it
+  needs it or not.
 
-```{note}
-The figure of the wave travelling along the cable needs a GPU to produce, and will be added
-here.
+`plot.py` draws the potential along the cable over time, `cable.png`:
+
+```{figure} cable.png
+:alt: The membrane potential along the cable over time
+
+The membrane potential along the 50 mm cable over the first 500 ms, computed on a Tesla V100.
+The wave of excitation starts at the stimulated end at 0 mm and reaches the far end after
+about 90 ms. The cells repolarize about 360 ms after they were excited, so the wave of
+repolarization travels along the cable in the same way.
 ```
 
-With these settings the wave travels along the cable at about 0.55 m/s, which is within the
-range of the conduction velocity in human ventricles.
+The wave travels along the cable at about 0.55 m/s, which is within the range of the
+conduction velocity in human ventricles.
+
+## Troubleshooting
+
+`main.cu` checks every CUDA call and stops with the error CUDA reports. The common ones are:
+
+### `CUDA driver version is insufficient for CUDA runtime version`
+
+The program cannot use the GPU's driver. Run `nvidia-smi`:
+
+- If it says `No devices were found`, or there is no `nvidia-smi`, no GPU is visible to the
+  program. On a cluster you are probably on a login node, or in a job without a GPU: run on a
+  GPU node, e.g. with `srun --gres=gpu:1 ./cable v.csv` (depending on the cluster). A Docker
+  container needs `--gpus all`.
+- Otherwise, compare the `CUDA Version` in the top right of its output (the newest CUDA the
+  driver supports) with `nvcc --version`. If `nvcc` is newer, e.g. CUDA 13.0 with a driver for
+  CUDA 12.2, compile with an older CUDA (on a cluster often `module avail cuda`) or update the
+  driver. Compiling with CUDA 12.x for a driver for an older CUDA 12 usually works, but CUDA 13
+  needs a driver for CUDA 13.
+
+### `no kernel image is available for execution on the device`
+
+The program was compiled for another GPU architecture than the one it runs on. Compile with
+`-arch=native` on the machine with the GPU, or with the architecture `nvidia-smi` reports (see
+above).
+
+```{note}
+CUDA 13 no longer supports Volta GPUs (V100) and older. For those, compile with CUDA 12 and
+`-arch=sm_70`.
+```
 
 ## Source code
 

@@ -6,7 +6,7 @@
 // scheme, then lets the potential diffuse to the neighbouring cells (cable.cuh). Every
 // millisecond the potential of every cell is written as one row of a CSV file.
 //
-// Build and run: nvcc -std=c++17 -O3 -arch=sm_80 main.cu -o cable && ./cable v.csv
+// Build and run: nvcc -std=c++17 -O3 -arch=native -diag-suppress 177 main.cu -o cable && ./cable v.csv
 #include <cstdio>
 #include <cstdlib>
 #include <vector>
