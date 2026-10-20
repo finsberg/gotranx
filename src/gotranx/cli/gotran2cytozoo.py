@@ -124,12 +124,13 @@ def main(
     fname: Path,
     outname: Path | str | None = None,
     model_name: str | None = None,
-    v_name: str = "v",
+    v_name: str | None = "v",
     remove_unused: bool = False,
     remove_singularities: bool = True,
     verbose: bool = False,
     remove_component: list[str] | None = None,
     keep_component: str | None = None,
+    supertype: str = DEFAULT_SUPERTYPE,
 ) -> None:
     loglevel = logging.DEBUG if verbose else logging.INFO
     structlog.configure(wrapper_class=structlog.make_filtering_bound_logger(loglevel))
@@ -141,6 +142,7 @@ def main(
         v_name=v_name,
         remove_unused=remove_unused,
         source=fname,
+        supertype=supertype,
     )
     out = fname if outname is None else Path(outname)
     out_name = out.with_suffix(suffix=".jl")
