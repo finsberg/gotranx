@@ -8,6 +8,7 @@ from ..ode import ODE
 from .. import templates
 from .. import atoms
 from ..exceptions import InvalidModelName, InvalidSupertype, MissingPotentialState
+from ..templates.cytozoo import DEFAULT_SUPERTYPE
 from .base import RHSArgument
 from .julia import JuliaCodeGenerator
 
@@ -17,13 +18,14 @@ logger = structlog.get_logger()
 # so `except exceptions.GotranxError` catches them. They stay importable from
 # here, which is where they are raised and where callers already import them.
 __all__ = [
+    "DEFAULT_SUPERTYPE",
     "CytoZooCodeGenerator",
     "InvalidModelName",
     "InvalidSupertype",
     "MissingPotentialState",
 ]
 
-_SUPERTYPE_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_!]*(\.[A-Za-z_][A-Za-z0-9_!]*)*$")
+_SUPERTYPE_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_!]*(\.[A-Za-z_][A-Za-z0-9_!]*)*")
 
 
 def _pascal_case(name: str) -> str:
@@ -48,7 +50,7 @@ class CytoZooCodeGenerator(JuliaCodeGenerator):
         v_name: str = "v",
         remove_unused: bool = False,
         type_stable: bool = True,
-        supertype: str = "AbstractCardiacCellModel",
+        supertype: str = DEFAULT_SUPERTYPE,
     ) -> None:
         super().__init__(ode, remove_unused=remove_unused, type_stable=type_stable)
         name = model_name or _pascal_case(ode.name or "Model")
@@ -60,7 +62,7 @@ class CytoZooCodeGenerator(JuliaCodeGenerator):
         if not name.isidentifier():
             raise InvalidModelName(name)
         self._model_name = name
-        if not _SUPERTYPE_RE.match(supertype):
+        if not _SUPERTYPE_RE.fullmatch(supertype):
             raise InvalidSupertype(supertype)
         self._supertype = supertype
         self._v_name = v_name

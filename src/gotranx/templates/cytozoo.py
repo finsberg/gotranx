@@ -1,12 +1,14 @@
 from __future__ import annotations
 from textwrap import dedent
 
+DEFAULT_SUPERTYPE = "AbstractCardiacCellModel"
+
 
 def model_struct(
     name: str,
     num_params: int,
     num_missing: int = 0,
-    supertype: str = "AbstractCardiacCellModel",
+    supertype: str = DEFAULT_SUPERTYPE,
 ) -> str:
     """The model struct and its three constructors.
 

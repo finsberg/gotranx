@@ -3,7 +3,7 @@ from pathlib import Path
 import logging
 import structlog
 
-from ..codegen.cytozoo import CytoZooCodeGenerator
+from ..codegen.cytozoo import DEFAULT_SUPERTYPE, CytoZooCodeGenerator
 from ..load import load_ode
 from ..ode import ODE
 from .utils import select_components
@@ -40,7 +40,7 @@ def get_code(
     v_name: str = "v",
     remove_unused: bool = False,
     source: Path | str | None = None,
-    supertype: str = "AbstractCardiacCellModel",
+    supertype: str = DEFAULT_SUPERTYPE,
 ) -> str:
     """Generate the CytoZoo cell-model adapter for the ODE
 
@@ -95,7 +95,7 @@ def get_code(
         "import CytoZoo",
         (
             "using CytoZoo: AbstractCardiacCellModel, SpatialContext, resolve_parameter"
-            if supertype == "AbstractCardiacCellModel"
+            if supertype == DEFAULT_SUPERTYPE
             else "using CytoZoo: SpatialContext, resolve_parameter"
         ),
         "import CytoZoo: num_states, num_parameters, transmembrane_potential_index",

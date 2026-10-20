@@ -517,7 +517,7 @@ def test_supertype_is_emitted_verbatim(simple_ode, supertype):
 
 
 @pytest.mark.parametrize(
-    "bad", ["..AbstractContractionModel", ".X", "X.", "X{T}", " X", "X ", "1X", "", "A..B"]
+    "bad", ["..AbstractContractionModel", ".X", "X.", "X{T}", " X", "X ", "1X", "", "A..B", "X\n"]
 )
 def test_invalid_supertype_is_rejected(simple_ode, bad):
     with pytest.raises(InvalidSupertype) as exc:
