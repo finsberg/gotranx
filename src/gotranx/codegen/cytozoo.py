@@ -19,7 +19,7 @@ from .julia import JuliaCodeGenerator
 
 logger = structlog.get_logger()
 
-# Both exceptions live in gotranx.exceptions alongside every other GotranxError,
+# The exceptions live in gotranx.exceptions alongside every other GotranxError,
 # so `except exceptions.GotranxError` catches them. They stay importable from
 # here, which is where they are raised and where callers already import them.
 __all__ = [
@@ -29,6 +29,7 @@ __all__ = [
     "InvalidModelName",
     "InvalidSupertype",
     "MissingPotentialState",
+    "ReservedName",
 ]
 
 CONVERSION_HELPER_NAME = "_cz_param"
@@ -197,7 +198,7 @@ class CytoZooCodeGenerator(JuliaCodeGenerator):
             if not self._condition(param.name):
                 continue
             lines.append(
-                f"{param.name} = _cz_param(TYPE, resolve_parameter("
+                f"{param.name} = {CONVERSION_HELPER_NAME}(TYPE, resolve_parameter("
                 f"parameters[{i + 1}], _cz_overrides, Val(:{param.name}), _cz_x, t))"
             )
         return "\n".join(lines)
@@ -214,7 +215,7 @@ class CytoZooCodeGenerator(JuliaCodeGenerator):
         if not self._missing_variables:
             return ""
         lines = [
-            f"{name} = _cz_param(TYPE, missing_variables[{index + 1}])"
+            f"{name} = {CONVERSION_HELPER_NAME}(TYPE, missing_variables[{index + 1}])"
             for name, index in self._missing_variables.items()
         ]
         return "\n".join(["", self._comment("Assign missing variables"), *lines, ""])
