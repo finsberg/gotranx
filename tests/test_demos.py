@@ -26,7 +26,6 @@ def examples():
 
 
 @pytest.mark.example
-@pytest.mark.skipif(sys.version_info < (3, 9), reason="requires python3.9 or higher")
 @pytest.mark.parametrize(
     "example",
     (pytest.param(f, id=f.name) for f in examples()),

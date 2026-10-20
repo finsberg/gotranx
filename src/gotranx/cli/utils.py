@@ -31,10 +31,7 @@ def add_schemes(
 
 
 def _toml_loads(text: str) -> dict[str, Any]:
-    try:
-        import tomllib  # Python >= 3.11
-    except ImportError:
-        import toml as tomllib  # type: ignore
+    import tomllib
 
     return tomllib.loads(text)
 
