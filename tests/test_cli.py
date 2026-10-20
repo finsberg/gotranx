@@ -907,7 +907,7 @@ def test_cli_supertype_and_no_potential(tmp_path):
 def test_cli_v_name_with_no_potential_is_an_error(tmp_path):
     result, _ = _cytozoo_run(tmp_path, ["--v-name", "v", "--no-potential"])
     assert result.exit_code != 0
-    assert "--no-potential" in result.output
+    assert "--no-potential" in strip_ansi(result.output)
 
 
 def test_config_supertype_and_no_potential(tmp_path):
@@ -922,13 +922,13 @@ def test_config_supertype_and_no_potential(tmp_path):
 def test_config_v_name_with_cli_no_potential_is_an_error(tmp_path):
     result, _ = _cytozoo_run(tmp_path, ["--no-potential"], config='v_name = "v"\n')
     assert result.exit_code != 0
-    assert "--no-potential" in result.output
+    assert "--no-potential" in strip_ansi(result.output)
 
 
 def test_cli_v_name_with_config_no_potential_is_an_error(tmp_path):
     result, _ = _cytozoo_run(tmp_path, ["--v-name", "v"], config="no_potential = true\n")
     assert result.exit_code != 0
-    assert "--no-potential" in result.output
+    assert "--no-potential" in strip_ansi(result.output)
 
 
 def test_config_no_potential_must_be_a_bool(tmp_path):
