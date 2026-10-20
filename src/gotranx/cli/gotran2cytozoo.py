@@ -3,7 +3,7 @@ from pathlib import Path
 import logging
 import structlog
 
-from ..codegen.cytozoo import CytoZooCodeGenerator
+from ..codegen.cytozoo import DEFAULT_SUPERTYPE, CytoZooCodeGenerator
 from ..load import load_ode
 from ..ode import ODE
 from .utils import select_components
@@ -37,9 +37,10 @@ def _banner(source: str) -> str:
 def get_code(
     ode: ODE,
     model_name: str | None = None,
-    v_name: str = "v",
+    v_name: str | None = "v",
     remove_unused: bool = False,
     source: Path | str | None = None,
+    supertype: str = DEFAULT_SUPERTYPE,
 ) -> str:
     """Generate the CytoZoo cell-model adapter for the ODE
 
@@ -50,8 +51,10 @@ def get_code(
     model_name : str | None, optional
         Name of the generated Julia struct, by default None, which uses the
         ODE's own name in PascalCase. Must be a valid Julia identifier
-    v_name : str, optional
-        Name of the state holding the transmembrane potential, by default "v"
+    v_name : str | None, optional
+        Name of the state holding the transmembrane potential, by default "v".
+        None generates a model without one: no `transmembrane_potential_index`
+        method is emitted, and no state is looked up
     remove_unused : bool, optional
         Remove unused variables, by default False
     source : pathlib.Path | str | None, optional
@@ -59,6 +62,10 @@ def get_code(
         basename is emitted, by default None, which falls back to the ODE's
         name. An absolute path would otherwise leak one machine's layout into
         a committed file
+    supertype : str, optional
+        Julia supertype of the generated struct, by default
+        "AbstractCardiacCellModel". A bare or dotted name; any other value must
+        be imported where the generated file is included
 
     Returns
     -------
@@ -71,9 +78,16 @@ def get_code(
         If the model name is not a valid Julia identifier
     gotranx.exceptions.MissingPotentialState
         If no state is named `v_name`
+    gotranx.exceptions.InvalidSupertype
+        If the supertype is not a valid (dotted) Julia name
     """
     codegen = CytoZooCodeGenerator(
-        ode, model_name=model_name, v_name=v_name, remove_unused=remove_unused, type_stable=True
+        ode,
+        model_name=model_name,
+        v_name=v_name,
+        remove_unused=remove_unused,
+        type_stable=True,
+        supertype=supertype,
     )
 
     source_name = Path(source).name if source is not None else f"{ode.name}.ode"
@@ -81,8 +95,16 @@ def get_code(
     comp = [
         _banner(source_name),
         "import CytoZoo",
-        "using CytoZoo: AbstractCardiacCellModel, SpatialContext, resolve_parameter",
-        "import CytoZoo: num_states, num_parameters, transmembrane_potential_index",
+        (
+            "using CytoZoo: AbstractCardiacCellModel, SpatialContext, resolve_parameter"
+            if supertype == DEFAULT_SUPERTYPE
+            else "using CytoZoo: SpatialContext, resolve_parameter"
+        ),
+        (
+            "import CytoZoo: num_states, num_parameters"
+            if v_name is None
+            else "import CytoZoo: num_states, num_parameters, transmembrane_potential_index"
+        ),
         "import CytoZoo: default_initial_state, state_index, parameter_index",
         "import CytoZoo: state_names, parameter_names",
         "import CytoZoo: num_monitors, monitor_names, monitor_values!",
@@ -102,12 +124,13 @@ def main(
     fname: Path,
     outname: Path | str | None = None,
     model_name: str | None = None,
-    v_name: str = "v",
+    v_name: str | None = "v",
     remove_unused: bool = False,
     remove_singularities: bool = True,
     verbose: bool = False,
     remove_component: list[str] | None = None,
     keep_component: str | None = None,
+    supertype: str = DEFAULT_SUPERTYPE,
 ) -> None:
     loglevel = logging.DEBUG if verbose else logging.INFO
     structlog.configure(wrapper_class=structlog.make_filtering_bound_logger(loglevel))
@@ -119,6 +142,7 @@ def main(
         v_name=v_name,
         remove_unused=remove_unused,
         source=fname,
+        supertype=supertype,
     )
     out = fname if outname is None else Path(outname)
     out_name = out.with_suffix(suffix=".jl")

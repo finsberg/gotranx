@@ -107,6 +107,18 @@ def validate_remove_singularities(remove_singularities: Any) -> bool:
     return remove_singularities
 
 
+def validate_no_potential(no_potential: Any) -> bool:
+    """Reject a non-boolean `no_potential`, which can only reach here from a
+    config file -- where a string such as "false" is truthy and would silently
+    do the opposite of what it says."""
+    if not isinstance(no_potential, bool):
+        raise typer.BadParameter(
+            f"no_potential must be true or false, got {no_potential!r}",
+            param_hint="no_potential",
+        )
+    return no_potential
+
+
 def validate_scheme(scheme: list[Scheme] | list[str]) -> list[Scheme]:
     lst = []
     for s in scheme:

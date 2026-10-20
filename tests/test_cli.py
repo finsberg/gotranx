@@ -877,3 +877,67 @@ def test_read_config_reports_a_pyproject_it_cannot_parse(tmp_path, monkeypatch, 
     monkeypatch.chdir(tmp_path)
     assert gotranx.cli.utils.read_config(None) == {}
     assert "Could not read configuration file" in capsys.readouterr().out
+
+
+def _cytozoo_run(tmp_path, args, config=None):
+    from test_cytozoo_codegen import SIMPLE_ODE
+
+    ode = tmp_path / "simple.ode"
+    ode.write_text(SIMPLE_ODE)
+    out = tmp_path / "out"
+    cmd = ["ode2cytozoo", str(ode), "-o", str(out), *args]
+    if config is not None:
+        cfg = tmp_path / "pyproject.toml"
+        cfg.write_text("[tool.gotranx.cytozoo]\n" + config)
+        cmd += ["-c", str(cfg)]
+    result = runner.invoke(gotranx.cli.app, cmd)
+    code = (tmp_path / "out.jl").read_text() if (tmp_path / "out.jl").exists() else None
+    return result, code
+
+
+def test_cli_supertype_and_no_potential(tmp_path):
+    result, code = _cytozoo_run(
+        tmp_path, ["--supertype", "CytoZoo.AbstractCellModel", "--no-potential"]
+    )
+    assert result.exit_code == 0, result.output
+    assert "<: CytoZoo.AbstractCellModel" in code
+    assert "transmembrane_potential_index" not in code
+
+
+def test_cli_v_name_with_no_potential_is_an_error(tmp_path):
+    result, _ = _cytozoo_run(tmp_path, ["--v-name", "v", "--no-potential"])
+    assert result.exit_code != 0
+    assert "--no-potential" in strip_ansi(result.output)
+
+
+def test_config_supertype_and_no_potential(tmp_path):
+    result, code = _cytozoo_run(
+        tmp_path, [], config='supertype = "CytoZoo.AbstractCellModel"\nno_potential = true\n'
+    )
+    assert result.exit_code == 0, result.output
+    assert "<: CytoZoo.AbstractCellModel" in code
+    assert "transmembrane_potential_index" not in code
+
+
+def test_config_v_name_with_cli_no_potential_is_an_error(tmp_path):
+    result, _ = _cytozoo_run(tmp_path, ["--no-potential"], config='v_name = "v"\n')
+    assert result.exit_code != 0
+    assert "--no-potential" in strip_ansi(result.output)
+
+
+def test_cli_v_name_with_config_no_potential_is_an_error(tmp_path):
+    result, _ = _cytozoo_run(tmp_path, ["--v-name", "v"], config="no_potential = true\n")
+    assert result.exit_code != 0
+    assert "--no-potential" in strip_ansi(result.output)
+
+
+def test_config_no_potential_must_be_a_bool(tmp_path):
+    result, _ = _cytozoo_run(tmp_path, [], config='no_potential = "true"\n')
+    assert result.exit_code != 0
+    assert "no_potential" in result.output
+
+
+def test_config_wins_over_cli_supertype(tmp_path):
+    result, code = _cytozoo_run(tmp_path, ["--supertype", "A"], config='supertype = "B"\n')
+    assert result.exit_code == 0, result.output
+    assert "<: B" in code

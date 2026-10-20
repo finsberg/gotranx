@@ -962,7 +962,24 @@ def ode2cytozoo(
     model_name: typing.Optional[str] = typer.Option(
         None, "--model-name", help="Julia struct name (default: the ODE name in PascalCase)"
     ),
-    v_name: str = typer.Option("v", "--v-name", help="State holding the transmembrane potential"),
+    v_name: typing.Optional[str] = typer.Option(
+        None,
+        "--v-name",
+        help="State holding the transmembrane potential (default: v). "
+        "Cannot be combined with --no-potential",
+    ),
+    no_potential: bool = typer.Option(
+        False,
+        "--no-potential",
+        help="Generate a model without a transmembrane potential: no "
+        "transmembrane_potential_index method and no state is looked up",
+    ),
+    supertype: str = typer.Option(
+        gotran2cytozoo.DEFAULT_SUPERTYPE,
+        "--supertype",
+        help="Julia supertype of the generated struct. A bare or dotted name; "
+        "anything but the default must be imported where the file is included",
+    ),
     remove_component: typing.Optional[typing.List[str]] = typer.Option(
         None,
         "--remove-component",
@@ -1017,12 +1034,25 @@ def ode2cytozoo(
     cytozoo_config = config_data.get("cytozoo", {})
     model_name = cytozoo_config.get("model_name", model_name)
     v_name = cytozoo_config.get("v_name", v_name)
+    supertype = cytozoo_config.get("supertype", supertype)
+    no_potential = utils.validate_no_potential(cytozoo_config.get("no_potential", no_potential))
+    if no_potential:
+        if v_name is not None:
+            raise typer.BadParameter(
+                f"a potential name ({v_name!r}) cannot be combined with --no-potential "
+                "(CLI option or `no_potential` in the config)",
+                param_hint="--no-potential",
+            )
+        v_name_resolved = None
+    else:
+        v_name_resolved = "v" if v_name is None else v_name
 
     gotran2cytozoo.main(
         fname=fname,
         outname=outname,
         model_name=model_name,
-        v_name=v_name,
+        v_name=v_name_resolved,
+        supertype=supertype,
         remove_unused=remove_unused,
         remove_singularities=remove_singularities,
         verbose=verbose,

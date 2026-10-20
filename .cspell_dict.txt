@@ -71,6 +71,7 @@ getfixturevalue
 gotran
 gotranx
 Hairer
+hasmethod
 Hochbruck
 hprint
 Hustad
@@ -155,6 +156,7 @@ Rdmm
 relop
 removability
 reorderable
+retcode
 reuter
 reversal_potentials
 rhoz
@@ -192,6 +194,7 @@ transmembrane
 troponin
 TRPN
 tsdp
+Tsit
 tspd
 Tusscher
 Tveito
