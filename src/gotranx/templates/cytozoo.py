@@ -94,7 +94,9 @@ def index_lookups(name: str, state_names: list[str], parameter_names: list[str])
     )
 
 
-def interface_methods(name: str, v_index: int, num_monitors: int, num_missing: int = 0) -> str:
+def interface_methods(
+    name: str, v_index: int | None, num_monitors: int, num_missing: int = 0
+) -> str:
     upper = name.upper()
     # The missing variables are the trailing slice of the parameter vector (see model_struct).
     inputs = (
@@ -124,11 +126,15 @@ def interface_methods(name: str, v_index: int, num_monitors: int, num_missing: i
             """
         )
 
+    # Without a membrane potential the method is simply not defined.
+    potential = (
+        f"transmembrane_potential_index(::{name}) = {v_index}\n" if v_index is not None else ""
+    )
     core = dedent(
         f"""
         num_states(::{name}) = NUM_STATES
         num_parameters(::{name}) = {num_parameters}
-        transmembrane_potential_index(::{name}) = {v_index}
+        @@POTENTIAL@@
 
         function default_initial_state(model::{name}{{T}}) where {{T}}
             u = zeros(eltype(T), NUM_STATES)
@@ -147,4 +153,4 @@ def interface_methods(name: str, v_index: int, num_monitors: int, num_missing: i
         end
         """
     )
-    return core + monitors
+    return core.replace("@@POTENTIAL@@\n", potential) + monitors

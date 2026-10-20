@@ -47,7 +47,7 @@ class CytoZooCodeGenerator(JuliaCodeGenerator):
         self,
         ode: ODE,
         model_name: str | None = None,
-        v_name: str = "v",
+        v_name: str | None = "v",
         remove_unused: bool = False,
         type_stable: bool = True,
         supertype: str = DEFAULT_SUPERTYPE,
@@ -66,6 +66,13 @@ class CytoZooCodeGenerator(JuliaCodeGenerator):
             raise InvalidSupertype(supertype)
         self._supertype = supertype
         self._v_name = v_name
+        if v_name is None and supertype == DEFAULT_SUPERTYPE:
+            logger.warning(
+                "cardiac model without a membrane potential: "
+                f"{DEFAULT_SUPERTYPE} requires transmembrane_potential_index; "
+                "pass a different supertype if this is not a cardiac cell model",
+                model=name,
+            )
 
     @property
     def template(self):
@@ -102,7 +109,9 @@ class CytoZooCodeGenerator(JuliaCodeGenerator):
             if isinstance(a, (atoms.Intermediate, atoms.StateDerivative))
         ]
 
-    def _potential_index(self) -> int:
+    def _potential_index(self) -> int | None:
+        if self._v_name is None:
+            return None
         names = self._state_name_list()
         try:
             return names.index(self._v_name) + 1

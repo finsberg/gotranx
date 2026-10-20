@@ -37,7 +37,7 @@ def _banner(source: str) -> str:
 def get_code(
     ode: ODE,
     model_name: str | None = None,
-    v_name: str = "v",
+    v_name: str | None = "v",
     remove_unused: bool = False,
     source: Path | str | None = None,
     supertype: str = DEFAULT_SUPERTYPE,
@@ -51,8 +51,10 @@ def get_code(
     model_name : str | None, optional
         Name of the generated Julia struct, by default None, which uses the
         ODE's own name in PascalCase. Must be a valid Julia identifier
-    v_name : str, optional
-        Name of the state holding the transmembrane potential, by default "v"
+    v_name : str | None, optional
+        Name of the state holding the transmembrane potential, by default "v".
+        None generates a model without one: no `transmembrane_potential_index`
+        method is emitted, and no state is looked up
     remove_unused : bool, optional
         Remove unused variables, by default False
     source : pathlib.Path | str | None, optional
@@ -98,7 +100,11 @@ def get_code(
             if supertype == DEFAULT_SUPERTYPE
             else "using CytoZoo: SpatialContext, resolve_parameter"
         ),
-        "import CytoZoo: num_states, num_parameters, transmembrane_potential_index",
+        (
+            "import CytoZoo: num_states, num_parameters"
+            if v_name is None
+            else "import CytoZoo: num_states, num_parameters, transmembrane_potential_index"
+        ),
         "import CytoZoo: default_initial_state, state_index, parameter_index",
         "import CytoZoo: state_names, parameter_names",
         "import CytoZoo: num_monitors, monitor_names, monitor_values!",

@@ -52,6 +52,7 @@ def test_name_tuples_tuple_arity_cases():
 
 
 def test_interface_methods_conditional_monitor_branch():
+    assert "transmembrane_potential_index" not in cytozoo.interface_methods("M", None, 0)
     # With monitors: all three required components must be present
     code = cytozoo.interface_methods("ORdmmLand", 0, 3)
     assert "num_monitors(::ORdmmLand) = 3" in code
@@ -527,3 +528,55 @@ def test_invalid_supertype_is_rejected(simple_ode, bad):
 
 def test_invalid_supertype_is_a_gotranx_error():
     assert issubclass(InvalidSupertype, GotranxError)
+
+
+from structlog.testing import capture_logs
+
+
+def test_no_potential_omits_the_method_and_its_import(simple_ode):
+    # simple_ode has a state named v: it is ignored.
+    code = gotran2cytozoo.get_code(simple_ode, v_name=None, supertype="CytoZoo.AbstractCellModel")
+    assert "transmembrane_potential_index" not in code
+    assert "import CytoZoo: num_states, num_parameters\n" in code
+
+
+def test_no_potential_never_raises_missing_potential_state(parser, trans):
+    ode = make_ode(
+        *trans.transform(parser.parse("parameters(a=1.0)\nstates(x=0.0)\ndx_dt = -a*x\n")),
+        name="nov",
+    )
+    code = gotran2cytozoo.get_code(ode, v_name=None, supertype="X")
+    assert "struct Nov{T <: AbstractVector} <: X" in code
+
+
+def test_default_supertype_without_potential_warns(simple_ode):
+    with capture_logs() as logs:
+        gotran2cytozoo.get_code(simple_ode, v_name=None)
+    assert any(
+        e["log_level"] == "warning"
+        and e["event"].startswith("cardiac model without a membrane potential")
+        for e in logs
+    )
+
+
+def test_custom_supertype_without_potential_does_not_warn(simple_ode):
+    with capture_logs() as logs:
+        gotran2cytozoo.get_code(simple_ode, v_name=None, supertype="X")
+    assert not [e for e in logs if e["log_level"] == "warning"]
+
+
+def test_no_potential_with_missing_variables(parser, trans):
+    # A removed component's inputs still become trailing NaN parameters.
+    text = (
+        'parameters("inputs", u_in=2.0)\n'
+        'parameters("m", k=0.5)\n'
+        'states("m", x=1.0)\n'
+        'expressions("m")\n'
+        "dx_dt = -k*x + u_in\n"
+    )
+    full = make_ode(*trans.transform(parser.parse(text)), name="two")
+    sub = full - full.get_component("inputs")
+    code = gotran2cytozoo.get_code(sub, model_name="Two", v_name=None, supertype="X")
+    assert "const NUM_MISSING = 1;" in code
+    assert "p[(NUM_PARAMS + 1):end] .= NaN" in code
+    assert "transmembrane_potential_index" not in code
