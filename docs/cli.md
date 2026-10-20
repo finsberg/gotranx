@@ -115,11 +115,13 @@ What one part reads from the other becomes an input of the part: a trailing
 writable parameter, `NaN` until a CytoZoo `connect` edge sets it.
 ```shell
 python3 -m gotranx ode2cytozoo model.ode --remove-component troponin --model-name Membrane -o membrane.jl
-python3 -m gotranx ode2cytozoo model.ode --keep-component troponin --model-name Troponin --v-name b -o troponin.jl
+python3 -m gotranx ode2cytozoo model.ode --keep-component troponin --model-name Troponin --no-potential --supertype CytoZoo.AbstractCellModel -o troponin.jl
 ```
-A part with no transmembrane potential, such as the troponin half above, can say so
+A part with no transmembrane potential, such as the troponin half above, says so
 with `--no-potential`, which emits no `transmembrane_potential_index` method and looks
-no state up. (`--no-potential` together with an explicit `--v-name` is an error.)
+no state up. (`--no-potential` together with an explicit `--v-name` is an error, and
+with the default cardiac supertype it logs a warning.) A `CytoZoo.`-qualified supertype
+needs no import, because the generated file does `import CytoZoo`.
 
 By default the struct is a `<: AbstractCardiacCellModel`. `--supertype NAME` chooses
 another, for a model that is not a cardiac cell, such as a contraction model:

@@ -518,7 +518,8 @@ def test_supertype_is_emitted_verbatim(simple_ode, supertype):
 
 
 @pytest.mark.parametrize(
-    "bad", ["..AbstractContractionModel", ".X", "X.", "X{T}", " X", "X ", "1X", "", "A..B", "X\n"]
+    "bad",
+    ["..AbstractContractionModel", ".X", "X.", "X{T}", " X", "X ", "1X", "", "A..B", "X\n", 1],
 )
 def test_invalid_supertype_is_rejected(simple_ode, bad):
     with pytest.raises(InvalidSupertype) as exc:
@@ -552,6 +553,18 @@ def test_no_potential_never_raises_missing_potential_state(parser, trans):
 def test_default_supertype_without_potential_warns(simple_ode):
     with capture_logs() as logs:
         gotran2cytozoo.get_code(simple_ode, v_name=None)
+    assert any(
+        e["log_level"] == "warning"
+        and e["event"].startswith("cardiac model without a membrane potential")
+        for e in logs
+    )
+
+
+def test_qualified_default_supertype_without_potential_warns(simple_ode):
+    with capture_logs() as logs:
+        gotran2cytozoo.get_code(
+            simple_ode, v_name=None, supertype="CytoZoo.AbstractCardiacCellModel"
+        )
     assert any(
         e["log_level"] == "warning"
         and e["event"].startswith("cardiac model without a membrane potential")

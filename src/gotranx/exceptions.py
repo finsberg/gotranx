@@ -183,7 +183,7 @@ class InvalidModelName(GotranxError, ValueError):
 
 @dataclass
 class InvalidSupertype(GotranxError, ValueError):
-    supertype: str
+    supertype: object
 
     def __str__(self) -> str:
         return (

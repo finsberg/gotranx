@@ -201,6 +201,8 @@ def test_non_cardiac_model_couples_as_second_node(cytozoo_solver, run_julia, tmp
         sol = solve(ODEProblem(cm, (0.0, 0.1)), Tsit5())
         println(SciMLBase.successful_retcode(sol))
         println(all(isfinite, sol.u[end]))
+        i = state_index(cm, :Mech_CaTRPN)
+        println(sol.u[end][i] > 2 * sol.u[1][i])
         """
     )
-    assert lines == ["true", "true"]
+    assert lines == ["true", "true", "true"]

@@ -62,11 +62,11 @@ class CytoZooCodeGenerator(JuliaCodeGenerator):
         if not name.isidentifier():
             raise InvalidModelName(name)
         self._model_name = name
-        if not _SUPERTYPE_RE.fullmatch(supertype):
+        if not isinstance(supertype, str) or not _SUPERTYPE_RE.fullmatch(supertype):
             raise InvalidSupertype(supertype)
         self._supertype = supertype
         self._v_name = v_name
-        if v_name is None and supertype == DEFAULT_SUPERTYPE:
+        if v_name is None and supertype in (DEFAULT_SUPERTYPE, f"CytoZoo.{DEFAULT_SUPERTYPE}"):
             logger.warning(
                 "cardiac model without a membrane potential: "
                 f"{DEFAULT_SUPERTYPE} requires transmembrane_potential_index; "
