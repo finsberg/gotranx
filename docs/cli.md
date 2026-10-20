@@ -117,8 +117,17 @@ writable parameter, `NaN` until a CytoZoo `connect` edge sets it.
 python3 -m gotranx ode2cytozoo model.ode --remove-component troponin --model-name Membrane -o membrane.jl
 python3 -m gotranx ode2cytozoo model.ode --keep-component troponin --model-name Troponin --v-name b -o troponin.jl
 ```
-A part with no transmembrane potential must still name one of its states as
-`--v-name`.
+A part with no transmembrane potential, such as the troponin half above, can say so
+with `--no-potential`, which emits no `transmembrane_potential_index` method and looks
+no state up. (`--no-potential` together with an explicit `--v-name` is an error.)
+
+By default the struct is a `<: AbstractCardiacCellModel`. `--supertype NAME` chooses
+another, for a model that is not a cardiac cell, such as a contraction model:
+```shell
+python3 -m gotranx ode2cytozoo land2017.ode --model-name Land2017 --no-potential --supertype AbstractContractionModel
+```
+The supertype must be in scope where the generated file is included, e.g.
+`using ..Contraction: AbstractContractionModel` in the wrapping module.
 
 Note that the generated module requires a CytoZoo version providing
 `resolve_parameter`, which is not yet released. The example

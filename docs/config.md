@@ -133,3 +133,10 @@ print(gotranx.codegen.CFormat._member_names_)
   emitted as a `struct` that Julia cannot parse
 - `v_name` (str, default: `v`). Name of the state holding the transmembrane
   potential
+- `supertype` (str, default: `AbstractCardiacCellModel`). Julia supertype of
+  the generated struct, a bare or dotted name. Any other value must be in scope
+  where the generated file is included. Overrides `--supertype`
+- `no_potential` (bool, default: `false`). Generate a model without a
+  transmembrane potential, for a part or a model that is not a cardiac cell.
+  Overrides `--no-potential`, and combining it with an explicit `v_name` (from
+  the configuration or the command line) is an error

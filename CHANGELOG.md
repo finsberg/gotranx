@@ -113,6 +113,12 @@ pole is left alone.
 
 ### Added
 
+- `ode2cytozoo --supertype NAME` and `--no-potential` (configuration keys
+  `supertype` and `no_potential` under `[tool.gotranx.cytozoo]`), for models that
+  are not cardiac cells, such as contraction models: the generated struct can
+  subtype any CytoZoo abstract type, and a model without a transmembrane
+  potential emits no `transmembrane_potential_index`. The defaults leave
+  existing output unchanged.
 - `gotranx.singularities`, and `--remove-singularities/--no-remove-singularities`
   on `ode2py`, `ode2c`, `ode2julia`, `ode2mtk`, `ode2ufl` and `ode2md`.
 - `ode2cytozoo`, which emits a [CytoZoo](https://github.com/finsberg/CytoZoo.jl)
