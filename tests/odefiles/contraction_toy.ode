@@ -1,0 +1,45 @@
+# A toy contraction model with no membrane potential, shaped on Land et al. (2017)
+# (crossbridge's land2017.ode): troponin binds calcium, crossbridges bind in proportion,
+# and a distortion follows the sarcomere's stretch rate. Units: s, uM, um, kPa.
+#
+# The component `inputs` holds what another model supplies: Ca, SL and dSL. Coupled in
+# CytoZoo.jl, a `connect` edge writes into these parameter slots. The outputs are the
+# intermediates Ta and bound_ca.
+
+parameters("inputs",
+Ca = ScalarParam(0.1, unit="uM", description="cytosolic calcium"),
+SL = ScalarParam(1.8, unit="um", description="sarcomere length"),
+dSL = ScalarParam(0.0, unit="um/s", description="sarcomere length rate")
+)
+
+parameters("kinetics",
+SL0 = ScalarParam(1.8, unit="um"),
+k_trpn = ScalarParam(100.0, unit="1/s"),
+ntrpn = 2.0,
+ca50 = ScalarParam(2.5, unit="uM"),
+kb = ScalarParam(50.0, unit="1/s"),
+ku = ScalarParam(20.0, unit="1/s"),
+As = 25.0,
+cs = ScalarParam(10.0, unit="1/s"),
+Tref = ScalarParam(120.0, unit="kPa")
+)
+
+# CaTRPN starts at its steady state for Ca = 0.1 uM: 1 / (1 + (2.5/0.1)**2), and B near its own.
+states("troponin", CaTRPN = 0.0015974440894568689)
+states("crossbridges", B = 0.004, Zs = 0.0)
+
+expressions("kinematics")
+Lambda = SL / SL0
+dLambda = dSL / SL0
+
+expressions("troponin")
+Ca_safe = Max(Ca, 0.0)
+dCaTRPN_dt = k_trpn * ((Ca_safe / ca50) ** ntrpn * (1.0 - CaTRPN) - CaTRPN)
+bound_ca = CaTRPN
+
+expressions("crossbridges")
+dB_dt = kb * CaTRPN * (1.0 - B) - ku * B
+dZs_dt = As * dLambda - cs * Zs
+
+expressions("tension")
+Ta = Tref * Lambda * B * (Zs + 1.0)
