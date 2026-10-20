@@ -179,3 +179,18 @@ class InvalidModelName(GotranxError, ValueError):
             "e.g. 'ORdmmLand'. Pass a different name with model_name= "
             "(CLI: --model-name)."
         )
+
+
+@dataclass
+class InvalidSupertype(GotranxError, ValueError):
+    supertype: str
+
+    def __str__(self) -> str:
+        return (
+            f"Supertype {self.supertype!r} is not a valid Julia type name, so the "
+            "generated `struct` would not parse. Use a bare or dotted name such as "
+            "'AbstractContractionModel' or 'CytoZoo.AbstractCellModel'. Relative "
+            "`..` paths are not allowed, and the name must be imported where the "
+            "generated file is included. Pass a different one with supertype= "
+            "(CLI: --supertype)."
+        )

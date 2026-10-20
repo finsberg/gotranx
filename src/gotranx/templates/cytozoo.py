@@ -2,7 +2,12 @@ from __future__ import annotations
 from textwrap import dedent
 
 
-def model_struct(name: str, num_params: int, num_missing: int = 0) -> str:
+def model_struct(
+    name: str,
+    num_params: int,
+    num_missing: int = 0,
+    supertype: str = "AbstractCardiacCellModel",
+) -> str:
     """The model struct and its three constructors.
 
     One field, unlike ToRORd's three: cell type and stimulus settings are ordinary
@@ -21,7 +26,7 @@ def model_struct(name: str, num_params: int, num_missing: int = 0) -> str:
     inputs = "\n" + " " * 12 + "p[(NUM_PARAMS + 1):end] .= NaN" if num_missing else ""
     return dedent(
         f"""
-        struct {name}{{T <: AbstractVector}} <: AbstractCardiacCellModel
+        struct {name}{{T <: AbstractVector}} <: {supertype}
             parameters::T
         end
 

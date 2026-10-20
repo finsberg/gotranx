@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import re
+
 import structlog
 
 from ..ode import ODE
 from .. import templates
 from .. import atoms
-from ..exceptions import InvalidModelName, MissingPotentialState
+from ..exceptions import InvalidModelName, InvalidSupertype, MissingPotentialState
 from .base import RHSArgument
 from .julia import JuliaCodeGenerator
 
@@ -14,7 +16,14 @@ logger = structlog.get_logger()
 # Both exceptions live in gotranx.exceptions alongside every other GotranxError,
 # so `except exceptions.GotranxError` catches them. They stay importable from
 # here, which is where they are raised and where callers already import them.
-__all__ = ["CytoZooCodeGenerator", "InvalidModelName", "MissingPotentialState"]
+__all__ = [
+    "CytoZooCodeGenerator",
+    "InvalidModelName",
+    "InvalidSupertype",
+    "MissingPotentialState",
+]
+
+_SUPERTYPE_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_!]*(\.[A-Za-z_][A-Za-z0-9_!]*)*$")
 
 
 def _pascal_case(name: str) -> str:
@@ -39,6 +48,7 @@ class CytoZooCodeGenerator(JuliaCodeGenerator):
         v_name: str = "v",
         remove_unused: bool = False,
         type_stable: bool = True,
+        supertype: str = "AbstractCardiacCellModel",
     ) -> None:
         super().__init__(ode, remove_unused=remove_unused, type_stable=type_stable)
         name = model_name or _pascal_case(ode.name or "Model")
@@ -50,6 +60,9 @@ class CytoZooCodeGenerator(JuliaCodeGenerator):
         if not name.isidentifier():
             raise InvalidModelName(name)
         self._model_name = name
+        if not _SUPERTYPE_RE.match(supertype):
+            raise InvalidSupertype(supertype)
+        self._supertype = supertype
         self._v_name = v_name
 
     @property
@@ -59,6 +72,10 @@ class CytoZooCodeGenerator(JuliaCodeGenerator):
     @property
     def model_name(self) -> str:
         return self._model_name
+
+    @property
+    def supertype(self) -> str:
+        return self._supertype
 
     def _state_name_list(self) -> list[str]:
         # self.ode.states is name-sorted; sorted_states() is the dependency order
@@ -167,7 +184,10 @@ class CytoZooCodeGenerator(JuliaCodeGenerator):
         monitors = self._monitor_name_list()
         parts = [
             templates.cytozoo.model_struct(
-                name, len(self.ode.parameters), len(self._missing_variables)
+                name,
+                len(self.ode.parameters),
+                len(self._missing_variables),
+                self._supertype,
             ),
             templates.cytozoo.name_tuples(
                 name, self._state_name_list(), self._parameter_name_list(), monitors

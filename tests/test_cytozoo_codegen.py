@@ -76,9 +76,12 @@ import pytest
 from gotranx.codegen.cytozoo import (
     CytoZooCodeGenerator,
     InvalidModelName,
+    InvalidSupertype,
     MissingPotentialState,
     _pascal_case,
 )
+from gotranx.cli import gotran2cytozoo
+from gotranx.exceptions import GotranxError
 from gotranx.ode import make_ode
 
 
@@ -486,3 +489,41 @@ def test_the_banner_falls_back_to_the_ode_name(simple_ode):
 
     banner = get_code(simple_ode).split("import CytoZoo", 1)[0]
     assert f"{simple_ode.name}.ode" in banner
+
+
+DEFAULT_HEADER = [
+    "import CytoZoo",
+    "using CytoZoo: AbstractCardiacCellModel, SpatialContext, resolve_parameter",
+    "import CytoZoo: num_states, num_parameters, transmembrane_potential_index",
+]
+
+
+def test_default_header_is_unchanged(simple_ode):
+    code = gotran2cytozoo.get_code(simple_ode)
+    for line in DEFAULT_HEADER:
+        assert line in code
+    assert "struct Simple{T <: AbstractVector} <: AbstractCardiacCellModel" in code
+
+
+@pytest.mark.parametrize(
+    "supertype", ["AbstractContractionModel", "CytoZoo.AbstractCellModel", "A.B.C"]
+)
+def test_supertype_is_emitted_verbatim(simple_ode, supertype):
+    code = gotran2cytozoo.get_code(simple_ode, supertype=supertype)
+    assert f"struct Simple{{T <: AbstractVector}} <: {supertype}" in code
+    # A custom supertype is the caller's to import; CytoZoo's cardiac type is not imported.
+    assert "using CytoZoo: SpatialContext, resolve_parameter" in code
+    assert "AbstractCardiacCellModel" not in code
+
+
+@pytest.mark.parametrize(
+    "bad", ["..AbstractContractionModel", ".X", "X.", "X{T}", " X", "X ", "1X", "", "A..B"]
+)
+def test_invalid_supertype_is_rejected(simple_ode, bad):
+    with pytest.raises(InvalidSupertype) as exc:
+        CytoZooCodeGenerator(simple_ode, supertype=bad)
+    assert "supertype" in str(exc.value)
+
+
+def test_invalid_supertype_is_a_gotranx_error():
+    assert issubclass(InvalidSupertype, GotranxError)

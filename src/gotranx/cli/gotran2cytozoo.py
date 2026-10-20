@@ -40,6 +40,7 @@ def get_code(
     v_name: str = "v",
     remove_unused: bool = False,
     source: Path | str | None = None,
+    supertype: str = "AbstractCardiacCellModel",
 ) -> str:
     """Generate the CytoZoo cell-model adapter for the ODE
 
@@ -59,6 +60,10 @@ def get_code(
         basename is emitted, by default None, which falls back to the ODE's
         name. An absolute path would otherwise leak one machine's layout into
         a committed file
+    supertype : str, optional
+        Julia supertype of the generated struct, by default
+        "AbstractCardiacCellModel". A bare or dotted name; any other value must
+        be imported where the generated file is included
 
     Returns
     -------
@@ -71,9 +76,16 @@ def get_code(
         If the model name is not a valid Julia identifier
     gotranx.exceptions.MissingPotentialState
         If no state is named `v_name`
+    gotranx.exceptions.InvalidSupertype
+        If the supertype is not a valid (dotted) Julia name
     """
     codegen = CytoZooCodeGenerator(
-        ode, model_name=model_name, v_name=v_name, remove_unused=remove_unused, type_stable=True
+        ode,
+        model_name=model_name,
+        v_name=v_name,
+        remove_unused=remove_unused,
+        type_stable=True,
+        supertype=supertype,
     )
 
     source_name = Path(source).name if source is not None else f"{ode.name}.ode"
@@ -81,7 +93,11 @@ def get_code(
     comp = [
         _banner(source_name),
         "import CytoZoo",
-        "using CytoZoo: AbstractCardiacCellModel, SpatialContext, resolve_parameter",
+        (
+            "using CytoZoo: AbstractCardiacCellModel, SpatialContext, resolve_parameter"
+            if supertype == "AbstractCardiacCellModel"
+            else "using CytoZoo: SpatialContext, resolve_parameter"
+        ),
         "import CytoZoo: num_states, num_parameters, transmembrane_potential_index",
         "import CytoZoo: default_initial_state, state_index, parameter_index",
         "import CytoZoo: state_names, parameter_names",
