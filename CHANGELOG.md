@@ -35,6 +35,25 @@ its branch at the pole before expanding, when no condition changes within
 the widest window (0.1); when one does, or depends on another state, the
 pole is left alone.
 
+`ode2cytozoo` now converts every parameter, and every missing variable, with
+a helper emitted once per generated file instead of `TYPE(...)`:
+
+```julia
+@inline _cz_param(::Type{T}, v::Union{AbstractFloat, Integer}) where {T} = T(v)
+@inline _cz_param(::Type{T}, v) where {T} = v
+```
+
+Each parameter line is now
+`GNa = _cz_param(TYPE, resolve_parameter(parameters[1], _cz_overrides, Val(:GNa), _cz_x, t))`.
+Plain numbers still become `TYPE`, so Float32 models still compute in Float32
+without allocating. Anything else passes through, which fixes Rosenbrock
+solvers (`Rodas5P()`) and parameter sensitivities on a model with a
+time-dependent override: ForwardDiff hands the right-hand side a dual `t`, the
+override returns a dual, and `Float64(dual)` threw. **If you regenerate a
+model, every parameter line changes.** Models generated before keep working.
+A state, parameter or intermediate named `_cz_param` is now rejected with
+`ReservedName`. `ode2julia` output does not change.
+
 ### Fixed
 
 - Singularity removal could replace a pole that a model guards itself with

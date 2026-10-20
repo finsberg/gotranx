@@ -134,6 +134,29 @@ def cytozoo_solver(julia) -> str:
     return julia
 
 
+@pytest.fixture(scope="session")
+def cytozoo_rosenbrock(julia) -> str:
+    """The `julia` executable, once CytoZoo.jl and the Rosenbrock solvers
+    (OrdinaryDiffEqRosenbrock, ADTypes, SciMLBase) are known to load in its default
+    environment."""
+    result = subprocess.run(
+        [
+            julia,
+            "--startup-file=no",
+            "-e",
+            "using CytoZoo, OrdinaryDiffEqRosenbrock, ADTypes, SciMLBase",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        _unavailable(
+            "CytoZoo.jl, OrdinaryDiffEqRosenbrock, ADTypes and SciMLBase do not load in "
+            f"julia's default environment:\n{result.stderr}"
+        )
+    return julia
+
+
 @pytest.fixture
 def run_julia(julia, tmp_path):
     """Run a Julia script and return the lines it printed. A failing script fails the test,

@@ -253,14 +253,14 @@ def test_parameter_named_T_does_not_shadow_the_type_parameter(simple_ode):
     assert "where {TYPE" in rhs
     assert "where {T," not in rhs
     assert "where {T}" not in rhs
-    assert "T = resolve_parameter" in rhs or "T = TYPE(resolve_parameter" in rhs
+    assert "T = _cz_param(TYPE, resolve_parameter" in rhs
 
 
 def test_the_overrides_type_parameter_cannot_collide_with_a_parameter(parser, trans):
     """CytoZoo's guide spells it `F`; `F` is Faraday's constant in every cardiac model.
 
     `function rhs(..., _cz_overrides::F) where {..., F}` with a body that then
-    assigns `F = TYPE(resolve_parameter(...))` is a Julia *syntax* error --
+    assigns `F = _cz_param(TYPE, resolve_parameter(...))` is a Julia *syntax* error --
     "local variable name \"F\" conflicts with a static parameter" -- so the
     module does not load at all. ORdmm_Land has exactly such a parameter.
     """
@@ -276,7 +276,7 @@ def test_the_overrides_type_parameter_cannot_collide_with_a_parameter(parser, tr
     rhs = CytoZooCodeGenerator(ode, type_stable=True).rhs()
 
     # The parameter local is still emitted, and still named F.
-    assert "F = TYPE(resolve_parameter(" in rhs
+    assert "F = _cz_param(TYPE, resolve_parameter(" in rhs
     # The overrides' type parameter must therefore not be called F.
     signature = next(line for line in rhs.splitlines() if line.startswith("function rhs("))
     assert "_cz_overrides::_cz_F" in signature
@@ -318,7 +318,7 @@ def test_parameter_name_index_pairing_matches_ode_order(permuted_ode):
     gen = CytoZooCodeGenerator(permuted_ode, type_stable=True)
     rhs = gen.rhs()
 
-    pairs = re.findall(r"(\w+) = TYPE\(resolve_parameter\(parameters\[(\d+)\]", rhs)
+    pairs = re.findall(r"(\w+) = _cz_param\(TYPE, resolve_parameter\(parameters\[(\d+)\]", rhs)
     index_by_name = {name: int(idx) for name, idx in pairs}
 
     expected_names = [p.name for p in permuted_ode.parameters]
@@ -593,3 +593,47 @@ def test_no_potential_with_missing_variables(parser, trans):
     assert "const NUM_MISSING = 1;" in code
     assert "p[(NUM_PARAMS + 1):end] .= NaN" in code
     assert "transmembrane_potential_index" not in code
+
+
+def test_parameters_are_converted_through_the_helper(simple_ode):
+    code = gotran2cytozoo.get_code(simple_ode)
+    assert "@inline _cz_param(::Type{T}, v::Union{AbstractFloat, Integer}) where {T} = T(v)" in code
+    assert "@inline _cz_param(::Type{T}, v) where {T} = v" in code
+    assert code.count("@inline _cz_param(") == 2
+    assert "GNa = _cz_param(TYPE, resolve_parameter(" in code
+    assert "TYPE(resolve_parameter(" not in code
+    # The helper is defined before the first function that calls it.
+    assert code.index("@inline _cz_param(") < code.index("GNa = _cz_param(")
+
+
+def test_missing_variables_are_converted_through_the_helper(parser, trans):
+    text = (
+        'parameters("inputs", u_in=2.0)\n'
+        'parameters("m", k=0.5)\n'
+        'states("m", x=1.0)\n'
+        'expressions("m")\n'
+        "dx_dt = -k*x + u_in\n"
+    )
+    full = make_ode(*trans.transform(parser.parse(text)), name="two")
+    sub = full - full.get_component("inputs")
+    code = gotran2cytozoo.get_code(sub, model_name="Two", v_name=None, supertype="X")
+    assert "= _cz_param(TYPE, missing_variables[1])" in code
+    assert "TYPE(missing_variables[" not in code
+
+
+@pytest.mark.parametrize("kind", ["parameter", "state", "intermediate"])
+def test_a_symbol_named_cz_param_is_rejected(parser, trans, kind):
+    from gotranx.exceptions import ReservedName
+
+    text = {
+        "parameter": "parameters(_cz_param=1.0)\nstates(v=0.0)\ndv_dt = -_cz_param*v\n",
+        "state": "parameters(a=1.0)\nstates(_cz_param=0.0)\nd_cz_param_dt = -a*_cz_param\n",
+        "intermediate": (
+            "parameters(a=1.0)\nstates(v=0.0)\n_cz_param = 2*a\ndv_dt = -_cz_param*v\n"
+        ),
+    }[kind]
+    ode = make_ode(*trans.transform(parser.parse(text)), name="reserved")
+    with pytest.raises(ReservedName) as exc:
+        gotran2cytozoo.get_code(ode, v_name=None, supertype="X")
+    assert "_cz_param" in str(exc.value)
+    assert isinstance(exc.value, GotranxError)

@@ -1,3 +1,4 @@
+abstol
 Acta
 afterload
 allclose
@@ -6,6 +7,7 @@ archs
 Artebrant
 ascontiguousarray
 atol
+autodiff
 autouse
 axhline
 beeler
@@ -59,6 +61,7 @@ fenics
 fgrl
 figsize
 Finsberg
+FITZHUGH
 fitzhughnagumo
 fixturenames
 flatnonzero
@@ -154,12 +157,15 @@ pytestmark
 Radau
 Rdmm
 relop
+reltol
 removability
 reorderable
 retcode
 reuter
 reversal_potentials
 rhoz
+Rodas
+rosenbrock
 rtol
 scalarparam
 scipy
@@ -200,6 +206,7 @@ Tusscher
 Tveito
 ureg
 userfunc
+vcat
 Veneziani
 VFFRT
 vffrt
