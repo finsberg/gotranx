@@ -190,8 +190,8 @@ def test_cytozoo_converts_missing_variables_to_the_state_type(ode):
     code = gotran2cytozoo.get_code(ode, model_name="Toy")
     # Like the parameters, whose vector they share: a model built in Float64 and evaluated
     # on Float32 states must not compute the terms that read an input in Float64.
-    assert code.count("u_in = TYPE(missing_variables[1])") == 2  # rhs and monitor_values
-    assert code.count("w_in = TYPE(missing_variables[2])") == 2
+    assert code.count("u_in = _cz_param(TYPE, missing_variables[1])") == 2  # rhs and monitor_values
+    assert code.count("w_in = _cz_param(TYPE, missing_variables[2])") == 2
     assert "= missing_variables[" not in code
 
 

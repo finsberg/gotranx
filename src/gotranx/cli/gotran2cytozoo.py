@@ -3,7 +3,7 @@ from pathlib import Path
 import logging
 import structlog
 
-from ..codegen.cytozoo import DEFAULT_SUPERTYPE, CytoZooCodeGenerator
+from ..codegen.cytozoo import CONVERSION_HELPER, DEFAULT_SUPERTYPE, CytoZooCodeGenerator
 from ..load import load_ode
 from ..ode import ODE
 from .utils import select_components
@@ -80,6 +80,8 @@ def get_code(
         If no state is named `v_name`
     gotranx.exceptions.InvalidSupertype
         If the supertype is not a valid (dotted) Julia name
+    gotranx.exceptions.ReservedName
+        If a state, parameter or intermediate is named `_cz_param`
     """
     codegen = CytoZooCodeGenerator(
         ode,
@@ -108,6 +110,7 @@ def get_code(
         "import CytoZoo: default_initial_state, state_index, parameter_index",
         "import CytoZoo: state_names, parameter_names",
         "import CytoZoo: num_monitors, monitor_names, monitor_values!",
+        CONVERSION_HELPER,
         f"const NUM_STATES = {len(ode.states)};",
         f"const NUM_PARAMS = {len(ode.parameters)};",
         *([f"const NUM_MISSING = {len(ode.missing_variables)};"] if ode.missing_variables else []),

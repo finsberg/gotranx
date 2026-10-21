@@ -7,23 +7,38 @@ import structlog
 from ..ode import ODE
 from .. import templates
 from .. import atoms
-from ..exceptions import InvalidModelName, InvalidSupertype, MissingPotentialState
+from ..exceptions import (
+    InvalidModelName,
+    InvalidSupertype,
+    MissingPotentialState,
+    ReservedName,
+)
 from ..templates.cytozoo import DEFAULT_SUPERTYPE
 from .base import RHSArgument
 from .julia import JuliaCodeGenerator
 
 logger = structlog.get_logger()
 
-# Both exceptions live in gotranx.exceptions alongside every other GotranxError,
+# The exceptions live in gotranx.exceptions alongside every other GotranxError,
 # so `except exceptions.GotranxError` catches them. They stay importable from
 # here, which is where they are raised and where callers already import them.
 __all__ = [
+    "CONVERSION_HELPER",
     "DEFAULT_SUPERTYPE",
     "CytoZooCodeGenerator",
     "InvalidModelName",
     "InvalidSupertype",
     "MissingPotentialState",
+    "ReservedName",
 ]
+
+CONVERSION_HELPER_NAME = "_cz_param"
+#: Emitted once per generated file, after the imports
+CONVERSION_HELPER = f"""\
+# Plain numbers are converted to the state type (keeps Float32 models in Float32);
+# anything else, e.g. a ForwardDiff dual from a time-dependent override, passes through.
+@inline {CONVERSION_HELPER_NAME}(::Type{{T}}, v::Union{{AbstractFloat, Integer}}) where {{T}} = T(v)
+@inline {CONVERSION_HELPER_NAME}(::Type{{T}}, v) where {{T}} = v"""
 
 _SUPERTYPE_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_!]*(\.[A-Za-z_][A-Za-z0-9_!]*)*")
 
@@ -65,6 +80,7 @@ class CytoZooCodeGenerator(JuliaCodeGenerator):
         if not isinstance(supertype, str) or not _SUPERTYPE_RE.fullmatch(supertype):
             raise InvalidSupertype(supertype)
         self._supertype = supertype
+        self._check_reserved_names()
         self._v_name = v_name
         if v_name is None and supertype in (DEFAULT_SUPERTYPE, f"CytoZoo.{DEFAULT_SUPERTYPE}"):
             logger.warning(
@@ -73,6 +89,17 @@ class CytoZooCodeGenerator(JuliaCodeGenerator):
                 "pass a different supertype if this is not a cardiac cell model",
                 model=name,
             )
+
+    def _check_reserved_names(self) -> None:
+        # The emitted locals are named after the ODE's symbols; one called `_cz_param`
+        # would shadow the helper that converts every parameter.
+        ode = self.ode
+        names = [
+            x.name
+            for x in [*ode.states, *ode.parameters, *ode.intermediates, *ode.state_derivatives]
+        ] + list(ode.missing_variables)
+        if CONVERSION_HELPER_NAME in names:
+            raise ReservedName(name=CONVERSION_HELPER_NAME, backend="CytoZoo")
 
     @property
     def template(self):
@@ -162,13 +189,16 @@ class CytoZooCodeGenerator(JuliaCodeGenerator):
         folds against the override NamedTuple's type parameter, so a parameter with no
         override costs nothing at runtime; the ::Nothing method returns the fallback
         directly.
+
+        `_cz_param` converts plain numbers to `TYPE` and passes anything else (a
+        ForwardDiff dual from a time-dependent override) through unchanged.
         """
         lines = []
         for i, param in enumerate(self.ode.parameters):
             if not self._condition(param.name):
                 continue
             lines.append(
-                f"{param.name} = TYPE(resolve_parameter("
+                f"{param.name} = {CONVERSION_HELPER_NAME}(TYPE, resolve_parameter("
                 f"parameters[{i + 1}], _cz_overrides, Val(:{param.name}), _cz_x, t))"
             )
         return "\n".join(lines)
@@ -179,12 +209,13 @@ class CytoZooCodeGenerator(JuliaCodeGenerator):
         The missing variables are trailing entries of the parameter vector (see
         `templates.cytozoo.model_struct`), so they are converted like the parameters:
         a model built in Float64 and evaluated on Float32 states would otherwise
-        compute every term that reads one in Float64.
+        compute every term that reads one in Float64. `_cz_param` lets a dual number
+        through, so differentiating with respect to a connected input works.
         """
         if not self._missing_variables:
             return ""
         lines = [
-            f"{name} = TYPE(missing_variables[{index + 1}])"
+            f"{name} = {CONVERSION_HELPER_NAME}(TYPE, missing_variables[{index + 1}])"
             for name, index in self._missing_variables.items()
         ]
         return "\n".join(["", self._comment("Assign missing variables"), *lines, ""])

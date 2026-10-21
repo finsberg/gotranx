@@ -206,3 +206,78 @@ def test_non_cardiac_model_couples_as_second_node(cytozoo_solver, run_julia, tmp
         """
     )
     assert lines == ["true", "true", "true"]
+
+
+FITZHUGH = Path(__file__).parent / "odefiles" / "fitzhughnagumo.ode"
+
+
+def test_rosenbrock_with_a_time_dependent_override(cytozoo_rosenbrock, run_julia, tmp_path):
+    # A time-dependent override returns a ForwardDiff dual when Rodas5P differentiates the
+    # right-hand side with respect to t; the generated code must let it through.
+    model = tmp_path / "model.jl"
+    model.write_text(gotran2cytozoo.get_code(load_ode(FITZHUGH), model_name="Model"))
+    lines = run_julia(
+        f"""
+        using CytoZoo, OrdinaryDiffEqRosenbrock, ADTypes, SciMLBase
+        module Generated
+        include("{model.as_posix()}")
+        end
+        model = Generated.Model()
+        p = SpatialContext(nothing, (; c_1 = (x, t) -> 0.26 * (1 + 0.1 * sin(t))))
+        prob = ODEProblem(model, default_initial_state(model), (0.0, 20.0), p)
+        ad = solve(prob, Rodas5P(); reltol = 1e-8, abstol = 1e-8)
+        fd = solve(prob, Rodas5P(autodiff = AutoFiniteDiff()); reltol = 1e-8, abstol = 1e-8)
+        println(SciMLBase.successful_retcode(ad))
+        println(SciMLBase.successful_retcode(fd))
+        ts = range(0.0, 20.0; length = 50)
+        println(maximum(abs, reduce(vcat, [ad(t) .- fd(t) for t in ts])))
+        """
+    )
+    assert lines[:2] == ["true", "true"]
+    assert float(lines[2]) < 1e-6
+
+
+@pytest.mark.parametrize("parameter_type", ["Float32", "Float64"])
+def test_float32_model_stays_float32_and_does_not_allocate(
+    parameter_type, cytozoo, run_julia, tmp_path
+):
+    # Float32 states must give Float32 locals whether the parameter vector is Float32 or
+    # (a literal) Float64, with no override, a Float32 override and an Integer override
+    # (stim_start = 1 in the .ode is a whole number, like a `celltype = 0` flag), and a
+    # time-dependent override of `b`. `eltype(du)` and allocations cannot see a Float64 local (the
+    # buffer is Float32 and scalar Float64 math does not allocate), so the rhs also writes
+    # into an untyped buffer, whose element types are those of the locals, with a Float32
+    # and a Float64 `t`.
+    model = tmp_path / "model.jl"
+    model.write_text(gotran2cytozoo.get_code(load_ode(FITZHUGH), model_name="Model"))
+    lines = run_julia(
+        f"""
+        using CytoZoo
+        module Generated
+        include("{model.as_posix()}")
+        end
+        model = Generated.Model({parameter_type})
+        u = Float32.(default_initial_state(model)); du = similar(u)
+        measure(m, du, u, p, t) = @allocated m(du, u, p, t)
+        contexts = (
+            nothing,
+            SpatialContext(nothing, (; c_1 = 0.3f0)),
+            SpatialContext(nothing, (; stim_start = 1)),
+            SpatialContext(nothing, (; b = (x, t) -> 0.013 * (1 + sin(t)))),
+        )
+        for p in contexts
+            model(du, u, p, 0.0f0)
+            println(eltype(du), " ", measure(model, du, u, p, 0.0f0))
+        end
+        for p in contexts, t in (0.0f0, 0.0)
+            dua = Vector{{Any}}(undef, length(u))
+            x, o = p === nothing ? (nothing, nothing) : (p.x, p.overrides)
+            Generated.rhs(t, u, model.parameters, dua, x, o)
+            # dv_dt reads `time` through the stimulus, so it is Float64 for a Float64 `t`
+            # whatever the parameters are; ds_dt (which reads `b`) does not.
+            println(join(unique(typeof.(t isa Float32 ? dua : dua[1:1])), ","))
+        end
+        """
+    )
+    assert lines[:4] == ["Float32 0"] * 4
+    assert lines[4:] == ["Float32"] * 8
