@@ -157,6 +157,23 @@ def cytozoo_rosenbrock(julia) -> str:
     return julia
 
 
+@pytest.fixture(scope="session")
+def cytozoo_forwarddiff(julia) -> str:
+    """The `julia` executable, once CytoZoo.jl and ForwardDiff are known to load in its default
+    environment."""
+    result = subprocess.run(
+        [julia, "--startup-file=no", "-e", "using CytoZoo, ForwardDiff"],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        _unavailable(
+            "CytoZoo.jl and ForwardDiff do not load in julia's default environment:\n"
+            f"{result.stderr}"
+        )
+    return julia
+
+
 @pytest.fixture
 def run_julia(julia, tmp_path):
     """Run a Julia script and return the lines it printed. A failing script fails the test,

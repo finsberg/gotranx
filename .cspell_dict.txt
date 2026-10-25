@@ -67,6 +67,7 @@ fixturenames
 flatnonzero
 fmax
 fmin
+forwarddiff
 funcname
 gammasu
 geomspace
@@ -163,6 +164,7 @@ reorderable
 retcode
 reuter
 reversal_potentials
+rewriteable
 rhoz
 Rodas
 rosenbrock

@@ -482,6 +482,7 @@ def test_generated_module_carries_a_provenance_banner(simple_ode):
 
     # The two facts a reader cannot get from the code itself.
     assert "resolve_parameter" in banner
+    assert "`primal`" in banner
     assert "module" in banner
 
 
@@ -637,3 +638,132 @@ def test_a_symbol_named_cz_param_is_rejected(parser, trans, kind):
         gotran2cytozoo.get_code(ode, v_name=None, supertype="X")
     assert "_cz_param" in str(exc.value)
     assert isinstance(exc.value, GotranxError)
+
+
+# Every way a comparison reaches the Julia printer: a Conditional in an assignment and inside
+# a larger expression, nested Conditionals, And/Or of comparisons, an Eq, Min/Max (sympy's
+# code printer rewrites both into a Piecewise of comparisons) and a literal on either side.
+COMPARISONS_ODE = """
+parameters(k=2.0, lo=0.5, flag=1)
+states(a=0.0, b=0.0)
+guard = Conditional(Gt(a + b, 0), (k*a)/(a + b), 0)
+nested = Conditional(Lt(a, lo), Conditional(Ge(b, 2*lo - a), a, b), 1.0e-12)
+both = Conditional(And(Gt(a, 0), Le(b, k)), a, 0)
+either = Conditional(Or(Lt(a, b), Eq(flag, 1)), b, 0)
+inline = 1 + Conditional(Gt(b, a), b - a, 0)
+clamp = Max(Min(a, k), lo)
+da_dt = -guard + nested + both
+db_dt = either + inline + clamp
+"""
+
+PRIMAL = "CytoZoo.primal("
+
+
+def _strip_primal(code: str) -> str:
+    """Replace every `CytoZoo.primal(...)` (balanced parentheses) by `P`."""
+    out = []
+    i = 0
+    while (j := code.find(PRIMAL, i)) != -1:
+        out.append(code[i:j])
+        depth, k = 1, j + len(PRIMAL)
+        while depth:
+            depth += {"(": 1, ")": -1}.get(code[k], 0)
+            k += 1
+        out.append("P")
+        i = k
+    out.append(code[i:])
+    return "".join(out)
+
+
+_RELATIONAL_OPERATORS = {"<", ">", "<=", ">=", "==", "!="}
+_ALLOWED_OPERAND = re.compile(r"P|L|-?\d[\d.]*(?:e[-+]?\d+)?")
+
+
+def _bare_comparisons(code: str) -> list[str]:
+    """Every comparison with an operand that is neither wrapped in `primal` nor a literal.
+
+    The Julia printer puts spaces around a relational operator, so the operands are the
+    whitespace-separated tokens on either side, once each `CytoZoo.primal(...)` is `P` and each
+    `TYPE(<literal>)` is `L`.
+    """
+    code = re.sub(r"TYPE\(-?[\d.]+(?:e[-+]?\d+)?\)", "L", _strip_primal(code))
+    bare = []
+    for line in code.splitlines():
+        tokens = line.split()
+        for i, token in enumerate(tokens):
+            if token not in _RELATIONAL_OPERATORS:
+                continue
+            lhs, rhs = tokens[i - 1].lstrip("("), tokens[i + 1].rstrip(")")
+            if not (_ALLOWED_OPERAND.fullmatch(lhs) and _ALLOWED_OPERAND.fullmatch(rhs)):
+                bare.append(line.strip())
+    return bare
+
+
+@pytest.fixture(scope="module")
+def comparisons_ode():
+    from gotranx.load import ode_from_string
+
+    return ode_from_string(COMPARISONS_ODE, name="comparisons")
+
+
+def test_a_comparison_decides_on_the_primal_of_a_non_literal_operand(comparisons_ode):
+    # ForwardDiff >= 1.0 orders duals by value and then by partials, so `Dual(0.0, 1.0) > 0` is
+    # true and the 0/0 branch of the guard is taken at a = b = 0.
+    rhs = CytoZooCodeGenerator(comparisons_ode, v_name=None, type_stable=True).rhs()
+    assert "(CytoZoo.primal(a + b) > 0)" in rhs
+    assert "(CytoZoo.primal(b) >= CytoZoo.primal(-a + 2 * lo))" in rhs
+    assert "(CytoZoo.primal(a) < CytoZoo.primal(b))" in rhs
+    # A literal stays bare, whether an integer or a TYPE()-wrapped float.
+    assert "CytoZoo.primal(0)" not in rhs
+    assert "CytoZoo.primal(1)" not in rhs
+    assert "CytoZoo.primal(TYPE(" not in rhs
+    assert "CytoZoo.primal(flag) == 1" in rhs
+
+
+def test_no_bare_comparison_remains_in_cytozoo_output(comparisons_ode):
+    gen = CytoZooCodeGenerator(comparisons_ode, v_name=None, type_stable=True)
+    for code in (gen.rhs(), gen.monitor_values()):
+        # The check must see comparisons at all, or it passes vacuously.
+        assert code.count(PRIMAL) >= 10, code
+        assert _bare_comparisons(code) == []
+
+
+def test_min_max_compare_on_primal_values(comparisons_ode):
+    # Min and Max reach the printer as a Piecewise of comparisons (sympy's CodePrinter rewrites
+    # them through `_rewriteable_functions`), so they go through `_print_Relational` too.
+    code = CytoZooCodeGenerator(comparisons_ode, v_name=None, type_stable=True).rhs()
+    clamp = next(line for line in code.splitlines() if line.strip().startswith("clamp ="))
+    assert "(CytoZoo.primal(a) <= CytoZoo.primal(k)) ? (a) : (k)" in clamp
+    assert "CytoZoo.primal(k) <= CytoZoo.primal(lo)" in clamp
+    assert _bare_comparisons(clamp) == []
+
+
+def test_the_bare_comparison_check_catches_unwrapped_comparisons(comparisons_ode):
+    from gotranx.codegen import JuliaCodeGenerator
+
+    code = JuliaCodeGenerator(comparisons_ode, type_stable=True).rhs()
+    assert _bare_comparisons(code), "the regex check would not notice a bare comparison"
+    # ... and accepts the literal-only and wrapped forms.
+    assert _bare_comparisons("x = (P > 0) ? a : L\ny = (L <= P && P != -1) ? b : 1.0e-12") == []
+
+
+@pytest.mark.parametrize(
+    "odefile", sorted((Path(__file__).parent / "odefiles").glob("*.ode")), ids=lambda p: p.stem
+)
+def test_no_bare_comparison_remains_in_any_bundled_model(odefile):
+    from gotranx.load import load_ode
+
+    ode = load_ode(odefile)
+    gen = CytoZooCodeGenerator(ode, v_name=None, supertype="X", type_stable=True)
+    for code in (gen.rhs(), gen.monitor_values()):
+        assert _bare_comparisons(code) == []
+
+
+def test_ode2julia_does_not_wrap_comparisons(comparisons_ode):
+    from gotranx.codegen import JuliaCodeGenerator
+
+    for type_stable in (False, True):
+        gen = JuliaCodeGenerator(comparisons_ode, type_stable=type_stable)
+        code = gen.rhs() + gen.monitor_values()
+        assert "primal" not in code
+        assert "(a + b > 0)" in code

@@ -281,3 +281,44 @@ def test_float32_model_stays_float32_and_does_not_allocate(
     )
     assert lines[:4] == ["Float32 0"] * 4
     assert lines[4:] == ["Float32"] * 8
+
+
+# A guard against 0/0 at a state that is exactly 0, as in cross-bridge models whose resting
+# state puts all mass in one state (Contraction.jl's RDQ20MF has 20 such guards).
+GUARDED = """
+parameters(k=2.0)
+states(a=0.0, b=0.0)
+da_dt = -Conditional(Gt(a + b, 0), (k*a)/(a + b), 0)
+db_dt = Conditional(Gt(a + b, 0), (k*a)/(a + b), 0) - b
+"""
+
+
+def test_forwarddiff_jacobian_is_finite_at_a_guarded_zero(cytozoo_forwarddiff, run_julia, tmp_path):
+    # ForwardDiff >= 1.0 orders duals by value and then by partials, so a comparison on the
+    # duals themselves takes the 0/0 branch at a = b = 0 and every Jacobian entry is NaN.
+    model = tmp_path / "model.jl"
+    model.write_text(
+        gotran2cytozoo.get_code(
+            ode_from_string(GUARDED),
+            model_name="Model",
+            v_name=None,
+            supertype="CytoZoo.AbstractCellModel",
+        )
+    )
+    lines = run_julia(
+        f"""
+        using CytoZoo, ForwardDiff
+        module Generated
+        include("{model.as_posix()}")
+        end
+        model = Generated.Model()
+        u = default_initial_state(model)
+        f(u) = (du = similar(u); model(du, u, nothing, 0.0); du)
+        J = ForwardDiff.jacobian(f, u)
+        println(all(isfinite, J))
+        println(join(vec(J), " "))
+        """
+    )
+    assert lines[0] == "true", lines
+    # The guard is 0 at a = b = 0, so only db_dt = ... - b depends on the states there.
+    assert_close(numbers(lines[1]), [0.0, 0.0, 0.0, -1.0])
