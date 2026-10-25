@@ -15,7 +15,7 @@ from ..exceptions import (
 )
 from ..templates.cytozoo import DEFAULT_SUPERTYPE
 from .base import RHSArgument
-from .julia import JuliaCodeGenerator
+from .julia import GotranJuliaCodePrinter, JuliaCodeGenerator
 
 logger = structlog.get_logger()
 
@@ -26,6 +26,7 @@ __all__ = [
     "CONVERSION_HELPER",
     "DEFAULT_SUPERTYPE",
     "CytoZooCodeGenerator",
+    "CytoZooCodePrinter",
     "InvalidModelName",
     "InvalidSupertype",
     "MissingPotentialState",
@@ -49,6 +50,36 @@ def _pascal_case(name: str) -> str:
     )
 
 
+PRIMAL = "CytoZoo.primal"
+
+
+class CytoZooCodePrinter(GotranJuliaCodePrinter):
+    """The Julia printer, with every comparison deciding on plain values.
+
+    ForwardDiff >= 1.0 orders duals by value and then by partials, so
+    `Dual(0.0, 1.0) > 0` is true: at a state where `S` is exactly 0, a guard
+    `(S > 0) ? A ./ S : 0` takes the 0/0 branch under automatic differentiation
+    and the Jacobian is NaN. Each operand that is not a numeric literal is
+    therefore passed through `CytoZoo.primal`, the identity on numbers whose
+    ForwardDiff extension unwraps a dual: `(CytoZoo.primal(S) > 0)`. A constant
+    with no free symbols (`0`, `TYPE(1e-12)`, `pi`, `2 * e`) stays bare.
+
+    Every comparison is printed here: the conditions of a `Piecewise` (from a
+    `Conditional`, in an assignment or inside an expression, nested or joined
+    by `And`/`Or`), and `Min`, `Max` and `Heaviside`, which sympy's
+    `CodePrinter._print_Function` rewrites into a `Piecewise` of comparisons
+    (`CodePrinter._rewriteable_functions`) because Julia's printer has no
+    function for them.
+    """
+
+    def _print_Relational(self, expr):
+        def operand(arg) -> str:
+            code = self._print(arg)
+            return code if arg.is_number else f"{PRIMAL}({code})"
+
+        return f"{operand(expr.lhs)} {expr.rel_op} {operand(expr.rhs)}"
+
+
 class CytoZooCodeGenerator(JuliaCodeGenerator):
     """Emit a CytoZoo cell-model adapter.
 
@@ -68,6 +99,7 @@ class CytoZooCodeGenerator(JuliaCodeGenerator):
         supertype: str = DEFAULT_SUPERTYPE,
     ) -> None:
         super().__init__(ode, remove_unused=remove_unused, type_stable=type_stable)
+        self._printer = CytoZooCodePrinter(type_stable=type_stable)
         name = model_name or _pascal_case(ode.name or "Model")
         # `_pascal_case` only splits on `-`/`_`, so an ODE named `1962_noble`,
         # `tentusscher panfilov` or `my.model` -- and any `--model-name` the

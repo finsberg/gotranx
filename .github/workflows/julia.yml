@@ -44,8 +44,9 @@ jobs:
 
       # CytoZoo.jl is not registered, so it is added by URL, into the default environment
       # that the tests' `julia` processes load it from, with the solvers the coupling and Rosenbrock tests use
+      # and ForwardDiff for the Jacobian test
       - name: Install CytoZoo.jl
-        run: julia -e 'using Pkg; Pkg.add(url="https://github.com/DerangedIons/CytoZoo.jl"); Pkg.add(["OrdinaryDiffEqTsit5", "OrdinaryDiffEqRosenbrock", "ADTypes", "SciMLBase"])'
+        run: julia -e 'using Pkg; Pkg.add(url="https://github.com/DerangedIons/CytoZoo.jl"); Pkg.add(["OrdinaryDiffEqTsit5", "OrdinaryDiffEqRosenbrock", "ADTypes", "SciMLBase", "ForwardDiff"])'
 
       - name: Install gotranx
         run: python -m pip install -e ".[test]"

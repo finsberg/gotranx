@@ -62,7 +62,7 @@ The same ODE can be turned into C (`ode2c`), C++ (`ode2cpp`), CUDA (`ode2cuda`),
 ModelingToolkit system (`ode2mtk`), UFL (`ode2ufl`), Markdown (`ode2md`),
 CellML (`ode2cellml`) or a [CytoZoo](https://github.com/finsberg/CytoZoo.jl)
 cell-model adapter (`ode2cytozoo` -- whose output needs a CytoZoo providing
-`resolve_parameter`, not yet released). Now you can solve the ode using the following code snippet
+`resolve_parameter` and `primal`, not yet released). Now you can solve the ode using the following code snippet
 
 ```python
 import file as model

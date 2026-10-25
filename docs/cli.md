@@ -132,7 +132,7 @@ The supertype must be in scope where the generated file is included, e.g.
 `using ..Contraction: AbstractContractionModel` in the wrapping module.
 
 Note that the generated module requires a CytoZoo version providing
-`resolve_parameter`, which is not yet released. The example
+`resolve_parameter` and `CytoZoo.primal`, which are not yet released. The example
 [Running a model in CytoZoo.jl](../examples/cytozoo/main.jl) installs CytoZoo from
 GitHub, generates a model and solves it.
 ````
