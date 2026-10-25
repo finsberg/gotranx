@@ -767,3 +767,14 @@ def test_ode2julia_does_not_wrap_comparisons(comparisons_ode):
         code = gen.rhs() + gen.monitor_values()
         assert "primal" not in code
         assert "(a + b > 0)" in code
+
+
+def test_a_constant_without_free_symbols_stays_bare():
+    import sympy
+
+    from gotranx.codegen.cytozoo import CytoZooCodePrinter
+
+    x = sympy.Symbol("x")
+    printer = CytoZooCodePrinter(type_stable=True)
+    assert printer.doprint(sympy.Gt(x, sympy.pi)) == "CytoZoo.primal(x) > pi"
+    assert printer.doprint(sympy.Le(x, 2 * sympy.E)) == "CytoZoo.primal(x) <= 2 * e"

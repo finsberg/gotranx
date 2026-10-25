@@ -61,14 +61,17 @@ by value and then by partials, so `Dual(0.0, 1.0) > 0` is true: a guard such as
 the 0/0 branch under automatic differentiation at a state where `S` is exactly
 0. Contraction.jl's RDQ20MF, with 20 such guards, had an all-NaN Jacobian at its
 resting state, and every solver that builds its Jacobian with ForwardDiff
-(`FBDF()`, `Rodas5P()`) aborted at `t = 0`. Each operand that is not a numeric
-literal is now wrapped, `(CytoZoo.primal(S) > 0)`; a literal such as `0` or
-`TYPE(1.0e-12)` stays bare. This covers every comparison the backend prints:
-the conditions of a `Conditional`, nested or joined with `And`/`Or`, and
-`Min` and `Max`, which are printed as conditionals, in `rhs` and
-`monitor_values` alike. **If you regenerate a model with a comparison, those
-lines change, and the module needs a CytoZoo.jl providing `primal`** (not yet
-released; the banner says so). `ode2julia` output does not change.
+(`FBDF()`, `Rodas5P()`) aborted at `t = 0`. Each operand that is not a
+constant is now wrapped, `(CytoZoo.primal(S) > 0)`; a constant such as `0`,
+`TYPE(1e-12)` or `pi` stays bare. This covers every comparison the backend
+prints: the conditions of a `Conditional`, nested or joined with `And`/`Or`,
+and `Min` and `Max`, which are printed as conditionals, in `rhs` and
+`monitor_values` alike. `==`, `!=` and `Min`/`Max` at an exact tie also decide
+on values only again, as under ForwardDiff < 1.0: ForwardDiff 1.x made
+`Dual == x` require zero partials and picks a `Min`/`Max` tie by partials.
+**If you regenerate a model with a comparison, those lines change, and the
+module needs a CytoZoo.jl providing `primal`** (not yet released; the banner
+says so). `ode2julia` output does not change.
 
 ### Fixed
 

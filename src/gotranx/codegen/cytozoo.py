@@ -61,7 +61,8 @@ class CytoZooCodePrinter(GotranJuliaCodePrinter):
     `(S > 0) ? A ./ S : 0` takes the 0/0 branch under automatic differentiation
     and the Jacobian is NaN. Each operand that is not a numeric literal is
     therefore passed through `CytoZoo.primal`, the identity on numbers whose
-    ForwardDiff extension unwraps a dual: `(CytoZoo.primal(S) > 0)`.
+    ForwardDiff extension unwraps a dual: `(CytoZoo.primal(S) > 0)`. A constant
+    with no free symbols (`0`, `TYPE(1e-12)`, `pi`, `2 * e`) stays bare.
 
     Every comparison is printed here: the conditions of a `Piecewise` (from a
     `Conditional`, in an assignment or inside an expression, nested or joined
@@ -74,7 +75,7 @@ class CytoZooCodePrinter(GotranJuliaCodePrinter):
     def _print_Relational(self, expr):
         def operand(arg) -> str:
             code = self._print(arg)
-            return code if arg.is_Number else f"{PRIMAL}({code})"
+            return code if arg.is_number else f"{PRIMAL}({code})"
 
         return f"{operand(expr.lhs)} {expr.rel_op} {operand(expr.rhs)}"
 
