@@ -77,6 +77,7 @@ goss
 gotran
 gotranx
 Hairer
+Hanek
 hasmethod
 Hochbruck
 hprint
