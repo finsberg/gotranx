@@ -208,9 +208,10 @@ def split(ode: ODE, name: str, inputs: Iterable[str], outputs: Iterable[str]) ->
       (written under its old components and ``name``).
     - A parameter used on both sides is written under both. One used only by the new
       component moves there.
-    - A monitor, an intermediate that no state derivative depends on, joins the new
-      component if it reads a state, a derivative or an intermediate (other than a
-      parameter-only one) of the new component, under the same rules.
+    - A monitor, an intermediate that no state derivative depends on, in a component the
+      outputs belong to, joins the new component if it reads a state, a derivative or an
+      intermediate (other than a parameter-only one) of the new component, under the
+      same rules. A monitor of another component stays, and reads outputs as crossings.
 
     Everything else stays where it was. So the declared inputs are exactly what the new
     component needs from the rest, and the outputs the only things of the new component
@@ -218,22 +219,32 @@ def split(ode: ODE, name: str, inputs: Iterable[str], outputs: Iterable[str]) ->
 
     Raises
     ------
+    TypeError
+        If ``inputs`` or ``outputs`` is a string rather than a sequence of names.
     gotranx.exceptions.SplitError
         With every message at once: a name that is not in the model, ``name`` already a
-        component, a dependency in another component, an input the new component
-        computes or does not need, and the rest using something of the new component that
-        is not an output.
+        component, no outputs, a dependency in another component, an input the new
+        component computes or does not need, and the rest using something of the new
+        component that is not an output. An unknown output, or none, stops the checks
+        that follow the outputs' dependencies, since they would mislead.
     """
+    for label, names in (("inputs", inputs), ("outputs", outputs)):
+        if isinstance(names, str):
+            raise TypeError(f"{label} must be a sequence of names, not a string")
     inputs = list(dict.fromkeys(inputs))
     outputs = list(dict.fromkeys(outputs))
     lookup = {a.name: a for a in all_atoms(ode)}
 
+    unknown_outputs = [x for x in outputs if x not in lookup]
     unknown = [x for x in dict.fromkeys([*inputs, *outputs]) if x not in lookup]
     messages = [f"{x} is not a name of the model" for x in unknown]
     if name in {c.name for c in ode.components}:
         messages.append(f"{name} is already a component of the model: choose another name")
-    if unknown:
+    if not outputs:
+        messages.append(f"{name} needs at least one output")
+    if unknown_outputs or not outputs:
         raise SplitError(messages)
+    inputs = [x for x in inputs if x in lookup]  # an unknown one is reported already
 
     deps = {n: _dependencies(a) for n, a in lookup.items()}
     parameter_only = _parameter_only(lookup, deps)
@@ -285,7 +296,10 @@ def split(ode: ODE, name: str, inputs: Iterable[str], outputs: Iterable[str]) ->
     while joining := [
         m
         for m in sorted(monitors)
-        if m not in closure and m not in input_set and any(carved(d) for d in deps[m])
+        if m not in closure
+        and m not in input_set
+        and home & set(lookup[m].components)
+        and any(carved(d) for d in deps[m])
     ]:
         for m in joining:
             add(m)

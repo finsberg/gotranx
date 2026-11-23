@@ -204,3 +204,49 @@ def test_function_and_method_agree(ode):
     b = operations.split(ode, "mechanics", inputs=["cai"], outputs=["Ta", "J"])
     assert a == b
     assert a.name == ode.name
+
+
+ELSEWHERE = """
+parameters("a", k = 1.0)
+parameters("b", c = 1.0)
+states("a", x = 0.0)
+states("b", y = 1.0)
+expressions("a")
+dx_dt = -k*x + y
+T = 2*x
+expressions("b")
+dy_dt = -c*y
+T_view = T*y
+"""
+
+
+def test_monitor_outside_home_stays_and_reads_the_output():
+    # T_view is a monitor of b, which no output belongs to: it stays in b and reads the
+    # output T as a crossing (ruling T5-b).
+    m = ode_from_string(ELSEWHERE, name="elsewhere").split("mech", inputs=["y"], outputs=["T"])
+    assert m["T_view"].components == ("b",)
+    assert set(rest(m, "mech").missing_variables) == {"T"}
+    assert set(only(m, "mech").missing_variables) == {"y"}
+
+
+def test_unknown_input_does_not_hide_the_other_errors():
+    ode = ode_from_string(ELSEWHERE, name="elsewhere")
+    # A misspelled input: the closure still runs, so the genuine need for y is reported,
+    # and yy is not also reported as not needed.
+    assert split_messages(ode, "mech", inputs=["yy"], outputs=["T"]) == [
+        "yy is not a name of the model",
+        "mech needs y from component b: add it to inputs",
+    ]
+
+
+def test_inputs_and_outputs_must_not_be_strings(ode):
+    with pytest.raises(TypeError, match="inputs must be a sequence of names, not a string"):
+        ode.split("mechanics", inputs="B", outputs=["Zs", "Ta"])
+    with pytest.raises(TypeError, match="outputs must be a sequence of names, not a string"):
+        ode.split("mechanics", inputs=["B"], outputs="Ta")
+
+
+def test_no_outputs(ode):
+    assert split_messages(ode, "mechanics", inputs=["B"], outputs=[]) == [
+        "mechanics needs at least one output"
+    ]
