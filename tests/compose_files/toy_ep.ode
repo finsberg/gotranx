@@ -1,0 +1,17 @@
+# A toy calcium model, the EP side of the toy composition in tests/test_compose.py.
+# Units: ms, mM. Calcium is released in proportion to a gate n and taken up again.
+
+parameters("calcium",
+k_up = 0.1,
+c_rel = 0.001
+)
+
+states("calcium", cai = 0.0001)
+states("gate", n = 0.5)
+
+expressions("calcium")
+release = c_rel*n
+dcai_dt = release - k_up*cai
+
+expressions("gate")
+dn_dt = 0.01*(1 - n) - 0.02*n*cai*1000

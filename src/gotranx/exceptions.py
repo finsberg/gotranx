@@ -130,6 +130,20 @@ class InvalidGlueBlock(GotranxError):
 
 
 @dataclass
+class CompositionError(GotranxError):
+    """Everything wrong with a composition: its recipe, its parts or its glue.
+
+    The messages are collected before this is raised, and ``str()`` lists them one per
+    line. A glue file's messages start with ``<glue file>:<line>:``.
+    """
+
+    messages: list[str]
+
+    def __str__(self) -> str:
+        return "\n".join(self.messages)
+
+
+@dataclass
 class UnknownTreeTypeError(GotranxError):
     datatype: str
     atom: str
