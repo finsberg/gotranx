@@ -244,7 +244,7 @@ def check_statement_word(tree: lark.Tree) -> None:
     if tree.data in TWO_WORD_STATEMENTS:
         word = tree.children[0]
         if word != "replace":
-            raise exceptions.UnknownStatement(word=str(word), line=getattr(word, "line", 0))
+            raise exceptions.UnknownStatement(word=str(word), line=getattr(word, "line", None))
 
 
 def refuse_glue_constructs(items: list[Any]) -> None:
@@ -266,10 +266,11 @@ def refuse_glue_constructs(items: list[Any]) -> None:
         if not isinstance(item, lark.Tree):
             continue
         check_statement_word(item)
-        if item.data in GLUE_STATEMENTS or any(
-            t.data == "qualified_variable" for t in item.iter_subtrees()
-        ):
-            raise exceptions.GlueOnlyConstruct()
+        if item.data in GLUE_STATEMENTS:
+            raise exceptions.GlueOnlyConstruct(line=first_line([item]))
+        for subtree in item.iter_subtrees_topdown():
+            if subtree.data == "qualified_variable":
+                raise exceptions.GlueOnlyConstruct(line=first_line([subtree]))
 
 
 def first_line(items: list[Any]) -> int | None:
@@ -387,7 +388,9 @@ class TreeToODE(lark.Transformer):
             raise exceptions.InvalidGlueBlock(
                 "a glue block must name exactly one component, the part it belongs to, "
                 f"but this one names {names}",
-                line=first_line(s),
+                # The header's line, or, in a block without one, the first statement's
+                # (not that of the blank lines or comments before it)
+                line=s[0].line if i > 0 else first_line(trees),
             )
         return tuple(glue_statement(tree, block=block, component=components[0]) for tree in trees)
 

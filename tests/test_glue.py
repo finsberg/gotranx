@@ -92,20 +92,22 @@ def test_load_glue(tmp_path):
 
 
 @pytest.mark.parametrize(
-    "text",
+    "text, line",
     [
-        'expressions("a")\nreplace x = 1',
-        'expressions("a")\ndy_dt += 1',
-        'expressions("a")\nx = b.c',
-        'parameters("a",\nreplace x = 1\n)',
-        'parameters("a",\nreplace x = ScalarParam(1.0)\n)',
-        "x = 2\ndy_dt += x",
+        ('expressions("a")\nreplace x = 1', 2),
+        ('expressions("a")\ndy_dt += 1', 2),
+        ('expressions("a")\nx = b.c', 2),
+        ('expressions("a")\nx = 1\n\ny = 2*(x +\nb.c)', 5),
+        ('parameters("a",\nreplace x = 1\n)', 2),
+        ('parameters("a",\nreplace x = ScalarParam(1.0)\n)', 2),
+        ("x = 2\ndy_dt += x", 2),
     ],
 )
-def test_plain_ode_refuses_glue_constructs(text):
+def test_plain_ode_refuses_glue_constructs(text, line):
     with pytest.raises(GotranxError, match="only allowed in glue files") as e:
         ode_from_string(text)
     assert str(e.value) == "`replace`, `+=` and `part.name` are only allowed in glue files"
+    assert e.value.line == line
 
 
 def test_plain_ode_refuses_glue_constructs_after_parsing(parser, trans):
@@ -131,10 +133,14 @@ def test_replace_is_not_a_reserved_word_in_glue():
 
 
 def test_unknown_statement_word():
-    with pytest.raises(GotranxError, match="unknown statement foo"):
+    with pytest.raises(GotranxError, match="unknown statement foo") as e:
         parse_glue('expressions("a")\nfoo x = 1')
-    with pytest.raises(GotranxError, match="unknown statement foo"):
+    assert str(e.value) == "unknown statement foo"
+    assert e.value.line == 2
+    with pytest.raises(GotranxError, match="unknown statement foo") as e:
         parse_glue('parameters("a",\nfoo x = 1\n)')
+    assert str(e.value) == "unknown statement foo"
+    assert e.value.line == 2
 
 
 def test_unknown_statement_word_in_a_plain_ode():
@@ -191,11 +197,25 @@ def test_unqualify_a_bare_variable():
     assert unqualify(tree) == lark.Tree("variable", [lark.Token("VARIABLE", "v")])
 
 
-def test_glue_errors_name_the_line():
-    with pytest.raises(GotranxError, match="line 3: unknown statement foo"):
-        parse_glue('expressions("a")\nx = 1\nfoo y = 2')
-    with pytest.raises(GotranxError, match="line 2: glue files cannot declare states"):
-        parse_glue('\nstates("a", y=1.0)')
+@pytest.mark.parametrize(
+    "text, message, line",
+    [
+        ('expressions("a")\nx = 1\nfoo y = 2', "unknown statement foo", 3),
+        ('\nstates("a", y=1.0)', "glue files cannot declare states", 2),
+        # A block without a header: the line of its first statement, not of the blank
+        # lines or comments before it
+        ("# c\n\n\ny = 2", "names none", 4),
+        ('parameters("a", x=1.0)\n\n\ny = 2', "names none", 4),
+        # A header naming several components: the header's line
+        ('\nexpressions("a",\n"b")\n\nx = 1', 'names "a", "b"', 2),
+    ],
+)
+def test_glue_errors_carry_the_line(text, message, line):
+    # The message is bare; the composition puts the file and line in front of it
+    with pytest.raises(GotranxError) as e:
+        parse_glue(text)
+    assert message in str(e.value) and "line" not in str(e.value)
+    assert e.value.line == line
 
 
 def test_trailing_comment_with_an_apostrophe():

@@ -93,9 +93,15 @@ class DuplicateSymbolError(GotranxError):
         )
 
 
+# The glue-file errors carry the line they were found on as ``line``, and leave it out of
+# the message, so that the caller can put the file and the line in front of it.
+
+
 @dataclass
 class GlueOnlyConstruct(GotranxError):
     """A plain ``.ode`` file used one of the constructs only glue files accept."""
+
+    line: int | None = None
 
     def __str__(self) -> str:
         return "`replace`, `+=` and `part.name` are only allowed in glue files"
@@ -106,21 +112,21 @@ class UnknownStatement(GotranxError):
     """A two-word statement, ``<word> name = ...``, whose first word is not ``replace``."""
 
     word: str
-    line: int
+    line: int | None = None
 
     def __str__(self) -> str:
-        return f"line {self.line}: unknown statement {self.word}"
+        return f"unknown statement {self.word}"
 
 
 @dataclass
 class InvalidGlueBlock(GotranxError):
+    """A glue block that declares states, or does not name exactly one component."""
+
     message: str
     line: int | None = None
 
     def __str__(self) -> str:
-        if self.line is None:
-            return self.message
-        return f"line {self.line}: {self.message}"
+        return self.message
 
 
 @dataclass
