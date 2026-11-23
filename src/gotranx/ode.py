@@ -5,6 +5,7 @@ from functools import cached_property
 from pathlib import Path
 from graphlib import TopologicalSorter
 from collections.abc import Iterable
+from collections.abc import Mapping
 from collections.abc import Sequence
 from typing import TypeVar
 from typing import cast
@@ -507,6 +508,15 @@ class ODE:
         with the symbol name as key and the symbol as value
         """
         return self._symbols
+
+    def rename(self, mapping: Mapping[str, str]) -> ODE:
+        """Return a copy with atoms renamed, e.g. ``{"a": "q"}``.
+
+        Renaming a state also renames its derivative.
+        """
+        from . import operations
+
+        return operations.rename(self, mapping)
 
     def __sub__(self, other: BaseComponent) -> ODE:
         new_components = [comp for comp in self.components if comp != other]
