@@ -58,3 +58,26 @@ def test_rename_symbol_is_canonical():
     new = ode.rename({"a": "q"})
     assert isinstance(new["q"].symbol, sp.Symbol)
     assert new["q"].symbol == new.symbols["q"]
+
+
+MULTI = """
+states("a", y=1.0)
+parameters("a", "b", p=1.0)
+expressions("a")
+dy_dt = -p*y
+expressions("b")
+w = 2*p
+"""
+
+
+def test_rebuild_multi_component_atom():
+    multi = ode_from_string(MULTI, name="m")
+    assert multi["p"].components == ("a", "b")
+
+    first = operations.rebuild(operations.all_atoms(multi), name="m")
+    assert names(first.get_component("a").parameters) == {"p"}
+    assert names(first.get_component("b").parameters) == {"p"}
+    assert first["p"].components == ("a", "b")
+
+    second = operations.rebuild(operations.all_atoms(first), name="m")
+    assert second == first
