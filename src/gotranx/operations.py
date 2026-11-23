@@ -83,46 +83,52 @@ def rebuild(
 
 def _rename_problems(ode: ODE, mapping: Mapping[str, str]) -> dict[str, str]:
     """Each name of ``mapping`` whose rename is refused, with the reason, in the order of
-    ``mapping``. The names are checked against the model after the other renames, so a
-    rename onto a name whose own rename is refused is refused too."""
+    ``mapping``. The new names are checked against the model after the renames that are
+    not refused, so a rename onto a name whose own rename is refused is refused too, and a
+    refused rename takes no name."""
     lookup = {a.name: a for a in all_atoms(ode)}
 
     def derivative(name: str) -> str:
         return f"d{name}_dt"
 
+    # What is wrong with a rename on its own
     problems: dict[str, str] = {}
+    for old, new in mapping.items():
+        atom = lookup.get(old)
+        if atom is None:
+            problems[old] = f"{old} is not a name of {ode.name}"
+        elif isinstance(atom, atoms.StateDerivative):
+            state = atom.state.name
+            problems[old] = (
+                f"{old} is the derivative of {state}: rename {state}, "
+                "and its derivative is renamed with it"
+            )
+        elif not VALID_NAME.fullmatch(new):
+            problems[old] = f"{new} is not a valid name"
+        elif new in TIME_NAMES:
+            problems[old] = f"{new} is the name of time: choose another name"
+
+    # What is wrong with it beside the others, until no more are refused
     while True:
         accepted = {old: new for old, new in mapping.items() if old not in problems}
-        states = {old for old in accepted if isinstance(lookup.get(old), atoms.State)}
-        # The names the model still has after the accepted renames: the derivative of a
-        # renamed state is renamed with it
+        states = {old for old in accepted if isinstance(lookup[old], atoms.State)}
+        # The names the model has after the accepted renames: the derivative of a renamed
+        # state is renamed with it
         freed = set(accepted) | {derivative(old) for old in states}
         taken = (lookup.keys() - freed) | {derivative(accepted[old]) for old in states}
         targets: set[str] = set()
         found: dict[str, str] = {}
         for old, new in accepted.items():
-            atom = lookup.get(old)
             match = STATE_DERIV_EXPR.fullmatch(new)
-            if atom is None:
-                found[old] = f"{old} is not a name of {ode.name}"
-            elif isinstance(atom, atoms.StateDerivative):
-                state = atom.state.name
-                found[old] = (
-                    f"{old} is the derivative of {state}: rename {state}, "
-                    "and its derivative is renamed with it"
-                )
-            elif not VALID_NAME.fullmatch(new):
-                found[old] = f"{new} is not a valid name"
-            elif new in TIME_NAMES:
-                found[old] = f"{new} is the name of time: choose another name"
-            elif new in taken or new in targets:
+            if new in taken or new in targets:
                 found[old] = f"{new} is already a name of {ode.name}"
             elif match:  # The parser would look for the state
                 found[old] = (
                     f"{new} names the derivative of {match['state']}, which is not a state "
                     f"of {ode.name}: choose another name"
                 )
-            targets.add(new)
+            else:
+                targets.add(new)
         if not found:
             return {old: problems[old] for old in mapping if old in problems}
         problems.update(found)

@@ -95,6 +95,33 @@ def test_rename_onto_a_name_whose_rename_is_refused():
     ]
 
 
+@pytest.mark.parametrize(
+    "mapping, expected",
+    [
+        # nope's rename is refused, so it does not take q from b
+        ({"nope": "q", "b": "q"}, ["rename nope: nope is not a name of m"]),
+        (
+            {"dy_dt": "q", "a": "q"},
+            [
+                "rename dy_dt: dy_dt is the derivative of y: rename y, and its derivative "
+                "is renamed with it"
+            ],
+        ),
+        # y's rename is refused, so dt_dt is not the derivative of a renamed state
+        (
+            {"y": "t", "x": "dt_dt"},
+            [
+                "rename y: t is the name of time: choose another name",
+                "rename x: dt_dt names the derivative of t, which is not a state of m: "
+                "choose another name",
+            ],
+        ),
+    ],
+)
+def test_a_refused_rename_takes_no_name(mapping, expected):
+    assert rename_messages(mapping) == expected
+
+
 def test_rename_reports_every_problem():
     error_mapping = {"nope": "q", "a": "t", "x": "1x", "b": "c"}
     assert rename_messages(error_mapping) == [
