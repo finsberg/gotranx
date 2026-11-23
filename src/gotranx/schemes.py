@@ -56,6 +56,8 @@ class Scheme(str, Enum):
     hybrid_rush_larsen = "hybrid_rush_larsen"
     rush_larsen = "rush_larsen"
     generalized_rush_larsen_2 = "generalized_rush_larsen_2"
+    rush_larsen_2 = "rush_larsen_2"
+    hybrid_rush_larsen_2 = "hybrid_rush_larsen_2"
 
 
 def get_scheme(scheme: str) -> scheme_func:
@@ -70,6 +72,10 @@ def get_scheme(scheme: str) -> scheme_func:
         func = hybrid_rush_larsen
     elif scheme == "generalized_rush_larsen_2":
         func = generalized_rush_larsen_2
+    elif scheme == "rush_larsen_2":
+        func = rush_larsen_2
+    elif scheme == "hybrid_rush_larsen_2":
+        func = hybrid_rush_larsen_2
     else:
         raise ValueError(f"Unknown scheme {scheme}")
 
@@ -717,6 +723,124 @@ def generalized_rush_larsen_2(
         ode,
         dt,
         linearize=set(jacobian),
+        order=2,
+        name=name,
+        printer=printer,
+        remove_unused=remove_unused,
+        delta=delta,
+        cse=cse,
+        jacobian=jacobian,
+    )
+
+
+def rush_larsen_2(
+    ode: ODE,
+    dt: sympy.Symbol,
+    name: str = "values",
+    printer: printer_func = default_printer,
+    remove_unused: bool = False,
+    delta: float = 1e-8,
+    cse: bool = True,
+) -> list[str]:
+    r"""Generate the second-order Rush-Larsen scheme for the ODE
+
+    The two-stage update of :func:`generalized_rush_larsen_2` applied to the
+    gating states (see :func:`gotranx.linearization.gating_states`); every
+    other state uses explicit midpoint. Use :func:`hybrid_rush_larsen_2` to
+    choose the states yourself.
+
+    Parameters
+    ----------
+    ode : gotranx.ode.ODE
+        The ODE
+    dt : sympy.Symbol
+        The time step
+    name : str, optional
+        Name of array to be returned by the scheme, by default "values"
+    printer : printer_func, optional
+        A code printer, by default default_printer
+    remove_unused : bool, optional
+        Remove unused variables, by default False
+    delta : float, optional
+        Tolerance for zero division check, by default 1e-8
+    cse : bool, optional
+        Factor shared subexpressions out of the linearized expressions of each
+        stage, by default True
+
+    Returns
+    -------
+    list[str]
+        A list of equations as strings
+    """
+    logger.debug("Generating second-order Rush-Larsen scheme", cse=cse)
+    jacobian = diagonal_jacobian(ode, remove_unused=remove_unused)
+    linearize = _gating_linearize(ode, remove_unused, "rush_larsen_2", "explicit midpoint")
+    return _rush_larsen_scheme(
+        ode,
+        dt,
+        linearize=linearize,
+        order=2,
+        name=name,
+        printer=printer,
+        remove_unused=remove_unused,
+        delta=delta,
+        cse=cse,
+        jacobian=jacobian,
+    )
+
+
+def hybrid_rush_larsen_2(
+    ode: ODE,
+    dt: sympy.Symbol,
+    name: str = "values",
+    printer: printer_func = default_printer,
+    remove_unused: bool = False,
+    delta: float = 1e-8,
+    stiff_states: list[str] | None = None,
+    cse: bool = True,
+) -> list[str]:
+    r"""Generate the second-order hybrid Rush-Larsen scheme for the ODE
+
+    The two-stage update of :func:`generalized_rush_larsen_2` applied to
+    ``stiff_states``; every other state uses explicit midpoint, so with no
+    stiff states this is the explicit midpoint (RK2) method. A stiff state
+    whose derivative does not depend on itself also gets explicit midpoint,
+    and a warning is logged.
+
+    Parameters
+    ----------
+    ode : gotranx.ode.ODE
+        The ODE
+    dt : sympy.Symbol
+        The time step
+    name : str, optional
+        Name of array to be returned by the scheme, by default "values"
+    printer : printer_func, optional
+        A code printer, by default default_printer
+    remove_unused : bool, optional
+        Remove unused variables, by default False
+    delta : float, optional
+        Tolerance for zero division check, by default 1e-8
+    stiff_states : list[str] | None, optional
+        States to integrate with the exponential update, by default None
+    cse : bool, optional
+        Factor shared subexpressions out of the linearized expressions of each
+        stage, by default True
+
+    Returns
+    -------
+    list[str]
+        A list of equations as strings
+    """
+    logger.debug(
+        "Generating second-order hybrid Rush-Larsen scheme", stiff_states=stiff_states, cse=cse
+    )
+    jacobian = diagonal_jacobian(ode, remove_unused=remove_unused)
+    linearize = _hybrid_linearize(ode, jacobian, stiff_states, remove_unused, "explicit midpoint")
+    return _rush_larsen_scheme(
+        ode,
+        dt,
+        linearize=linearize,
         order=2,
         name=name,
         printer=printer,

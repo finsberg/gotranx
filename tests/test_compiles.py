@@ -31,6 +31,8 @@ SCHEMES = [
     Scheme.generalized_rush_larsen,
     Scheme.forward_explicit_euler,
     Scheme.generalized_rush_larsen_2,
+    Scheme.rush_larsen,
+    Scheme.rush_larsen_2,
 ]
 LANGUAGES = ["c", "cpp"]
 DT = 0.01
