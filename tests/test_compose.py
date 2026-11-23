@@ -311,6 +311,24 @@ def test_replace_parameter_declaration(tmp_path):
     assert (k.value, k.unit_str, k.description) == (200.0, "1/ms", "faster")
 
 
+@pytest.mark.parametrize(
+    "line, expected",
+    [
+        ("replace Ca = 0.2", (0.2, "uM", "cytosolic calcium")),
+        ("replace Ca = 0.2 # mM", (0.2, "uM", "cytosolic calcium")),  # Not a unit
+        ('replace Ca = ScalarParam(0.2, unit="mM")', (0.2, "mM", "cytosolic calcium")),
+        ('replace Ca = ScalarParam(0.2, description="free")', (0.2, "uM", "free")),
+    ],
+)
+def test_replace_parameter_keeps_its_unit_and_description(tmp_path, line, expected):
+    # Unless the glue line gives them, as a replace in an expressions block keeps the unit
+    ode = compose_glue(tmp_path, f'parameters("toy",\n{line}\n)\n')
+    ca = ode["Ca"]
+    assert isinstance(ca, atoms.Parameter) and ca.components == ("toy",)
+    assert (ca.value, ca.unit_str, ca.description) == expected
+    assert ca.unit == gotranx.units.ureg(expected[1]).units
+
+
 def test_replace_parameter_with_expression_makes_an_input(tmp_path):
     ode = compose_glue(tmp_path, 'expressions("toy")\nreplace Ca = 1000.0*ep.cai\n')
     assert isinstance(ode["Ca"], atoms.Intermediate)

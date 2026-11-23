@@ -430,7 +430,19 @@ class _Glue:
                 assert isinstance(d, atoms.StateDerivative)
                 result[part][name] = attr.evolve(d, expr=d.expr + expr(s)[1])
             elif s.block == "parameters":
-                result[part][name] = s.atom
+                old = self.own[part].get(name)
+                if old is None:
+                    result[part][name] = s.atom
+                else:
+                    # A new declaration keeps the unit and description it does not give,
+                    # as a replace in an expressions block keeps the unit
+                    given_unit = s.atom.unit_str is not None
+                    result[part][name] = attr.evolve(
+                        s.atom,
+                        unit_str=s.atom.unit_str if given_unit else old.unit_str,
+                        unit=s.atom.unit if given_unit else old.unit,
+                        description=s.atom.description or old.description,
+                    )
             else:
                 assert isinstance(s.atom, atoms.Assignment)
                 value, e = expr(s)

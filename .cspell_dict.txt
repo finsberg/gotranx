@@ -42,6 +42,7 @@ ctypeslib
 CUDA
 cxxcode
 Cyto
+cytosolic
 cytozoo
 dcai
 DCELL
