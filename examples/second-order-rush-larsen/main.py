@@ -38,7 +38,7 @@ ode = gotranx.load_ode("beeler_reuter_1977.ode")
 
 print(gating_states(ode))
 
-# Generate Python code for one first-order and two second-order schemes
+# Generate Python code for two first-order and two second-order schemes
 
 schemes = [
     Scheme.rush_larsen,
@@ -87,11 +87,43 @@ for scheme in schemes:
     rates = np.log2(np.array(errors[:-1]) / np.array(errors[1:]))
     print(f"{scheme.value:28s} observed orders {np.round(rates, 2)}")
 
-# The first-order schemes converge with order one and the second-order schemes
-# approach order two as $\Delta t$ decreases. The asymptotic order only shows
-# once the time step resolves the upstroke; at the coarsest steps the
-# second-order schemes are still more accurate, but their observed order is
-# lower.
+# The first-order schemes converge with order one. The second-order schemes
+# approach order two as $\Delta t$ decreases, reaching 1.9 or more at the finest
+# steps, but the asymptotic order only shows once the time step resolves the
+# upstroke. The errors at the coarsest and finest time steps show the
+# consequence: at $\Delta t = 0.25$ ms all four schemes have errors of about
+# 10 %, and the second-order schemes are not clearly better (for
+# `rush_larsen_2` the error is even slightly larger than for `rush_larsen`),
+# whereas at $\Delta t = 2^{-8}$ ms they are more than ten times smaller than
+# the first-order ones.
+
+print("relative error at T, dt = 0.25 ms and dt = 2^-8 ms")
+for name, (errors, _) in results.items():
+    print(f"{name:28s} {errors[0]:.2e} {errors[-1]:.2e}")
+
+# Cost per step at the finest time step, and the cost of each second-order
+# scheme relative to its first-order counterpart:
+
+steps = round(T / dts[-1])
+cost = {name: times[-1] / steps for name, (_, times) in results.items()}
+for name, c in cost.items():
+    print(f"{name:28s} {1e6 * c:6.1f} microseconds per step")
+for first, second in [
+    ("rush_larsen", "rush_larsen_2"),
+    ("generalized_rush_larsen", "generalized_rush_larsen_2"),
+]:
+    print(f"cost({second}) / cost({first}) = {cost[second] / cost[first]:.2f}")
+
+# Finally, the wall time each scheme needs to reach a given accuracy,
+# interpolated in log-log from the measurements above. We use the smallest
+# error that all four schemes reach.
+
+target = max(min(errors) for errors, _ in results.values())
+print(f"time to reach relative error {target:.1e}")
+for name, (errors, times) in results.items():
+    # errors decrease with decreasing dt, so reverse to make them increasing
+    t_target = np.exp(np.interp(np.log(target), np.log(errors[::-1]), np.log(times[::-1])))
+    print(f"{name:28s} {t_target:.3f} s")
 
 fig, ax = plt.subplots(1, 2, figsize=(10, 4))
 for label, (errors, times) in results.items():
@@ -107,9 +139,33 @@ ax[0].legend()
 fig.tight_layout()
 fig.savefig("second_order_rush_larsen.png")
 
-# A second-order step costs roughly twice as much as a first-order one, since
-# the model is evaluated twice. The right panel shows the trade-off: for a
-# given accuracy, the second-order schemes are faster once the required
-# accuracy is moderately high.
+# A second-order step costs about twice as much as a first-order one, as the
+# printed ratios show (close to 2 for both families), since the model is
+# evaluated twice. In return, the second-order schemes reach a given accuracy
+# faster: for the smallest error that all four schemes reach, about
+# $2 \times 10^{-3}$, they need roughly half the wall time of the
+# corresponding first-order scheme. This is a moderate accuracy; at the
+# coarsest steps above, where the second-order schemes are no more accurate,
+# there is no gain. The right panel of the figure shows the same trade-off
+# over the whole range.
 #
-# 
+# ```{figure} second_order_rush_larsen.png
+# Error against time step (left) and against wall time (right).
+# ```
+#
+# ## Why not goss's GRL2?
+#
+# Earlier implementations (e.g. goss) used $f(y^*)$ instead of the midpoint
+# linearization $f(y^*) + a^*(y_n - y^*)$ in the full step, and evaluated the
+# second stage at $t_n$ instead of $t_n + \Delta t/2$. That variant is only
+# first order on stiff, time-dependent problems; see the docstring of
+# {py:func}`gotranx.schemes.generalized_rush_larsen_2`.
+#
+# ## References
+#
+# - J. Sundnes, R. Artebrant, O. Skavhaug, A. Tveito. A second-order algorithm
+#   for solving dynamic cell membrane equations. *IEEE Trans. Biomed. Eng.*
+#   56(10):2546–2548, 2009.
+# - M. Perego, A. Veneziani. An efficient generalization of the Rush-Larsen
+#   method for solving electro-physiology membrane equations. *ETNA*
+#   35:234–256, 2009.

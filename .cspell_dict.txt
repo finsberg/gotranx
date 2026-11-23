@@ -12,6 +12,7 @@ autouse
 axhline
 beeler
 betaz
+Biomed
 boolalg
 Cais
 capsys
@@ -108,6 +109,7 @@ literalinclude
 lmbda
 loadtxt
 logicalfunc
+loglog
 mathcal
 mathrm
 matplotlib
@@ -185,6 +187,7 @@ sptd
 stdp
 Stim
 stpd
+Strang
 strcmp
 subexpression
 summands
