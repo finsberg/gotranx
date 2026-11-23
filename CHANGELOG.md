@@ -85,6 +85,12 @@ says so). `ode2julia` output does not change.
 
 ### Fixed
 
+- A trailing comment containing an apostrophe (or other text that pint cannot
+  parse) no longer stops a `.ode` file from loading.
+- Saving a model that mixes headerless and named expression blocks no longer
+  moves the headerless block's expressions into the named component.
+- Negative numbers are saved as written (`-84.624`, not `-1*84.624`), so
+  save, load and save again is stable.
 - Singularity removal could replace a pole that a model guards itself with
   the value of that guard, across a far wider window.
   `xB = Conditional(Gt(B, 1e-12), B_xB/B, 0)`, a mean strain over an
@@ -160,6 +166,15 @@ says so). `ode2julia` output does not change.
   unchanged.
 
 ### Added
+
+- Model composition. `gotranx.compose(recipe)` builds one `ODE` from parts
+  (`.ode` or `.cellml`) named in a TOML recipe and coupled by a glue file,
+  which uses the `.ode` grammar plus `part.name`, `replace` and `+=` on a state
+  derivative. The recipe's optional `[components.<name>]` tables split the result
+  with `ODE.split`. Also new: `ODE.split(name, inputs, outputs)`, `ODE.rename`,
+  `ODE.rescale_time`, and the command `gotranx compose RECIPE [-o OUT]`, which
+  writes the model and prints what each component needs from the others. See
+  the how-to guide on composition.
 
 - `ode2cytozoo --supertype NAME` and `--no-potential` (configuration keys
   `supertype` and `no_potential` under `[tool.gotranx.cytozoo]`), for models that

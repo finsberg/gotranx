@@ -15,6 +15,24 @@ atoms
 .. automodule:: gotranx.atoms
     :members:
 
+composition
+-----------
+
+.. automodule:: gotranx.composition
+    :members:
+
+glue
+----
+
+.. automodule:: gotranx.glue
+    :members:
+
+operations
+----------
+
+.. automodule:: gotranx.operations
+    :members:
+
 exceptions
 ----------
 

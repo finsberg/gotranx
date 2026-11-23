@@ -475,7 +475,8 @@ def test_bad_recipe_toml(tmp_path):
 
 def test_unknown_recipe_key_named():
     assert messages(toy_recipe(colour="red")) == [
-        "unknown recipe key colour: the keys are time_unit, parts, glue and allow_missing"
+        "unknown recipe key colour: the keys are time_unit, parts, glue, allow_missing "
+        "and components"
     ]
     recipe = toy_recipe()
     recipe["parts"][1]["prefix"] = "t_"
@@ -618,7 +619,8 @@ def test_circular_part(tmp_path):
 
 def test_recipe_errors_do_not_hide_glue_errors(tmp_path):
     assert glue_messages(tmp_path, 'expressions("toy")\nreplace Caa = 1.0\n', colour="red") == [
-        "unknown recipe key colour: the keys are time_unit, parts, glue and allow_missing",
+        "unknown recipe key colour: the keys are time_unit, parts, glue, allow_missing "
+        "and components",
         "glue.ode:2: Caa is not a name of toy",
     ]
 
@@ -629,20 +631,21 @@ def test_errors_that_stop_the_composition(tmp_path):
     recipe = toy_recipe(glue="glue.ode", colour="red")
     recipe["parts"][1]["time_unit"] = "mV"
     assert messages(recipe, base_dir=tmp_path) == [
-        "unknown recipe key colour: the keys are time_unit, parts, glue and allow_missing",
+        "unknown recipe key colour: the keys are time_unit, parts, glue, allow_missing "
+        "and components",
         "part toy: time_unit mV is not a unit of time",
     ]
 
 
 def test_key_messages_follow_the_key_lists(monkeypatch):
-    # So that a new key (Task 6's components) is listed without editing the messages
-    monkeypatch.setattr(composition, "RECIPE_KEYS", (*composition.RECIPE_KEYS, "components"))
+    # So that a new key is listed without editing the messages
+    monkeypatch.setattr(composition, "RECIPE_KEYS", (*composition.RECIPE_KEYS, "extra"))
     monkeypatch.setattr(composition, "PART_KEYS", (*composition.PART_KEYS, "prefix"))
     recipe = toy_recipe(colour="red", components={})
     recipe["parts"][1].update(kind="x", prefix="t_")
     assert messages(recipe) == [
-        "unknown recipe key colour: the keys are time_unit, parts, glue, allow_missing "
-        "and components",
+        "unknown recipe key colour: the keys are time_unit, parts, glue, allow_missing, "
+        "components and extra",
         "part toy: unknown key kind: a part's keys are name, file, time_unit, rename and prefix",
     ]
 
@@ -702,3 +705,37 @@ def test_part_names_must_be_valid_names(name):
 def test_input_keeps_the_parameter_unit(tmp_path, line, unit):
     ode = compose_glue(tmp_path, f'expressions("toy")\n{line}\n')
     assert ode["Ca"].unit_str == unit
+
+
+def test_components_table_equals_split_after():
+    plain = gotranx.compose(toy_recipe(glue=str(FILES / "toy_glue.ode")))
+    recipe = toy_recipe(
+        glue=str(FILES / "toy_glue.ode"),
+        components={"mechanics": {"inputs": ["toy.B"], "outputs": ["toy.Zs", "toy.Ta"]}},
+    )
+    same_model(
+        gotranx.compose(recipe), plain.split("mechanics", inputs=["B"], outputs=["Zs", "Ta"])
+    )
+
+
+def test_components_table_checks_qualifiers():
+    recipe = toy_recipe(
+        glue=str(FILES / "toy_glue.ode"),
+        components={"mechanics": {"inputs": ["toy.B"], "outputs": ["ep.Zs"]}},
+    )
+    assert any("Zs is not a name of ep (it is toy's)" in m for m in messages(recipe))
+
+
+def test_components_table_split_errors_are_composition_errors():
+    recipe = toy_recipe(
+        glue=str(FILES / "toy_glue.ode"),
+        components={"mechanics": {"inputs": ["toy.B"], "outputs": ["toy.nonsense"]}},
+    )
+    assert any(m.startswith("components.mechanics:") for m in messages(recipe))
+
+
+def test_components_table_structure():
+    recipe = toy_recipe(components={"mechanics": {"inputs": "B"}})
+    msgs = messages(recipe)
+    assert any("components.mechanics has no outputs" in m for m in msgs)
+    assert any("inputs must be a list" in m for m in msgs)

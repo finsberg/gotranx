@@ -42,7 +42,8 @@ from .operations import all_atoms, rebuild, rename, rescale_time
 from .units import ureg
 
 # Task 6 adds "components" (splits applied after the composition)
-RECIPE_KEYS = ("time_unit", "parts", "glue", "allow_missing")
+RECIPE_KEYS = ("time_unit", "parts", "glue", "allow_missing", "components")
+COMPONENT_KEYS = ("inputs", "outputs")
 PART_KEYS = ("name", "file", "time_unit", "rename")
 TIME_NAMES = ("t", "time")
 VALID_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
@@ -99,6 +100,58 @@ def _load_errors() -> tuple[type[Exception], ...]:
     return (*errors, myokit.MyokitError)
 
 
+def _validate_components(tables: Any, errors: _Errors) -> None:
+    if tables is None:
+        return
+    if not isinstance(tables, Mapping):
+        errors.add("components must be a table of tables, one per component")
+        return
+    for name, table in tables.items():
+        label = f"components.{name}"
+        if not isinstance(table, Mapping):
+            errors.add(f"{label} must be a table with inputs and outputs")
+            continue
+        for key in table:
+            if key not in COMPONENT_KEYS:
+                errors.add(
+                    f"{label}: unknown key {key}: a component's keys are {_listing(COMPONENT_KEYS)}"
+                )
+        for key in COMPONENT_KEYS:
+            names = table.get(key)
+            if key not in table:
+                errors.add(f"{label} has no {key}")
+            elif not isinstance(names, list) or not all(isinstance(n, str) for n in names):
+                errors.add(f"{label}: {key} must be a list of names")
+
+
+def _split_names(
+    tables: Mapping[str, Mapping[str, Any]], applied: _Glue, errors: _Errors
+) -> dict[str, tuple[list[str], list[str]]]:
+    """Check the qualifiers of the components tables against the parts, and unqualify"""
+    result: dict[str, tuple[list[str], list[str]]] = {}
+    for name, table in tables.items():
+        if not isinstance(table, Mapping) or any(
+            not isinstance(table.get(k), list) for k in COMPONENT_KEYS
+        ):
+            continue  # Reported by _validate_components
+        lists: dict[str, list[str]] = {}
+        for key in COMPONENT_KEYS:
+            lists[key] = []
+            for written in table[key]:
+                part, dot, bare = written.partition(".")
+                if not dot:
+                    lists[key].append(written)
+                elif part not in applied.own:
+                    errors.add(f"components.{name}: {key}: {written}: {part} is not a part")
+                elif bare not in applied.names(part):
+                    msg = applied.not_a_name(bare, part)
+                    errors.add(f"components.{name}: {key}: {msg}")
+                else:
+                    lists[key].append(bare)
+        result[name] = (lists["inputs"], lists["outputs"])
+    return result
+
+
 def _validate(recipe: Mapping[str, Any], base: Path, errors: _Errors) -> list[_Part]:
     """Check the recipe's keys and values, and return its valid parts"""
     for key in recipe:
@@ -114,6 +167,8 @@ def _validate(recipe: Mapping[str, Any], base: Path, errors: _Errors) -> list[_P
         errors.add("glue must be a string")
     if not isinstance(recipe.get("allow_missing", False), bool):
         errors.add("allow_missing must be true or false")
+
+    _validate_components(recipe.get("components"), errors)
 
     raw_parts = recipe.get("parts")
     if not raw_parts:
@@ -523,6 +578,12 @@ def compose(
     With ``allow_missing = true``, glue may use names that no part defines; they are the
     model's missing variables. Such a model can be saved, but gotranx cannot load an
     ``.ode`` file that uses names it does not define.
+
+    ``components = {<name> = {inputs = [...], outputs = [...]}}`` calls
+    :meth:`gotranx.ode.ODE.split` on the composed model, one table after another in recipe
+    order. Names may be written ``part.name``, which is checked against the part and then
+    unqualified. A split that fails is raised as a ``CompositionError`` with its messages,
+    each starting ``components.<name>:``.
     """
     recipe_file: Path | None = None
     if isinstance(recipe, Mapping):
@@ -603,6 +664,8 @@ def compose(
     if applied.missing and not allow_missing:
         where = ", ".join(f"{n} ({glue}:{line})" for n, line in sorted(applied.missing.items()))
         errors.add(f"used but defined nowhere: {where}; define them, or set allow_missing = true")
+    tables = data.get("components") or {}
+    splits = _split_names(tables, applied, errors) if isinstance(tables, Mapping) else {}
     if errors.messages:
         raise exceptions.CompositionError(errors.messages)
     result = applied.apply()
@@ -649,4 +712,13 @@ def compose(
         )
     if remove_singularities:
         composed = composed.remove_singularities()
+    # 11. The components tables, in recipe order. A SplitError is re-raised as a
+    # CompositionError with the same messages, each saying which table it came from
+    for component, (inputs, outputs) in splits.items():
+        try:
+            composed = composed.split(component, inputs=inputs, outputs=outputs)
+        except exceptions.SplitError as e:
+            raise exceptions.CompositionError(
+                [f"components.{component}: {m}" for m in e.messages]
+            ) from e
     return composed
