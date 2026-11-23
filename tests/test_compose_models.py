@@ -6,10 +6,13 @@ are ``S``/``W`` here, ``Zetas``/``Zetaw`` are ``Zs``/``Zw``, and ``CaTrpn`` is `
 
 from pathlib import Path
 
+import numpy as np
 import pytest
 from conftest import only, rest
 
 import gotranx
+import gotranx.cli.gotran2py
+from gotranx.schemes import Scheme
 
 FILES = Path(__file__).parent / "compose_files"
 
@@ -47,3 +50,49 @@ def test_torord_land_cai_split(torord_land):
 
 def test_torord_land_bcai_has_no_troponin(torord_land):
     assert "trpnmax" not in {s.name for s in torord_land["Bcai"].expr.free_symbols}
+
+
+def land_driven_by(tmp_path: Path, time_unit: str, ca: str) -> dict:
+    """Land 2017 (in s) composed into a model in ``time_unit``, with ``Ca = ca``, and its
+    generated Python code, generalized Rush-Larsen"""
+    (tmp_path / f"{time_unit}.glue.ode").write_text(f'expressions("land")\nreplace Ca = {ca}\n')
+    recipe = {
+        "time_unit": time_unit,
+        "glue": f"{time_unit}.glue.ode",
+        "parts": [{"name": "land", "file": str(FILES / "land_2017.ode"), "time_unit": "s"}],
+    }
+    ode = gotranx.compose(recipe, base_dir=tmp_path)
+    code = gotranx.cli.gotran2py.get_code(ode, scheme=[Scheme.generalized_rush_larsen])
+    namespace: dict = {}
+    exec(compile(code, f"<land in {time_unit}>", "exec"), namespace)
+    return namespace
+
+
+def grl(model: dict, dt: float, steps: int, every: int) -> np.ndarray:
+    """The states every ``every`` steps, from 0 to ``steps``"""
+    y = model["init_state_values"]()
+    p = model["init_parameter_values"]()
+    out = [y]
+    for i in range(steps):
+        y = model["generalized_rush_larsen"](y, i * dt, dt, p)
+        if (i + 1) % every == 0:
+            out.append(y)
+    return np.array(out)
+
+
+def test_land_in_s_and_composed_in_ms_agree(tmp_path):
+    # The spec's check of time rescaling: one calcium transient (uM), written in each
+    # model's own time unit, and the same step in each unit, 10 us, to 50 ms. Rush-Larsen,
+    # as Land's B is too stiff for forward Euler at this step
+    seconds = land_driven_by(tmp_path, "s", "0.1 + 1.0*exp(-((t - 0.02)/0.008)**2)")
+    ms = land_driven_by(tmp_path, "ms", "0.1 + 1.0*exp(-((t - 20.0)/8.0)**2)")
+    assert [seconds["state_index"](n) for n in ("CaTRPN", "B", "S", "W", "Cd")] == [
+        ms["state_index"](n) for n in ("CaTRPN", "B", "S", "W", "Cd")
+    ]
+    in_s = grl(seconds, dt=1e-5, steps=5000, every=100)  # States every ms
+    in_ms = grl(ms, dt=1e-2, steps=5000, every=100)
+    # The transient moves the states, so agreeing is not agreeing at rest
+    bound = seconds["state_index"]("CaTRPN")
+    assert in_s[:, bound].max() > 10 * in_s[0, bound]
+    # The same step in two units: round-off apart
+    assert np.allclose(in_s, in_ms, rtol=1e-9, atol=1e-15)
