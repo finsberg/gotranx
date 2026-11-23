@@ -529,6 +529,21 @@ class ODE:
 
         return operations.rescale_time(self, k, components)
 
+    def split(self, name: str, inputs: Iterable[str], outputs: Iterable[str]) -> ODE:
+        """Return a copy with a new component ``name`` carved out of this one.
+
+        The new component holds the ``outputs`` and what they depend on, up to the
+        ``inputs`` and the parameters, e.g.
+        ``ode.split("mechanics", inputs=["cai"], outputs=["Ta", "J_TRPN"])``. Then
+        ``ode - ode.get_component("mechanics")`` needs only outputs from it, and the
+        component itself needs only the inputs. See :func:`gotranx.operations.split` for
+        the rules; every problem is reported at once in a
+        :class:`gotranx.exceptions.SplitError`.
+        """
+        from . import operations
+
+        return operations.split(self, name, inputs, outputs)
+
     def __sub__(self, other: BaseComponent) -> ODE:
         new_components = [comp for comp in self.components if comp != other]
         return ODE(

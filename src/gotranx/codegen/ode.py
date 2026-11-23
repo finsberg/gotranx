@@ -134,8 +134,10 @@ class GotranODECodePrinter(BaseGotranODECodePrinter):
         for i in self.ode.intermediates + self.ode.state_derivatives:
             d[i.components].append(i)
 
+        # Unnamed expressions are printed without a header, so they go first: after a
+        # named block they would be read back as part of it. (sorted is stable.)
         text = ""
-        for components, intermediates in d.items():
+        for components, intermediates in sorted(d.items(), key=lambda x: x[0] not in ((), ("",))):
             text += start_odeblock("expressions", names=components, is_expression=True) + "\n"
             text += "\n".join([print_assignment(i, doprint=self.doprint) for i in intermediates])
             text += "\n\n"

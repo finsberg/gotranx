@@ -144,6 +144,20 @@ class CompositionError(GotranxError):
 
 
 @dataclass
+class SplitError(GotranxError):
+    """Everything wrong with a split (:meth:`gotranx.ode.ODE.split`).
+
+    The messages are collected before this is raised, and ``str()`` lists them one per
+    line.
+    """
+
+    messages: list[str]
+
+    def __str__(self) -> str:
+        return "\n".join(self.messages)
+
+
+@dataclass
 class UnknownTreeTypeError(GotranxError):
     datatype: str
     atom: str
