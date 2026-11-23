@@ -518,6 +518,17 @@ class ODE:
 
         return operations.rename(self, mapping)
 
+    def rescale_time(self, k: float, components: Iterable[str] | None = None) -> ODE:
+        """Return a copy with time rescaled by ``k`` (``t`` becomes ``k * t``).
+
+        State derivatives of the selected components are multiplied by ``k``;
+        ``components=None`` selects every component. ``k = 0.001`` brings a
+        model in seconds onto a clock in milliseconds.
+        """
+        from . import operations
+
+        return operations.rescale_time(self, k, components)
+
     def __sub__(self, other: BaseComponent) -> ODE:
         new_components = [comp for comp in self.components if comp != other]
         return ODE(

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence
 
+import math
+
 import attr
 import sympy as sp
 
@@ -118,4 +120,32 @@ def rename(ode: ODE, mapping: Mapping[str, str]) -> ODE:
             new_atoms.append(
                 attr.evolve(atom, name=n, symbol=make_symbol(n), value=fix_value(atom.value))
             )
+    return rebuild(new_atoms, name=ode.name, comments=ode.comments)
+
+
+def rescale_time(ode: ODE, k: float, components: Iterable[str] | None = None) -> ODE:
+    """Return a copy of ``ode`` whose time is rescaled by ``k``.
+
+    With ``t_new = t_old / k``, e.g. ``k = 0.001`` brings a model written in
+    seconds onto a clock in milliseconds. Every state derivative in the selected
+    components is multiplied by ``k`` and ``t`` is replaced by ``k * t`` in every
+    expression of those components. ``components=None`` selects all components.
+    """
+    if not (math.isfinite(k) and k > 0):
+        raise ValueError(f"k must be positive and finite, got {k}")
+    selected = None if components is None else set(components)
+    time_symbols = [s for name in ("t", "time") if (s := ode.symbols.get(name)) is not None]
+    subs = {s: k * s for s in time_symbols}
+
+    new_atoms: list[atoms.Atom] = []
+    for atom in all_atoms(ode):
+        if not isinstance(atom, atoms.Assignment) or (
+            selected is not None and not selected & set(atom.components)
+        ):
+            new_atoms.append(atom)
+            continue
+        expr = atom.expr.xreplace(subs)
+        if isinstance(atom, atoms.StateDerivative):
+            expr = k * expr
+        new_atoms.append(attr.evolve(atom, expr=expr))
     return rebuild(new_atoms, name=ode.name, comments=ode.comments)
