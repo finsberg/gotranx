@@ -99,6 +99,10 @@ def _load_errors() -> tuple[type[Exception], ...]:
     return (*errors, myokit.MyokitError)
 
 
+def _is_names(value: Any) -> bool:
+    return isinstance(value, list) and all(isinstance(n, str) for n in value)
+
+
 def _validate_components(tables: Any, errors: _Errors) -> None:
     if tables is None:
         return
@@ -116,10 +120,9 @@ def _validate_components(tables: Any, errors: _Errors) -> None:
                     f"{label}: unknown key {key}: a component's keys are {_listing(COMPONENT_KEYS)}"
                 )
         for key in COMPONENT_KEYS:
-            names = table.get(key)
             if key not in table:
                 errors.add(f"{label} has no {key}")
-            elif not isinstance(names, list) or not all(isinstance(n, str) for n in names):
+            elif not _is_names(table[key]):
                 errors.add(f"{label}: {key} must be a list of names")
 
 
@@ -129,8 +132,8 @@ def _split_names(
     """Check the qualifiers of the components tables against the parts, and unqualify"""
     result: dict[str, tuple[list[str], list[str]]] = {}
     for name, table in tables.items():
-        if not isinstance(table, Mapping) or any(
-            not isinstance(table.get(k), list) for k in COMPONENT_KEYS
+        if not isinstance(table, Mapping) or not all(
+            _is_names(table.get(k)) for k in COMPONENT_KEYS
         ):
             continue  # Reported by _validate_components
         lists: dict[str, list[str]] = {}
@@ -712,7 +715,7 @@ def compose(
     files += [(part.file, part.path) for part in parts]
     header += [f"sha256 {file}: {_sha256(path)}" for file, path in files]
 
-    # 10. Build, and guard the singularities
+    # 10. Build
     all_ = [atom for by_name in result.values() for atom in by_name.values()]
     # gotranx cannot parse a name it has no definition of, so each missing one is a
     # parameter of a component of its own while the model is built, and then dropped
@@ -734,10 +737,10 @@ def compose(
             name=composed.name,
             comments=composed.comments,
         )
-    if remove_singularities:
-        composed = composed.remove_singularities()
-    # 11. The components tables, in recipe order. A SplitError is re-raised as a
-    # CompositionError with the same messages, each saying which table it came from
+    # 11. The components tables, in recipe order, before the guards: split follows each
+    # assignment's parse tree, which is that of the unguarded expression. A SplitError is
+    # re-raised as a CompositionError with the same messages, each saying which table it
+    # came from
     for component, (inputs, outputs) in splits.items():
         try:
             composed = composed.split(component, inputs=inputs, outputs=outputs)
@@ -745,4 +748,7 @@ def compose(
             raise exceptions.CompositionError(
                 [f"components.{component}: {m}" for m in e.messages]
             ) from e
+    # 12. Guard the singularities
+    if remove_singularities:
+        composed = composed.remove_singularities()
     return composed

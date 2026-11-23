@@ -729,6 +729,23 @@ def test_components_table_equals_split_after():
     )
 
 
+def test_components_tables_split_before_the_guards():
+    # split follows each assignment's parse tree, which is that of the unguarded model,
+    # so the tables are applied first, and the guards to their result
+    recipe = {"time_unit": "ms", "parts": [{"name": "br", "file": str(BR), "time_unit": "ms"}]}
+    plain = gotranx.compose(recipe, remove_singularities=False)
+    split = plain.split("m_gate", inputs=["V"], outputs=["m"])
+    tables = {"m_gate": {"inputs": ["br.V"], "outputs": ["br.m"]}}
+    # Exactly: the guards' Taylor coefficients differ at round-off if split after them.
+    # The headers differ, as one recipe has the tables
+    guarded = split.remove_singularities()
+    assert guarded["alpha_m"].expr.has(sp.Piecewise)
+    composed = gotranx.compose({**recipe, "components": tables})
+    assert composed.components == guarded.components
+    composed = gotranx.compose({**recipe, "components": tables}, remove_singularities=False)
+    assert composed.components == split.components
+
+
 def test_components_table_checks_qualifiers():
     recipe = toy_recipe(
         glue=str(FILES / "toy_glue.ode"),
@@ -737,19 +754,67 @@ def test_components_table_checks_qualifiers():
     assert any("Zs is not a name of ep (it is toy's)" in m for m in messages(recipe))
 
 
-def test_components_table_split_errors_are_composition_errors():
-    recipe = toy_recipe(
-        glue=str(FILES / "toy_glue.ode"),
-        components={"mechanics": {"inputs": ["toy.B"], "outputs": ["toy.nonsense"]}},
-    )
-    assert any(m.startswith("components.mechanics:") for m in messages(recipe))
+@pytest.mark.parametrize(
+    "table, expected",
+    [
+        (
+            {"inputs": ["toy.B", "ep.n"], "outputs": ["toy.Zs", "toy.Ta"]},
+            ["components.mechanics: n is not needed by mechanics"],
+        ),
+        (
+            {"inputs": [], "outputs": ["toy.Zs", "toy.Ta"]},
+            [
+                "components.mechanics: mechanics needs cai from component ep: add it to inputs",
+                "components.mechanics: the rest uses dCaTRPN_dt from mechanics: add it to outputs",
+            ],
+        ),
+    ],
+)
+def test_components_table_split_errors_are_composition_errors(table, expected):
+    # The names are the parts', so the split itself fails, with every message of its
+    # SplitError
+    recipe = toy_recipe(glue=str(FILES / "toy_glue.ode"), components={"mechanics": table})
+    assert messages(recipe) == expected
 
 
-def test_components_table_structure():
-    recipe = toy_recipe(components={"mechanics": {"inputs": "B"}})
-    msgs = messages(recipe)
-    assert any("components.mechanics has no outputs" in m for m in msgs)
-    assert any("inputs must be a list" in m for m in msgs)
+def test_components_table_bare_names():
+    # A bare name is not checked against a part: the split checks it
+    def compose(inputs, outputs):
+        tables = {"mechanics": {"inputs": inputs, "outputs": outputs}}
+        return gotranx.compose(toy_recipe(glue=str(FILES / "toy_glue.ode"), components=tables))
+
+    bare = compose(["B"], ["Zs", "Ta"])
+    assert bare.components == compose(["toy.B"], ["toy.Zs", "toy.Ta"]).components
+    assert {c.name for c in bare.components} == {"ep", "toy", "mechanics"}
+    with pytest.raises(CompositionError) as e:
+        compose(["B"], ["Zs", "nonsense"])
+    assert e.value.messages == ["components.mechanics: nonsense is not a name of the model"]
+
+
+@pytest.mark.parametrize(
+    "components, expected",
+    [
+        (3, ["components must be a table of tables, one per component"]),
+        ({"mechanics": 3}, ["components.mechanics must be a table with inputs and outputs"]),
+        (
+            {"mechanics": {"inputs": "B"}},
+            [
+                "components.mechanics: inputs must be a list of names",
+                "components.mechanics has no outputs",
+            ],
+        ),
+        (
+            {"mechanics": {"inputs": ["B"], "outputs": ["Zs", 2], "colour": "red"}},
+            [
+                "components.mechanics: unknown key colour: a component's keys are inputs and "
+                "outputs",
+                "components.mechanics: outputs must be a list of names",
+            ],
+        ),
+    ],
+)
+def test_components_table_structure(components, expected):
+    assert messages(toy_recipe(components=components)) == expected
 
 
 def test_input_files(tmp_path):
