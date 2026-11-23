@@ -1,0 +1,9 @@
+parameters("mechanics",
+lmbda = 1.0,
+dLambda = ScalarParam(0.0, unit="1/ms")
+)
+
+expressions("mechanics")
+replace Ca = 1000.0*ep.Ca_i
+replace SL = lmbda*SL0
+replace dSL = 1000.0*dLambda*SL0

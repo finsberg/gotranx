@@ -35,6 +35,7 @@ coeffs
 colorbar
 conds
 cpath
+crossbridge
 cstdint
 cstring
 ctypeslib
@@ -58,6 +59,7 @@ dxdt
 electrophysiological
 elif
 eltype
+epicardial
 errstate
 evalf
 exponentials
@@ -104,6 +106,7 @@ lambdify
 leadterm
 LIBFILE
 libm
+Licence
 linalg
 linearizable
 linearization
@@ -144,6 +147,7 @@ Nørsett
 odeblock
 odefile
 odefiles
+odezoo
 ohara
 ordmm
 ORDMMLAND
@@ -154,6 +158,7 @@ panfilov
 pdst
 pdts
 Perego
+Physiome
 printmethod
 psdt
 pstd
@@ -227,17 +232,17 @@ userfunc
 varphi
 vcat
 Veneziani
-VFFRT
 vffrt
-VFRT
+VFFRT
 vfrt
+VFRT
 viridis
 Wdouble
 Werror
 Wextra
 Wfloat
-windkessel
 Windkessel
+windkessel
 workdps
 workprec
 xlabel
@@ -247,6 +252,7 @@ xreplace
 yinf
 ylabel
 ylim
+Zetaw
 Ziaratgahi
 zinf
 zlabel
