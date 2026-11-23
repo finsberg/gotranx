@@ -750,3 +750,23 @@ def test_components_table_structure():
     msgs = messages(recipe)
     assert any("components.mechanics has no outputs" in m for m in msgs)
     assert any("inputs must be a list" in m for m in msgs)
+
+
+def test_input_files(tmp_path):
+    assert composition.input_files(RECIPE) == [
+        ("the recipe", RECIPE),
+        ("the glue file", FILES / "toy_glue.ode"),
+        ("the file of part ep", FILES / "toy_ep.ode"),
+        ("the file of part toy", FILES / "../odefiles/contraction_toy.ode"),
+    ]
+    recipe = toy_recipe(glue="glue.ode")
+    recipe["parts"][0]["file"] = "ep.ode"
+    del recipe["parts"][1]["name"]
+    assert composition.input_files(recipe, base_dir=tmp_path) == [
+        ("the glue file", tmp_path / "glue.ode"),
+        ("the file of part ep", tmp_path / "ep.ode"),
+        ("the file of part 2", TOY),
+    ]
+    # Nothing is checked: a recipe that cannot be read is the only file
+    (tmp_path / "r.toml").write_text("time_unit = \n")
+    assert composition.input_files(tmp_path / "r.toml") == [("the recipe", tmp_path / "r.toml")]

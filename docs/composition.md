@@ -107,14 +107,27 @@ zeta = ode.split("mechanics", inputs=["B"], outputs=["Zs", "Ta"])
 relative paths. The saved model has a header with the recipe and the sha256 of
 every file read, and no timestamp.
 
+Like `load_ode`, `compose` guards the model's removable singularities by
+default, which is what code generation wants. To save the model, compose it
+without, as `gotranx compose` does:
+
+```python
+gotranx.compose("toy_recipe.toml", remove_singularities=False).save("toy.ode")
+```
+
+An `.ode` file is written unguarded, and every gotranx command that loads one
+guards it. Saving a guarded model would have it guarded again on load: each
+guard nested in a second one, and the time to find them spent twice.
+
 ## From the command line
 
 ```
 gotranx compose toy_recipe.toml -o toy.ode
 ```
 
-It writes the model (by default `<recipe stem>.ode` in the current directory) and
-prints, for each component, what it needs from the others:
+It writes the model, unguarded, by default to `<recipe stem>.ode` in the current
+directory, and refuses to write over the recipe, the glue file or a part's file.
+It prints, for each component, what it needs from the others:
 
 ```
 ep needs: J

@@ -519,6 +519,57 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+@dataclass(frozen=True)
+class _Recipe:
+    """A recipe, as read"""
+
+    data: Mapping[str, Any]
+    base: Path  # What relative paths resolve against
+    file: Path | None = None  # The recipe file, if it is one
+    text: str | None = None  # Its text
+
+
+def _read_recipe(recipe: str | Path | Mapping[str, Any], base_dir: str | Path | None) -> _Recipe:
+    if isinstance(recipe, Mapping):
+        return _Recipe(recipe, Path.cwd() if base_dir is None else Path(base_dir))
+    recipe_file = Path(recipe)
+    if not recipe_file.is_file():
+        raise exceptions.CompositionError([f"recipe file {recipe_file} not found"])
+    text = recipe_file.read_text()
+    try:
+        data = tomllib.loads(text)
+    except tomllib.TOMLDecodeError as e:
+        raise exceptions.CompositionError([f"{recipe_file.name}: {e}"]) from e
+    return _Recipe(data, recipe_file.parent, recipe_file, text)
+
+
+def input_files(
+    recipe: str | Path | Mapping[str, Any], *, base_dir: str | Path | None = None
+) -> list[tuple[str, Path]]:
+    """The files composing ``recipe`` reads, each with what it is
+    (``"the recipe"``, ``"the glue file"`` or ``"the file of part <name>"``), as far as
+    the recipe names them. Nothing is checked: a recipe that cannot be read gives the
+    recipe file alone, and :func:`compose` says what is wrong with it.
+
+    Parameters are as for :func:`compose`.
+    """
+    try:
+        read = _read_recipe(recipe, base_dir)
+    except exceptions.CompositionError:
+        return [] if isinstance(recipe, Mapping) else [("the recipe", Path(recipe))]
+    files = [] if read.file is None else [("the recipe", read.file)]
+    glue = read.data.get("glue")
+    if isinstance(glue, str):
+        files.append(("the glue file", read.base / glue))
+    parts = read.data.get("parts")
+    for i, part in enumerate(parts if isinstance(parts, list) else [], start=1):
+        if isinstance(part, Mapping) and isinstance(part.get("file"), str):
+            name = part.get("name")
+            label = name if isinstance(name, str) else str(i)
+            files.append((f"the file of part {label}", read.base / part["file"]))
+    return files
+
+
 def compose(
     recipe: str | Path | Mapping[str, Any],
     *,
@@ -571,24 +622,10 @@ def compose(
     unqualified. A split that fails is raised as a ``CompositionError`` with its messages,
     each starting ``components.<name>:``.
     """
-    recipe_file: Path | None = None
-    if isinstance(recipe, Mapping):
-        data = recipe
-        base = Path.cwd() if base_dir is None else Path(base_dir)
-        source = "a dict"
-        name = "composed"
-    else:
-        recipe_file = Path(recipe)
-        if not recipe_file.is_file():
-            raise exceptions.CompositionError([f"recipe file {recipe_file} not found"])
-        recipe_text = recipe_file.read_text()
-        try:
-            data = tomllib.loads(recipe_text)
-        except tomllib.TOMLDecodeError as e:
-            raise exceptions.CompositionError([f"{recipe_file.name}: {e}"]) from e
-        base = recipe_file.parent
-        source = recipe_file.name
-        name = recipe_file.stem
+    read = _read_recipe(recipe, base_dir)
+    data, base, recipe_file = read.data, read.base, read.file
+    source = "a dict" if recipe_file is None else recipe_file.name
+    name = "composed" if recipe_file is None else recipe_file.stem
 
     # 1. The recipe
     errors = _Errors()
@@ -664,7 +701,8 @@ def compose(
 
     # 9. The header: the recipe and the sha256 of every file read, and no timestamp. Each
     # line is saved as it is, so that the recipe can be read back from it.
-    if recipe_file is None:
+    recipe_text = read.text
+    if recipe_text is None:
         recipe_text = json.dumps(dict(data), sort_keys=True, indent=1, default=str)
     header = [f"Composed by gotranx {version('gotranx')} from {source}"]
     header += recipe_text.splitlines()
