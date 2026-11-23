@@ -6,6 +6,7 @@ from collections import deque
 from collections.abc import Iterable, Mapping, Sequence
 
 import math
+import re
 
 import attr
 import sympy as sp
@@ -13,9 +14,17 @@ import sympy as sp
 from . import atoms
 from .atoms import make_symbol
 from .codegen.ode import GotranODECodePrinter
-from .exceptions import SplitError
+from .exceptions import RenameError, SplitError
 from .ode import ODE
-from .ode_component import Component
+from .ode_component import STATE_DERIV_EXPR, Component
+
+TIME_NAMES = ("t", "time")
+VALID_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+
+
+def _listing(names: Sequence[str]) -> str:
+    """``"a, b and c"``"""
+    return " and ".join([", ".join(names[:-1]), names[-1]] if len(names) > 1 else names)
 
 
 def all_atoms(ode: ODE) -> tuple[atoms.Atom, ...]:
@@ -72,16 +81,70 @@ def rebuild(
     return ODE(components=ode.components, t=ode.t, name=name, comments=tuple(comments))
 
 
+def _rename_problems(ode: ODE, mapping: Mapping[str, str]) -> dict[str, str]:
+    """Each name of ``mapping`` whose rename is refused, with the reason, in the order of
+    ``mapping``. The names are checked against the model after the other renames, so a
+    rename onto a name whose own rename is refused is refused too."""
+    lookup = {a.name: a for a in all_atoms(ode)}
+
+    def derivative(name: str) -> str:
+        return f"d{name}_dt"
+
+    problems: dict[str, str] = {}
+    while True:
+        accepted = {old: new for old, new in mapping.items() if old not in problems}
+        states = {old for old in accepted if isinstance(lookup.get(old), atoms.State)}
+        # The names the model still has after the accepted renames: the derivative of a
+        # renamed state is renamed with it
+        freed = set(accepted) | {derivative(old) for old in states}
+        taken = (lookup.keys() - freed) | {derivative(accepted[old]) for old in states}
+        targets: set[str] = set()
+        found: dict[str, str] = {}
+        for old, new in accepted.items():
+            atom = lookup.get(old)
+            match = STATE_DERIV_EXPR.fullmatch(new)
+            if atom is None:
+                found[old] = f"{old} is not a name of {ode.name}"
+            elif isinstance(atom, atoms.StateDerivative):
+                state = atom.state.name
+                found[old] = (
+                    f"{old} is the derivative of {state}: rename {state}, "
+                    "and its derivative is renamed with it"
+                )
+            elif not VALID_NAME.fullmatch(new):
+                found[old] = f"{new} is not a valid name"
+            elif new in TIME_NAMES:
+                found[old] = f"{new} is the name of time: choose another name"
+            elif new in taken or new in targets:
+                found[old] = f"{new} is already a name of {ode.name}"
+            elif match:  # The parser would look for the state
+                found[old] = (
+                    f"{new} names the derivative of {match['state']}, which is not a state "
+                    f"of {ode.name}: choose another name"
+                )
+            targets.add(new)
+        if not found:
+            return {old: problems[old] for old in mapping if old in problems}
+        problems.update(found)
+
+
 def rename(ode: ODE, mapping: Mapping[str, str]) -> ODE:
     """Return a copy of ``ode`` with atoms renamed according to ``mapping``.
 
-    Renaming a state also renames its derivative. Raises ``KeyError`` for an
-    unknown name and ``DuplicateSymbolError`` if a name is then defined twice.
+    Renaming a state also renames its derivative. Names may be swapped,
+    ``{"a": "b", "b": "a"}``.
+
+    Raises
+    ------
+    gotranx.exceptions.RenameError
+        A ``ValueError`` naming every rename that is refused, and why: a name that is not
+        in the model, a state derivative (rename its state), a new name that is not a
+        valid name, is ``t`` or ``time``, is still a name of the model after the other
+        renames, or names the derivative of something that is not a state.
     """
-    known = {a.name for a in all_atoms(ode)}
-    for old in mapping:
-        if old not in known:
-            raise KeyError(f"Cannot rename {old!r}: no such name in {ode.name!r}")
+    problems = _rename_problems(ode, mapping)
+    if problems:
+        raise RenameError(problems)
 
     full = dict(mapping)
     for old, new in mapping.items():
@@ -129,12 +192,33 @@ def rescale_time(ode: ODE, k: float, components: Iterable[str] | None = None) ->
     With ``t_new = t_old / k``, e.g. ``k = 0.001`` brings a model written in
     seconds onto a clock in milliseconds. Every state derivative in the selected
     components is multiplied by ``k`` and ``t`` is replaced by ``k * t`` in every
-    expression of those components. ``components=None`` selects all components.
+    expression of those components. ``components=None`` selects all components. An
+    assignment in several components is rescaled if any of them is selected.
+
+    Raises
+    ------
+    ValueError
+        If ``k`` is not positive and finite, or a name in ``components`` is not a
+        component of ``ode``.
+    TypeError
+        If ``components`` is a string rather than a sequence of names.
     """
     if not (math.isfinite(k) and k > 0):
         raise ValueError(f"k must be positive and finite, got {k}")
-    selected = None if components is None else set(components)
-    time_symbols = [s for name in ("t", "time") if (s := ode.symbols.get(name)) is not None]
+    if isinstance(components, str):
+        raise TypeError("components must be a sequence of names, not a string")
+    selected: set[str] | None = None
+    if components is not None:
+        chosen = list(dict.fromkeys(components))
+        names = [c.name for c in ode.components]
+        unknown = [c for c in chosen if c not in names]
+        if unknown:
+            raise ValueError(
+                f"{ode.name} has no component {', '.join(unknown)}: its components are "
+                f"{_listing(names)}"
+            )
+        selected = set(chosen)
+    time_symbols = [s for name in TIME_NAMES if (s := ode.symbols.get(name)) is not None]
     subs = {s: k * s for s in time_symbols}
 
     new_atoms: list[atoms.Atom] = []

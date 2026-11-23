@@ -557,6 +557,17 @@ def test_rename_unknown_name():
     ]
 
 
+def test_rename_onto_a_name_whose_rename_is_refused():
+    # Zs's rename is refused, so Zs stays and B cannot take its name (this raised a raw
+    # DuplicateSymbolError); the part's other renames are still made
+    recipe = toy_recipe()
+    recipe["parts"][1]["rename"] = {"dLambda": "dLambda_toy", "B": "Zs", "Zs": "t"}
+    assert messages(recipe) == [
+        "part toy: rename B: Zs is already a name of toy",
+        "part toy: rename Zs: t is the name of time: choose another name",
+    ]
+
+
 def test_rename_swap():
     recipe = toy_recipe()
     recipe["parts"][1]["rename"] = {"dLambda": "dLambda_toy", "B": "Zs", "Zs": "B"}

@@ -512,7 +512,9 @@ class ODE:
     def rename(self, mapping: Mapping[str, str]) -> ODE:
         """Return a copy with atoms renamed, e.g. ``{"a": "q"}``.
 
-        Renaming a state also renames its derivative.
+        Renaming a state also renames its derivative. Every rename that is refused is
+        reported at once in a :class:`gotranx.exceptions.RenameError`, a ``ValueError``;
+        see :func:`gotranx.operations.rename`.
         """
         from . import operations
 
@@ -522,8 +524,9 @@ class ODE:
         """Return a copy with time rescaled by ``k`` (``t`` becomes ``k * t``).
 
         State derivatives of the selected components are multiplied by ``k``;
-        ``components=None`` selects every component. ``k = 0.001`` brings a
-        model in seconds onto a clock in milliseconds.
+        ``components=None`` selects every component, and a name that is not a
+        component raises ``ValueError``. ``k = 0.001`` brings a model in seconds
+        onto a clock in milliseconds.
         """
         from . import operations
 

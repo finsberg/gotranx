@@ -42,6 +42,13 @@ def test_only_named_components():
     assert sp.simplify(ms["dz_dt"].expr - ode["dz_dt"].expr) == 0
 
 
+def test_components_may_be_any_iterable():
+    ode = ode_from_string(TEXT, name="m")
+    ms = ode.rescale_time(0.5, components=(c for c in ["a"]))
+    assert ms == ode.rescale_time(0.5, components=["a"])
+    assert sp.simplify(ms["dy_dt"].expr - 0.5 * ode["dy_dt"].expr) == 0
+
+
 def test_intermediates_that_are_rates_are_untouched():
     ode = ode_from_string(TEXT, name="m")
     ms = ode.rescale_time(0.001)
@@ -61,3 +68,16 @@ def test_bad_k_raises(k):
     assert not (k > 0 and math.isfinite(k))
     with pytest.raises(ValueError, match="positive and finite"):
         ode.rescale_time(k)
+
+
+def test_unknown_components_raise():
+    # A typo used to return the model unscaled
+    ode = ode_from_string(TEXT, name="m")
+    with pytest.raises(ValueError, match="^m has no component A, c: its components are a and b$"):
+        ode.rescale_time(0.5, components=["a", "A", "c"])
+
+
+def test_components_must_not_be_a_string():
+    ode = ode_from_string(TEXT, name="m")
+    with pytest.raises(TypeError, match="components must be a sequence of names"):
+        ode.rescale_time(0.5, components="a")

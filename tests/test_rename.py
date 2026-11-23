@@ -34,14 +34,86 @@ def test_rename_state_renames_its_derivative():
     assert new["J"].expr == 2 * new.symbols["dz_dt"]
 
 
-def test_rename_unknown_name_raises():
-    with pytest.raises(KeyError, match="nope"):
-        ode.rename({"nope": "q"})
+def rename_messages(mapping: dict[str, str]) -> list[str]:
+    """The messages of the RenameError that ``ode.rename(mapping)`` raises"""
+    with pytest.raises(exceptions.RenameError) as e:
+        ode.rename(mapping)
+    assert str(e.value) == "\n".join(e.value.messages)
+    return e.value.messages
 
 
-def test_rename_onto_existing_name_raises():
-    with pytest.raises(exceptions.DuplicateSymbolError):
-        ode.rename({"a": "b"})
+def test_rename_error_is_a_value_error():
+    with pytest.raises(ValueError):
+        ode.rename({"a": "t"})
+
+
+@pytest.mark.parametrize(
+    "mapping, message",
+    [
+        ({"nope": "q"}, "rename nope: nope is not a name of m"),
+        ({"a": "b"}, "rename a: b is already a name of m"),
+        ({"a": "x"}, "rename a: x is already a name of m"),
+        ({"a": "q", "b": "q"}, "rename b: q is already a name of m"),
+        ({"a": "t"}, "rename a: t is the name of time: choose another name"),
+        ({"a": "time"}, "rename a: time is the name of time: choose another name"),
+        ({"a": "1x"}, "rename a: 1x is not a valid name"),
+        ({"a": "a.b"}, "rename a: a.b is not a valid name"),
+        ({"a": "q r"}, "rename a: q r is not a valid name"),
+        ({"a": ""}, "rename a:  is not a valid name"),
+        (
+            {"dy_dt": "q"},
+            "rename dy_dt: dy_dt is the derivative of y: rename y, "
+            "and its derivative is renamed with it",
+        ),
+        (
+            {"x": "dTension_dt"},
+            "rename x: dTension_dt names the derivative of Tension, which is not a state "
+            "of m: choose another name",
+        ),
+        # Once y is renamed, dy_dt is free, but y is no longer a state
+        (
+            {"y": "z", "x": "dy_dt"},
+            "rename x: dy_dt names the derivative of y, which is not a state of m: "
+            "choose another name",
+        ),
+        # The derivative of the renamed state takes its name
+        ({"y": "z", "x": "dz_dt"}, "rename x: dz_dt is already a name of m"),
+    ],
+)
+def test_rename_refused(mapping, message):
+    # Each was accepted silently (t: the parameter became time), or raised a parser
+    # error, a ComponentNotCompleteError or a DuplicateSymbolError
+    assert rename_messages(mapping) == [message]
+
+
+def test_rename_onto_a_name_whose_rename_is_refused():
+    # b's rename is refused, so b stays and a cannot take its name: before, a raw
+    # DuplicateSymbolError
+    assert rename_messages({"a": "b", "b": "t"}) == [
+        "rename a: b is already a name of m",
+        "rename b: t is the name of time: choose another name",
+    ]
+
+
+def test_rename_reports_every_problem():
+    error_mapping = {"nope": "q", "a": "t", "x": "1x", "b": "c"}
+    assert rename_messages(error_mapping) == [
+        "rename nope: nope is not a name of m",
+        "rename a: t is the name of time: choose another name",
+        "rename x: 1x is not a valid name",
+    ]
+    with pytest.raises(exceptions.RenameError) as e:
+        ode.rename(error_mapping)
+    # The names whose rename is refused, with the reasons; the rest would be accepted
+    assert list(e.value.problems) == ["nope", "a", "x"]
+
+
+def test_rename_swap():
+    new = ode.rename({"a": "b", "b": "a"})
+    s = new.symbols
+    assert new["x"].expr == s["b"] * s["a"]
+    assert (new["a"].value, new["b"].value) == (3.0, 2.0)
+    assert sp.simplify(new["dy_dt"].expr + s["b"] * s["y"]) == 0
 
 
 def test_rename_keeps_components_and_the_original():

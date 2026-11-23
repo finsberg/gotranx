@@ -17,10 +17,9 @@ import graphlib
 import hashlib
 import json
 import math
-import re
 import tomllib
 from collections import defaultdict
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from dataclasses import dataclass
 from importlib.metadata import version
 from pathlib import Path
@@ -38,15 +37,20 @@ from .glue import GlueStatement, load_glue, unqualify
 from .load import load_ode
 from .ode import ODE
 from .ode_component import STATE_DERIV_EXPR
-from .operations import all_atoms, rebuild, rename, rescale_time
+from .operations import (
+    TIME_NAMES,
+    VALID_NAME,
+    _listing,
+    all_atoms,
+    rebuild,
+    rename,
+    rescale_time,
+)
 from .units import ureg
 
-# Task 6 adds "components" (splits applied after the composition)
 RECIPE_KEYS = ("time_unit", "parts", "glue", "allow_missing", "components")
 COMPONENT_KEYS = ("inputs", "outputs")
 PART_KEYS = ("name", "file", "time_unit", "rename")
-TIME_NAMES = ("t", "time")
-VALID_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 
 
 @dataclass(frozen=True)
@@ -72,11 +76,6 @@ class _Errors:
     def add(self, message: str, *, fatal: bool = False) -> None:
         self.messages.append(message)
         self.fatal = self.fatal or fatal
-
-
-def _listing(names: Sequence[str]) -> str:
-    """``"a, b and c"``"""
-    return " and ".join([", ".join(names[:-1]), names[-1]] if len(names) > 1 else names)
 
 
 def _is_time(unit: str) -> bool:
@@ -230,13 +229,15 @@ def _validate(recipe: Mapping[str, Any], base: Path, errors: _Errors) -> list[_P
 
 
 def _load_part(part: _Part) -> ODE:
+    """The part's model, named after the part, so that messages about it name the part"""
     if part.path.suffix == ".cellml":
         from .myokit import cellml_to_gotran
 
         ode = cellml_to_gotran(part.path)
         # Re-parse, so that the atoms are those of an .ode file
-        return rebuild(all_atoms(ode), name=part.path.stem, comments=ode.comments)
-    return load_ode(part.path, remove_singularities=False)
+        return rebuild(all_atoms(ode), name=part.name, comments=ode.comments)
+    ode = load_ode(part.path, remove_singularities=False)
+    return ODE(components=ode.components, t=ode.t, name=part.name, comments=ode.comments)
 
 
 def _load_glue(path: Path, glue: str, errors: _Errors) -> tuple[GlueStatement, ...]:
@@ -458,33 +459,18 @@ def _in_component(atom: atoms.Atom, part: str) -> atoms.Atom:
 
 
 def _rename(part: _Part, ode: ODE, errors: _Errors) -> ODE:
-    names = {a.name for a in all_atoms(ode)}
-    mapping: dict[str, str] = {}
-    for old, new in part.rename.items():
-        prefix = f"part {part.name}: rename {old}"
-        derivative = STATE_DERIV_EXPR.match(new)
-        if old not in names:
-            errors.add(f"{prefix}: {old} is not a name of {part.name}")
-        elif isinstance(atom := ode[old], atoms.StateDerivative):
-            state = atom.state.name
-            errors.add(
-                f"{prefix}: {old} is the derivative of {state}: rename {state}, "
-                "and its derivative is renamed with it"
-            )
-        elif not VALID_NAME.fullmatch(new):
-            errors.add(f"{prefix}: {new} is not a valid name")
-        elif new in TIME_NAMES:
-            errors.add(f"{prefix}: {new} is the name of time: choose another name")
-        elif new in names - part.rename.keys() or new in mapping.values():
-            errors.add(f"{prefix}: {new} is already a name of {part.name}")
-        elif derivative:  # The parser would look for the state
-            errors.add(
-                f"{prefix}: {new} names the derivative of {derivative['state']}, which is "
-                f"not a state of {part.name}: choose another name"
-            )
-        else:
-            mapping[old] = new
-    return rename(ode, mapping) if mapping else ode
+    """The part's model with its renames, and a message for each rename refused. The
+    others are still made, so that the checks that follow see the names the recipe
+    means."""
+    if not part.rename:
+        return ode
+    try:
+        return rename(ode, part.rename)
+    except exceptions.RenameError as e:
+        for message in e.messages:
+            errors.add(f"part {part.name}: {message}")
+        rest = {old: new for old, new in part.rename.items() if old not in e.problems}
+        return rename(ode, rest) if rest else ode
 
 
 def _circular(

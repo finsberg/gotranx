@@ -158,6 +158,25 @@ class SplitError(GotranxError):
 
 
 @dataclass
+class RenameError(GotranxError, ValueError):
+    """Everything wrong with a rename (:meth:`gotranx.ode.ODE.rename`).
+
+    ``problems`` maps each name whose rename is refused to the reason, in the order of
+    the mapping; the other names could be renamed. ``str()`` lists the messages, one
+    per line.
+    """
+
+    problems: dict[str, str]
+
+    @property
+    def messages(self) -> list[str]:
+        return [f"rename {name}: {reason}" for name, reason in self.problems.items()]
+
+    def __str__(self) -> str:
+        return "\n".join(self.messages)
+
+
+@dataclass
 class UnknownTreeTypeError(GotranxError):
     datatype: str
     atom: str
