@@ -55,6 +55,7 @@ class Scheme(str, Enum):
     forward_generalized_rush_larsen = "forward_generalized_rush_larsen"
     hybrid_rush_larsen = "hybrid_rush_larsen"
     rush_larsen = "rush_larsen"
+    generalized_rush_larsen_2 = "generalized_rush_larsen_2"
 
 
 def get_scheme(scheme: str) -> scheme_func:
@@ -67,6 +68,8 @@ def get_scheme(scheme: str) -> scheme_func:
         func = rush_larsen
     elif scheme == "hybrid_rush_larsen":
         func = hybrid_rush_larsen
+    elif scheme == "generalized_rush_larsen_2":
+        func = generalized_rush_larsen_2
     else:
         raise ValueError(f"Unknown scheme {scheme}")
 
@@ -323,11 +326,20 @@ def _rush_larsen_scheme(
     linearized_names = {x.name for x in to_linearize}
     plan = _linearization_plan([(x.name, jacobian[x.state.name]) for x in to_linearize], taken, cse)
 
-    stage1_dt = dt
-    target: dict[str, sympy.Symbol | sympy.Expr] = {
-        x.name: values[i] for i, x in enumerate(derivatives)
-    }
-    declare = False
+    if order == 1:
+        stage1_dt = dt
+        target: dict[str, sympy.Symbol | sympy.Expr] = {
+            x.name: values[i] for i, x in enumerate(derivatives)
+        }
+        declare = False
+    else:
+        names = _NameAllocator(taken)
+        names.reserve(x.name + "_linearized" for x in to_linearize)
+        names.reserve(s.name for replacements, _ in plan.values() for s, _ in replacements)
+        midpoint = {x.state.symbol: names(x.state.name + "_mid") for x in derivatives}
+        stage1_dt = dt / 2
+        target = {x.name: midpoint[x.state.symbol] for x in derivatives}
+        declare = True
 
     eqs = []
     for x in assignments:
@@ -359,6 +371,53 @@ def _rush_larsen_scheme(
                     use_variable_prefix=declare,
                 )
             )
+    if order == 1:
+        return eqs
+
+    # Stage 2: the whole model again at (t + dt/2, y*), every assignment
+    # under a fresh name, then the full step from y with the linearization
+    # taken at the midpoint. Parameters and missing variables are unchanged.
+    substitution: dict[sympy.Basic, sympy.Expr] = dict(midpoint)
+    substitution[ode.t] = ode.t + dt / 2
+    for x in assignments:
+        substitution[x.symbol] = names(x.name + "_mid")
+    linearized2 = {x.name: names(x.name + "_mid_linearized") for x in to_linearize}
+    plan2 = _linearization_plan(
+        [
+            (substitution[x.symbol].name, jacobian[x.state.name].xreplace(substitution))
+            for x in to_linearize
+        ],
+        names.used,
+        cse,
+        prefix="_linearization_mid_temp_",
+    )
+
+    i = 0
+    for x in assignments:
+        stage2_symbol = substitution[x.symbol]
+        eqs.append(printer(stage2_symbol, x.expr.xreplace(substitution), use_variable_prefix=True))
+        if not isinstance(x, atoms.StateDerivative):
+            continue
+        y = x.state.symbol
+        if x.name in linearized_names:
+            replacements, reduced = plan2[stage2_symbol.name]
+            a_mid = linearized2[x.name]
+            eqs.extend(
+                _exponential_update(
+                    base=y,
+                    rate=stage2_symbol + a_mid * (y - midpoint[y]),
+                    linearized=a_mid,
+                    expr_diff=reduced,
+                    replacements=replacements,
+                    dt=dt,
+                    target=values[i],
+                    printer=printer,
+                    delta=delta,
+                )
+            )
+        else:
+            eqs.append(printer(values[i], y + dt * stage2_symbol))
+        i += 1
     return eqs
 
 
@@ -588,6 +647,77 @@ def rush_larsen(
         dt,
         linearize=linearize,
         order=1,
+        name=name,
+        printer=printer,
+        remove_unused=remove_unused,
+        delta=delta,
+        cse=cse,
+        jacobian=jacobian,
+    )
+
+
+def generalized_rush_larsen_2(
+    ode: ODE,
+    dt: sympy.Symbol,
+    name: str = "values",
+    printer: printer_func = default_printer,
+    remove_unused: bool = False,
+    delta: float = 1e-8,
+    cse: bool = True,
+) -> list[str]:
+    r"""Generate the second-order generalized Rush-Larsen scheme for the ODE
+
+    With :math:`a_i = \partial f_i / \partial y_i` and
+    :math:`\varphi(a, h) = (e^{a h} - 1)/a`, one step is
+
+    .. math::
+        y^*_i &= y_i + f_i(t_n, y)\, \varphi(a_i(t_n, y), \Delta t/2) \\
+        y^{n+1}_i &= y_i + \left[f_i^* + a_i^* (y_i - y^*_i)\right] \varphi(a_i^*, \Delta t)
+
+    where :math:`f^*` and :math:`a^*` are evaluated at :math:`(t_n + \Delta t/2, y^*)`.
+    The bracket is the linearization of :math:`f_i` around :math:`y^*`
+    evaluated at :math:`y_n`, which makes the step exact for a gate with
+    frozen coefficients (Sundnes et al. 2009, Perego & Veneziani 2009).
+    States with a zero diagonal entry get explicit midpoint.
+
+    This differs from goss's ``GRL2``, which uses :math:`f(y^*)` as the
+    numerator and evaluates the second stage at :math:`t_n`; that variant
+    converges at first order on stiff, non-autonomous problems.
+
+    Missing variables (values supplied by the caller) are held constant over
+    the step. The generated code evaluates the model twice, so it is about
+    twice the size of :func:`generalized_rush_larsen`.
+
+    Parameters
+    ----------
+    ode : gotranx.ode.ODE
+        The ODE
+    dt : sympy.Symbol
+        The time step
+    name : str, optional
+        Name of array to be returned by the scheme, by default "values"
+    printer : printer_func, optional
+        A code printer, by default default_printer
+    remove_unused : bool, optional
+        Remove unused variables, by default False
+    delta : float, optional
+        Tolerance for zero division check, by default 1e-8
+    cse : bool, optional
+        Factor shared subexpressions out of the linearized expressions of each
+        stage, by default True (see :func:`generalized_rush_larsen`)
+
+    Returns
+    -------
+    list[str]
+        A list of equations as strings
+    """
+    logger.debug("Generating second-order generalized Rush-Larsen scheme", cse=cse)
+    jacobian = diagonal_jacobian(ode, remove_unused=remove_unused)
+    return _rush_larsen_scheme(
+        ode,
+        dt,
+        linearize=set(jacobian),
+        order=2,
         name=name,
         printer=printer,
         remove_unused=remove_unused,
