@@ -20,7 +20,7 @@ import math
 import re
 import tomllib
 from collections import defaultdict
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from importlib.metadata import version
 from pathlib import Path
@@ -59,6 +59,25 @@ class _Part:
     rename: dict[str, str]
 
 
+class _Errors:
+    """The messages collected so far, and whether one of them stops the composition: a part
+    that cannot be loaded or used, a time unit that is not one, or a glue file that cannot
+    be read. The others are reported with everything found after them."""
+
+    def __init__(self) -> None:
+        self.messages: list[str] = []
+        self.fatal = False
+
+    def add(self, message: str, *, fatal: bool = False) -> None:
+        self.messages.append(message)
+        self.fatal = self.fatal or fatal
+
+
+def _listing(names: Sequence[str]) -> str:
+    """``"a, b and c"``"""
+    return " and ".join([", ".join(names[:-1]), names[-1]] if len(names) > 1 else names)
+
+
 def _is_time(unit: str) -> bool:
     try:
         return bool(ureg.Quantity(1, unit).check("[time]"))
@@ -80,67 +99,70 @@ def _load_errors() -> tuple[type[Exception], ...]:
     return (*errors, myokit.MyokitError)
 
 
-def _validate(recipe: Mapping[str, Any], base: Path, errors: list[str]) -> list[_Part]:
+def _validate(recipe: Mapping[str, Any], base: Path, errors: _Errors) -> list[_Part]:
     """Check the recipe's keys and values, and return its valid parts"""
     for key in recipe:
         if key not in RECIPE_KEYS:
-            errors.append(
-                f"unknown recipe key {key}: the keys are time_unit, parts, glue and allow_missing"
-            )
+            errors.add(f"unknown recipe key {key}: the keys are {_listing(RECIPE_KEYS)}")
     if "time_unit" not in recipe:
-        errors.append("the recipe has no time_unit")
+        errors.add("the recipe has no time_unit", fatal=True)
     elif not isinstance(recipe["time_unit"], str):
-        errors.append("time_unit must be a string")
+        errors.add("time_unit must be a string", fatal=True)
     elif not _is_time(recipe["time_unit"]):
-        errors.append(f"time_unit {recipe['time_unit']} is not a unit of time")
+        errors.add(f"time_unit {recipe['time_unit']} is not a unit of time", fatal=True)
     if not isinstance(recipe.get("glue", ""), str):
-        errors.append("glue must be a string")
+        errors.add("glue must be a string")
     if not isinstance(recipe.get("allow_missing", False), bool):
-        errors.append("allow_missing must be true or false")
+        errors.add("allow_missing must be true or false")
 
     raw_parts = recipe.get("parts")
     if not raw_parts:
-        errors.append("the recipe has no parts")
+        errors.add("the recipe has no parts", fatal=True)
         return []
     if not isinstance(raw_parts, list):
-        errors.append("parts must be a list of tables, one per part")
+        errors.add("parts must be a list of tables, one per part", fatal=True)
         return []
 
     parts = []
     for i, part in enumerate(raw_parts, start=1):
         if not isinstance(part, Mapping):
-            errors.append(f"part {i} must be a table")
+            errors.add(f"part {i} must be a table", fatal=True)
             continue
         name = part.get("name")
-        valid_name = isinstance(name, str) and name != ""
+        # Glue writes part.name, so a part's name must be a name
+        valid_name = isinstance(name, str) and VALID_NAME.fullmatch(name) is not None
         label = f"part {name}" if valid_name else f"part {i}"
         for key in part:
             if key not in PART_KEYS:
-                errors.append(
-                    f"{label}: unknown key {key}: a part's keys are name, file, time_unit "
-                    "and rename"
-                )
+                errors.add(f"{label}: unknown key {key}: a part's keys are {_listing(PART_KEYS)}")
         if "name" not in part:
-            errors.append(f"part {i} has no name")
+            errors.add(f"part {i} has no name", fatal=True)
+        elif not isinstance(name, str):
+            errors.add(f"part {i}: name must be a string", fatal=True)
         elif not valid_name:
-            errors.append(f"part {i}: name must be a non-empty string")
+            errors.add(
+                f"part {i}: name {name!r} is not a valid name: use letters, digits and "
+                "underscores, not starting with a digit",
+                fatal=True,
+            )
         for key in ("file", "time_unit"):
             if key not in part:
-                errors.append(f"{label} has no {key}")
+                errors.add(f"{label} has no {key}", fatal=True)
             elif not isinstance(part[key], str):
-                errors.append(f"{label}: {key} must be a string")
+                errors.add(f"{label}: {key} must be a string", fatal=True)
         unit = part.get("time_unit")
         if isinstance(unit, str) and not _is_time(unit):
-            errors.append(f"{label}: time_unit {unit} is not a unit of time")
+            errors.add(f"{label}: time_unit {unit} is not a unit of time", fatal=True)
         renames = part.get("rename", {})
         if not (
             isinstance(renames, Mapping)
             and all(isinstance(k, str) and isinstance(v, str) for k, v in renames.items())
         ):
-            errors.append(f"{label}: rename must be a table of names")
+            errors.add(f"{label}: rename must be a table of names")
             renames = {}
         file = part.get("file")
-        if isinstance(name, str) and name and isinstance(file, str) and isinstance(unit, str):
+        if valid_name and isinstance(file, str) and isinstance(unit, str):
+            assert isinstance(name, str)
             parts.append(_Part(name, file, base / file, unit, dict(renames)))
 
     counts: dict[str, int] = defaultdict(int)
@@ -148,7 +170,7 @@ def _validate(recipe: Mapping[str, Any], base: Path, errors: list[str]) -> list[
         counts[p.name] += 1
     for name, count in counts.items():
         if count > 1:
-            errors.append(f"part names must be unique: {count} parts are named {name}")
+            errors.add(f"part names must be unique: {count} parts are named {name}", fatal=True)
     return parts
 
 
@@ -162,8 +184,8 @@ def _load_part(part: _Part) -> ODE:
     return load_ode(part.path, remove_singularities=False)
 
 
-def _load_glue(path: Path, glue: str, errors: list[str]) -> tuple[GlueStatement, ...]:
-    """The statements of the glue file, or none, with each error appended to ``errors``.
+def _load_glue(path: Path, glue: str, errors: _Errors) -> tuple[GlueStatement, ...]:
+    """The statements of the glue file, or none, with its error added to ``errors``.
 
     The parser stops at the first error, so a glue file reports one parse error at a time.
     """
@@ -174,17 +196,17 @@ def _load_glue(path: Path, glue: str, errors: list[str]) -> tuple[GlueStatement,
         exceptions.InvalidGlueBlock,
         exceptions.GlueOnlyConstruct,
     ) as e:
-        errors.append(f"{glue}:{e.line}: {e}")
+        errors.add(f"{glue}:{e.line}: {e}", fatal=True)
     except exceptions.MissingSymbolError as e:  # A name in a parameter value
-        errors.append(f"{glue}:{e.line_no}: parameter values must be numbers")
+        errors.add(f"{glue}:{e.line_no}: parameter values must be numbers", fatal=True)
     except exceptions.InvalidTreeError as e:
         if e.tree.data != "qualified_variable":  # pragma: no cover
             raise
         # `part.name` in a parameter value
         line = getattr(e.tree.meta, "line", "?")
-        errors.append(f"{glue}:{line}: parameter values must be numbers")
+        errors.add(f"{glue}:{line}: parameter values must be numbers", fatal=True)
     except lark.exceptions.UnexpectedInput as e:
-        errors.append(f"{glue}:{e.line}: syntax error at column {e.column}")
+        errors.add(f"{glue}:{e.line}: syntax error at column {e.column}", fatal=True)
     return ()
 
 
@@ -260,6 +282,8 @@ class _Glue:
 
     def _check_new(self, s: GlueStatement) -> bool:
         part, name = s.component, s.name
+        if name in TIME_NAMES:
+            return self.error(s, f"{name} is the name of time: choose another name")
         if (part, name) in self.defined_at:
             return self.error(
                 s, f"{name} is already defined in the glue, at line {self.defined_at[part, name]}"
@@ -353,8 +377,9 @@ class _Glue:
                 value, e = expr(s)
                 old = self.own[part].get(name)
                 unit_str = s.atom.unit_str
-                if unit_str is None and s.atom.comment is None and old is not None:
-                    unit_str = old.unit_str  # An input keeps the parameter's unit
+                if unit_str is None and old is not None:
+                    # An input keeps the parameter's unit; a trailing comment is not a unit
+                    unit_str = old.unit_str
                 new: atoms.Assignment = atoms.Intermediate(
                     name=name,
                     value=value,
@@ -377,17 +402,31 @@ def _in_component(atom: atoms.Atom, part: str) -> atoms.Atom:
     return attr.evolve(atom, components=(part,))
 
 
-def _rename(part: _Part, ode: ODE, errors: list[str]) -> ODE:
+def _rename(part: _Part, ode: ODE, errors: _Errors) -> ODE:
     names = {a.name for a in all_atoms(ode)}
     mapping: dict[str, str] = {}
     for old, new in part.rename.items():
         prefix = f"part {part.name}: rename {old}"
+        derivative = STATE_DERIV_EXPR.match(new)
         if old not in names:
-            errors.append(f"{prefix}: {old} is not a name of {part.name}")
+            errors.add(f"{prefix}: {old} is not a name of {part.name}")
+        elif isinstance(atom := ode[old], atoms.StateDerivative):
+            state = atom.state.name
+            errors.add(
+                f"{prefix}: {old} is the derivative of {state}: rename {state}, "
+                "and its derivative is renamed with it"
+            )
         elif not VALID_NAME.fullmatch(new):
-            errors.append(f"{prefix}: {new} is not a valid name")
+            errors.add(f"{prefix}: {new} is not a valid name")
+        elif new in TIME_NAMES:
+            errors.add(f"{prefix}: {new} is the name of time: choose another name")
         elif new in names - part.rename.keys() or new in mapping.values():
-            errors.append(f"{prefix}: {new} is already a name of {part.name}")
+            errors.add(f"{prefix}: {new} is already a name of {part.name}")
+        elif derivative:  # The parser would look for the state
+            errors.add(
+                f"{prefix}: {new} names the derivative of {derivative['state']}, which is "
+                f"not a state of {part.name}: choose another name"
+            )
         else:
             mapping[old] = new
     return rename(ode, mapping) if mapping else ode
@@ -505,7 +544,7 @@ def compose(
         name = recipe_file.stem
 
     # 1. The recipe
-    errors: list[str] = []
+    errors = _Errors()
     parts = _validate(data, base, errors)
     glue: str | None = data.get("glue") if isinstance(data.get("glue"), str) else None
     allow_missing = data.get("allow_missing", False) is True
@@ -514,24 +553,24 @@ def compose(
     odes: dict[str, ODE] = {}
     for part in parts:
         if not part.path.is_file():
-            errors.append(f"part {part.name}: file {part.file} not found")
+            errors.add(f"part {part.name}: file {part.file} not found", fatal=True)
             continue
         try:
             odes[part.name] = _load_part(part)
         except lark.exceptions.UnexpectedInput as e:
-            errors.append(
-                f"part {part.name}: {part.file}:{e.line}: syntax error at column {e.column}"
-            )
+            where = f"{part.file}:{e.line}"
+            errors.add(f"part {part.name}: {where}: syntax error at column {e.column}", fatal=True)
         except _load_errors() as e:
-            errors.append(f"part {part.name}: {part.file}: {_one_line(e)}")
+            errors.add(f"part {part.name}: {part.file}: {_one_line(e)}", fatal=True)
     statements: tuple[GlueStatement, ...] = ()
     if glue is not None:
         if (base / glue).is_file():
             statements = _load_glue(base / glue, glue, errors)
         else:
-            errors.append(f"glue file {glue} not found")
-    if errors:
-        raise exceptions.CompositionError(errors)
+            errors.add(f"glue file {glue} not found", fatal=True)
+    # Only what stops the later steps stops here; the rest is reported with what they find
+    if errors.fatal:
+        raise exceptions.CompositionError(errors.messages)
 
     # 3. Rename, then rescale time. 4. One component per part.
     own: dict[str, dict[str, atoms.Atom]] = {}
@@ -552,35 +591,34 @@ def compose(
         atom = own[o[0]][n]
         if isinstance(atom, atoms.StateDerivative) and atom.state.name in duplicates:
             continue  # Reported for the state
-        errors.append(
+        errors.add(
             f"names must be unique: {n} is defined in {' and in '.join(o)}; rename it in the recipe"
         )
 
     # 6. The glue. 7. Parameters used by several parts are under each.
     applied = _Glue(statements, own)
-    errors.extend(f"{glue}:{line}: {message}" for line, message in sorted(applied.errors))
+    for line, message in sorted(applied.errors):
+        errors.add(f"{glue}:{line}: {message}")
     # 8. Names used but defined nowhere
     if applied.missing and not allow_missing:
         where = ", ".join(f"{n} ({glue}:{line})" for n, line in sorted(applied.missing.items()))
-        errors.append(
-            f"used but defined nowhere: {where}; define them, or set allow_missing = true"
-        )
-    if errors:
-        raise exceptions.CompositionError(errors)
+        errors.add(f"used but defined nowhere: {where}; define them, or set allow_missing = true")
+    if errors.messages:
+        raise exceptions.CompositionError(errors.messages)
     result = applied.apply()
     circular = _circular(result, applied)
     if circular is not None:
-        line, message = circular
-        raise exceptions.CompositionError(
-            [message if line is None else f"{glue}:{line}: {message}"]
-        )
+        at, message = circular
+        where = "" if at is None else f"{glue}:{at}: "
+        raise exceptions.CompositionError([f"{where}{message}"])
     _share_parameters(result)
 
-    # 9. The header: the recipe and the sha256 of every file read, and no timestamp
+    # 9. The header: the recipe and the sha256 of every file read, and no timestamp. Each
+    # line is saved as it is, so that the recipe can be read back from it.
     if recipe_file is None:
         recipe_text = json.dumps(dict(data), sort_keys=True, indent=1, default=str)
     header = [f"Composed by gotranx {version('gotranx')} from {source}"]
-    header += [line for line in recipe_text.splitlines() if line.strip()]
+    header += recipe_text.splitlines()
     files = [] if recipe_file is None else [(recipe_file.name, recipe_file)]
     if glue is not None:
         files.append((glue, base / glue))
@@ -598,7 +636,9 @@ def compose(
         atoms.Parameter(name=n, value=0.0, components=(placeholder,)) for n in applied.missing
     ]
     composed = rebuild(
-        [*all_, *missing], name=name, comments=[atoms.Comment(line) for line in header]
+        [*all_, *missing],
+        name=name,
+        comments=[atoms.Comment(line, verbatim=True) for line in header],
     )
     if missing:
         composed = ODE(

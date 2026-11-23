@@ -1,4 +1,5 @@
 import hashlib
+import inspect
 import json
 import tomllib
 from pathlib import Path
@@ -7,7 +8,7 @@ import pytest
 import sympy as sp
 
 import gotranx
-from gotranx import atoms
+from gotranx import atoms, composition
 from gotranx.exceptions import CompositionError
 
 here = Path(__file__).parent
@@ -27,8 +28,7 @@ def same_model(a: gotranx.ODE, b: gotranx.ODE, components: bool = True) -> None:
         y = {s.name: s for s in getattr(b, kind)}
         assert x.keys() == y.keys(), kind
         for name in x:
-            # Numerically: a reparse can change a value's form (-1*84.624 to -1*1*84.624)
-            assert float(x[name].value) == float(y[name].value), name
+            assert x[name].value == y[name].value, name
             if components:
                 assert x[name].components == y[name].components, name
     x = {s.name: s for s in a.intermediates + a.state_derivatives}
@@ -170,15 +170,66 @@ def test_qualified_name_of_the_wrong_part(tmp_path, value, message):
     assert glue_messages(tmp_path, glue) == [f"glue.ode:2: {message}"]
 
 
+def sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def saved_header(ode: gotranx.ODE, path: Path) -> list[str]:
+    """The lines of the comment block ``ode.save(path)`` starts with"""
+    ode.save(path)
+    lines = path.read_text().splitlines()
+    return lines[: lines.index("")]
+
+
+TOY_HEADER = [
+    f"# Composed by gotranx {gotranx.__version__} from toy_recipe.toml",
+    *[f"# {line}" if line else "#" for line in RECIPE.read_text().splitlines()],
+    f"# sha256 toy_recipe.toml: {sha256(RECIPE)}",
+    f"# sha256 toy_glue.ode: {sha256(FILES / 'toy_glue.ode')}",
+    f"# sha256 toy_ep.ode: {sha256(TOY_EP)}",
+    f"# sha256 ../odefiles/contraction_toy.ode: {sha256(TOY)}",
+]
+
+
 def test_composed_model_saves_and_loads(tmp_path):
     # Review Focus 5: the header holds the recipe text, with quotes, `=`, `#` and newlines
     ode = gotranx.compose(RECIPE)
-    ode.save(tmp_path / "m.ode")
-    text = (tmp_path / "m.ode").read_text()
-    assert '# time_unit = "ms"' in text and '# rename = { dLambda = "dLambda_toy" }' in text
+    assert saved_header(ode, tmp_path / "m.ode") == TOY_HEADER
     loaded = gotranx.load_ode(tmp_path / "m.ode", remove_singularities=False)
     same_model(loaded, ode)
-    assert 'time_unit = "ms"' in loaded.text
+    assert 'rename = { dLambda = "dLambda_toy" }  # the glue adds' in loaded.text
+
+
+def test_saved_header_keeps_its_lines(tmp_path):
+    # Each line as it is: the recipe can be read back from it, and no sha256 is split
+    # from its file, though both are longer than the 80 columns other comments wrap at
+    header = saved_header(gotranx.compose(RECIPE), tmp_path / "m.ode")
+    assert header == TOY_HEADER
+    assert all(len(line) > 80 for line in header if line.startswith("# sha256"))
+    # The recipe, read back from the header: every line after the first, up to the hashes
+    end = next(i for i, line in enumerate(header) if line.startswith("# sha256"))
+    assert "".join(line[2:] + "\n" for line in header[1:end]) == RECIPE.read_text()
+
+
+def test_saved_header_of_a_dict_recipe(tmp_path):
+    recipe = toy_recipe()
+    header = saved_header(gotranx.compose(recipe), tmp_path / "m.ode")
+    assert header == [
+        f"# Composed by gotranx {gotranx.__version__} from a dict",
+        *[f"# {line}" for line in json.dumps(recipe, sort_keys=True, indent=1).splitlines()],
+        f"# sha256 {TOY_EP}: {sha256(TOY_EP)}",
+        f"# sha256 {TOY}: {sha256(TOY)}",
+    ]
+
+
+def test_operations_on_a_composed_model_keep_its_header(tmp_path):
+    ode = gotranx.compose(RECIPE).rename({"J": "J_TRPN"}).rescale_time(1.0)
+    assert saved_header(ode, tmp_path / "m.ode") == TOY_HEADER
+
+
+def test_compose_is_the_function_and_composition_the_module():
+    assert inspect.ismodule(gotranx.composition)
+    assert gotranx.compose is composition.compose
 
 
 def test_composing_twice_saves_identical_text(tmp_path):
@@ -190,26 +241,8 @@ def test_composing_twice_saves_identical_text(tmp_path):
 
 def test_header_records_sha256():
     ode = gotranx.compose(RECIPE)
-    assert f"Composed by gotranx {gotranx.__version__} from toy_recipe.toml" in ode.text
-    for name, path in [
-        ("toy_recipe.toml", RECIPE),
-        ("toy_glue.ode", FILES / "toy_glue.ode"),
-        ("toy_ep.ode", TOY_EP),
-        ("../odefiles/contraction_toy.ode", TOY),
-    ]:
-        assert f"sha256 {name}: {hashlib.sha256(path.read_bytes()).hexdigest()}" in ode.text
-    for line in RECIPE.read_text().splitlines():
-        if line and not line.startswith("#"):
-            assert line.split("#")[0].strip() in ode.text
-
-
-def test_header_of_a_dict_recipe():
-    recipe = toy_recipe()
-    ode = gotranx.compose(recipe)
-    assert f"Composed by gotranx {gotranx.__version__} from a dict" in ode.text
-    for line in json.dumps(recipe, sort_keys=True, indent=1).splitlines():
-        assert line.strip() in ode.text
-    assert f"sha256 {TOY_EP}: {hashlib.sha256(TOY_EP.read_bytes()).hexdigest()}" in ode.text
+    for line in TOY_HEADER:
+        assert line[2:] in ode.text
 
 
 def test_cross_component_parameter_under_both(tmp_path):
@@ -470,8 +503,8 @@ def test_missing_recipe_keys():
         ),
         ({"time_unit": "ms", "parts": ["ep"]}, "part 1 must be a table"),
         (
-            {"time_unit": "ms", "parts": [{"name": "", "file": "a.ode", "time_unit": "ms"}]},
-            "part 1: name must be a non-empty string",
+            {"time_unit": "ms", "parts": [{"name": 3, "file": "a.ode", "time_unit": "ms"}]},
+            "part 1: name must be a string",
         ),
         (
             {"time_unit": "ms", "parts": [{"name": "a", "file": 1, "time_unit": "ms"}]},
@@ -581,3 +614,91 @@ def test_circular_part(tmp_path):
     )
     recipe = {"time_unit": "ms", "parts": [{"name": "a", "file": "c.ode", "time_unit": "ms"}]}
     assert messages(recipe, base_dir=tmp_path) == ["x uses z uses x: the equations are circular"]
+
+
+def test_recipe_errors_do_not_hide_glue_errors(tmp_path):
+    assert glue_messages(tmp_path, 'expressions("toy")\nreplace Caa = 1.0\n', colour="red") == [
+        "unknown recipe key colour: the keys are time_unit, parts, glue and allow_missing",
+        "glue.ode:2: Caa is not a name of toy",
+    ]
+
+
+def test_errors_that_stop_the_composition(tmp_path):
+    # A part with an unusable time unit cannot be composed, so the glue is not checked
+    (tmp_path / "glue.ode").write_text('expressions("toy")\nreplace Caa = 1.0\n')
+    recipe = toy_recipe(glue="glue.ode", colour="red")
+    recipe["parts"][1]["time_unit"] = "mV"
+    assert messages(recipe, base_dir=tmp_path) == [
+        "unknown recipe key colour: the keys are time_unit, parts, glue and allow_missing",
+        "part toy: time_unit mV is not a unit of time",
+    ]
+
+
+def test_key_messages_follow_the_key_lists(monkeypatch):
+    # So that a new key (Task 6's components) is listed without editing the messages
+    monkeypatch.setattr(composition, "RECIPE_KEYS", (*composition.RECIPE_KEYS, "components"))
+    monkeypatch.setattr(composition, "PART_KEYS", (*composition.PART_KEYS, "prefix"))
+    recipe = toy_recipe(colour="red", components={})
+    recipe["parts"][1].update(kind="x", prefix="t_")
+    assert messages(recipe) == [
+        "unknown recipe key colour: the keys are time_unit, parts, glue, allow_missing "
+        "and components",
+        "part toy: unknown key kind: a part's keys are name, file, time_unit, rename and prefix",
+    ]
+
+
+@pytest.mark.parametrize(
+    "rename, message",
+    [
+        (
+            {"dB_dt": "x"},
+            "part toy: rename dB_dt: dB_dt is the derivative of B: rename B, "
+            "and its derivative is renamed with it",
+        ),
+        (
+            {"Lambda": "dTension_dt"},
+            "part toy: rename Lambda: dTension_dt names the derivative of Tension, "
+            "which is not a state of toy: choose another name",
+        ),
+        ({"Zs": "t"}, "part toy: rename Zs: t is the name of time: choose another name"),
+        ({"Zs": "time"}, "part toy: rename Zs: time is the name of time: choose another name"),
+    ],
+)
+def test_rename_of_derivatives_and_time(rename, message):
+    recipe = toy_recipe()
+    recipe["parts"][1]["rename"] = {"dLambda": "dLambda_toy", **rename}
+    assert messages(recipe) == [message]
+
+
+@pytest.mark.parametrize(
+    "glue, line",
+    [('expressions("toy")\nt = 2.0\n', "t"), ('parameters("toy",\ntime = 1.0\n)\n', "time")],
+)
+def test_new_glue_name_is_time(tmp_path, glue, line):
+    assert glue_messages(tmp_path, glue) == [
+        f"glue.ode:2: {line} is the name of time: choose another name"
+    ]
+
+
+@pytest.mark.parametrize("name", ["a.b", "my toy", "", "1x"])
+def test_part_names_must_be_valid_names(name):
+    # Glue writes part.name, so a part's name must be a name
+    recipe = toy_recipe()
+    recipe["parts"][1]["name"] = name
+    assert messages(recipe) == [
+        f"part 2: name {name!r} is not a valid name: use letters, digits and underscores, "
+        "not starting with a digit"
+    ]
+
+
+@pytest.mark.parametrize(
+    "line, unit",
+    [
+        ("replace Ca = 1000.0*ep.cai", "uM"),
+        ("replace Ca = 1000.0*ep.cai # calcium", "uM"),  # A comment is not a unit
+        ("replace Ca = 1000.0*ep.cai # mM", "mM"),  # The glue's unit wins
+    ],
+)
+def test_input_keeps_the_parameter_unit(tmp_path, line, unit):
+    ode = compose_glue(tmp_path, f'expressions("toy")\n{line}\n')
+    assert ode["Ca"].unit_str == unit

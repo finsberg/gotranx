@@ -1,7 +1,7 @@
 import pytest
 import sympy as sp
 
-from gotranx import exceptions, operations
+from gotranx import atoms, exceptions, operations
 from gotranx.load import ode_from_string
 
 TEXT = """
@@ -81,3 +81,53 @@ def test_rebuild_multi_component_atom():
 
     second = operations.rebuild(operations.all_atoms(first), name="m")
     assert second == first
+
+
+NEGATIVE = """
+parameters("a", g = -2.5, k = 3)
+states("a", V = ScalarParam(-84.624, unit="mV"), x = 1.0)
+expressions("a")
+y = x - 3
+p = x**-2
+h = Conditional(Lt(x, -1), -x, x - 1)
+dV_dt = -(V - g)/k
+dx_dt = -x + y
+"""
+
+
+def test_rebuild_is_idempotent(tmp_path):
+    # The parser reads -84.624 as -1 times 84.624, which used to print as -1*84.624, read
+    # back as (-1*1)*84.624, and so on: every rebuild added a factor
+    original = ode_from_string(NEGATIVE, name="m", remove_singularities=False)
+    ode = original
+    texts = []
+    for _ in range(3):
+        ode = operations.rebuild(operations.all_atoms(ode), name="m")
+        ode.save(tmp_path / "m.ode")
+        texts.append((tmp_path / "m.ode").read_text())
+    assert texts[0] == texts[1] == texts[2]
+    lines = texts[0].splitlines()
+    assert 'V=ScalarParam(-84.624, unit="mV"),' in lines
+    assert "g=-2.5," in lines
+    assert "y = x - 3" in lines
+    assert "p = x**(-2)" in lines
+    assert "*1" not in texts[0] and "-1*" not in texts[0]
+    # The atoms are as parsed, not only equal in value
+    for atom in (*original.states, *original.parameters):
+        assert ode[atom.name].value == atom.value
+    for atom in (*original.intermediates, *original.state_derivatives):
+        assert ode[atom.name].expr == atom.expr
+
+
+def test_rebuild_keeps_the_comments_it_is_given(tmp_path):
+    line = "sha256 a/long/path/to/the/model.ode: " + 64 * "f"
+    comments = [atoms.Comment(line, verbatim=True), atoms.Comment("wrapped " * 15)]
+    new = operations.rebuild(operations.all_atoms(ode), name="m", comments=comments)
+    assert new.comments == tuple(comments)
+    assert [c.verbatim for c in new.comments] == [True, False]
+    new.save(tmp_path / "m.ode")
+    text = (tmp_path / "m.ode").read_text().splitlines()
+    assert text[0] == f"# {line}"  # Verbatim: one line, however long
+    # Wrapped at 80 columns, as before (onto a line that the wrapper starts with "# # ")
+    assert text[1] == "# " + " ".join(10 * ["wrapped"])
+    assert text[2].endswith(" ".join(5 * ["wrapped"])) and text[3] == ""

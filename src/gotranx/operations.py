@@ -31,7 +31,9 @@ def rebuild(
 
     Printing uses ``atom.expr`` and ``atom.value``, so the result is consistent
     even if the atoms were modified after parsing. An atom in several components
-    is printed in a block naming all of them.
+    is printed in a block naming all of them. The comments are not parsed again:
+    the result has ``comments`` as given, so that each is saved as it was (see
+    :class:`gotranx.atoms.Comment`).
     """
     from . import load  # lazy: avoids an import cycle
 
@@ -60,16 +62,12 @@ def rebuild(
         )
         for c in comp_names
     ]
-    printer = GotranODECodePrinter(ODE(components, name=name, comments=tuple(comments)))
+    printer = GotranODECodePrinter(ODE(components, name=name))
     text = "".join(
-        [
-            printer.print_comments(),
-            printer.print_states(),
-            printer.print_parameters(),
-            printer.print_assignments(),
-        ]
+        [printer.print_states(), printer.print_parameters(), printer.print_assignments()]
     )
-    return load.ode_from_string(text, name=name, remove_singularities=False)
+    ode = load.ode_from_string(text, name=name, remove_singularities=False)
+    return ODE(components=ode.components, t=ode.t, name=name, comments=tuple(comments))
 
 
 def rename(ode: ODE, mapping: Mapping[str, str]) -> ODE:
