@@ -73,15 +73,21 @@ def test_every_name_is_assigned_once():
 
 
 @pytest.mark.parametrize("cse", [True, False])
-def test_linear_gate_with_frozen_coefficients_is_exact(cse):
+@pytest.mark.parametrize(
+    "scheme, kwargs",
+    [
+        (Scheme.generalized_rush_larsen_2, {}),
+        (Scheme.rush_larsen_2, {}),
+        (Scheme.hybrid_rush_larsen_2, {"stiff_states": ["y"]}),
+    ],
+)
+def test_linear_gate_with_frozen_coefficients_is_exact(cse, scheme, kwargs):
     ode = gotranx.load.ode_from_string(
         "parameters(yinf=0.7, tau=0.3)\nstates(y=0.1)\ndy_dt = (yinf - y)/tau\n"
     )
-    m = _model(ode, Scheme.generalized_rush_larsen_2, cse=cse)
+    m = _model(ode, scheme, cse=cse, **kwargs)
     dt = 0.25
-    out = m["generalized_rush_larsen_2"](
-        m["init_state_values"](), 0.0, dt, m["init_parameter_values"]()
-    )
+    out = m[scheme.value](m["init_state_values"](), 0.0, dt, m["init_parameter_values"]())
     assert out[0] == pytest.approx(0.7 + (0.1 - 0.7) * np.exp(-dt / 0.3), rel=1e-13)
 
 

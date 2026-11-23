@@ -6,6 +6,11 @@
 
 - Python 3.12 or newer is now required; CI tests every Python version from 3.12
   that has not reached end of life.
+- `get_scheme("rush_larsen")` (and the deprecated `forward_rush_larsen`) now
+  returns the new automatic `rush_larsen` scheme instead of
+  `hybrid_rush_larsen`, which without `stiff_states` was plain forward Euler.
+  The new scheme detects the gating states itself and no longer accepts
+  `stiff_states`; use `hybrid_rush_larsen` to pass an explicit list.
 
 ### Changed — this changes generated code
 
@@ -77,10 +82,6 @@ on values only again, as under ForwardDiff < 1.0: ForwardDiff 1.x made
 **If you regenerate a model with a comparison, those lines change, and the
 module needs a CytoZoo.jl providing `primal`** (not yet released; the banner
 says so). `ode2julia` output does not change.
-
-`get_scheme("rush_larsen")` (and the deprecated `forward_rush_larsen`) now
-returns the new automatic `rush_larsen` scheme instead of
-`hybrid_rush_larsen`, which without `stiff_states` was plain forward Euler.
 
 ### Fixed
 

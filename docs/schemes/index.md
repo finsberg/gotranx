@@ -21,9 +21,12 @@ discretized with a constant time step $\Delta t$ such that $t_n = t_0 + n \Delta
 | Scheme | `--scheme` value | Order | Treats exponentially | Page |
 |--------|------------------|-------|----------------------|------|
 | Forward (explicit) Euler | `explicit_euler` | 1 | no state | {doc}`forward_euler` |
-| Rush–Larsen | `hybrid_rush_larsen` with the gating variables as stiff states | 1 | the gating variables | {doc}`rush_larsen` |
+| Rush–Larsen | `rush_larsen` | 1 | the gating states (detected automatically) | {doc}`rush_larsen` |
 | Generalized Rush–Larsen | `generalized_rush_larsen` | 1 | every state | {doc}`generalized_rush_larsen` |
 | Hybrid Rush–Larsen | `hybrid_rush_larsen` | 1 | the states you choose | {doc}`hybrid_rush_larsen` |
+| Second-order generalized Rush–Larsen | `generalized_rush_larsen_2` | 2 | every state | [tutorial](../../examples/second-order-rush-larsen/main.py) |
+| Second-order Rush–Larsen | `rush_larsen_2` | 2 | the gating states (detected automatically) | [tutorial](../../examples/second-order-rush-larsen/main.py) |
+| Second-order hybrid Rush–Larsen | `hybrid_rush_larsen_2` | 2 | the states you choose | [tutorial](../../examples/second-order-rush-larsen/main.py) |
 
 You can list the schemes from the command line with
 
@@ -42,14 +45,16 @@ The same options can be set in a configuration file (see {doc}`../config`), and 
 
 ## Which scheme should I use?
 
-All four schemes are explicit, single-step and first-order accurate, so they cost roughly one evaluation of the right-hand side per step. They differ in **stability**:
+All schemes are explicit and single-step. The first-order schemes cost roughly one evaluation of the right-hand side per step, and the second-order `_2` schemes about two. They differ in **stability**:
 
 - {doc}`forward_euler` is the simplest and cheapest scheme, but it is only stable when the time step is small compared to the fastest time scale of the model.
 - The Rush–Larsen family integrates some or all states with an exponential update that is exact for linear equations. This removes the time step restriction coming from those states, at the cost of one exponential per state per step.
 - {doc}`generalized_rush_larsen` applies the exponential update to every state and is the most robust choice. It is a good default for cardiac cell models.
 - {doc}`hybrid_rush_larsen` applies it only to the states you list, so you only pay for the exponentials you need.
 
-A larger stable time step does not mean a more accurate solution. All schemes are first order, and for a given $\Delta t$ forward Euler is sometimes more accurate than the exponential schemes when it is stable. Check the accuracy of your simulation by refining the time step.
+If you need more accuracy than a first-order scheme gives, for example when the ODE is coupled to a PDE with Strang splitting, pick one of the second-order schemes (`generalized_rush_larsen_2`, `rush_larsen_2` or `hybrid_rush_larsen_2`). A second-order step costs about twice as much, so it pays off when the same accuracy would otherwise need a much smaller time step, see the [tutorial](../../examples/second-order-rush-larsen/main.py).
+
+A larger stable time step does not mean a more accurate solution. For a given $\Delta t$ forward Euler is sometimes more accurate than the exponential schemes when it is stable. Check the accuracy of your simulation by refining the time step.
 
 ## The running example
 

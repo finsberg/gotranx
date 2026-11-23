@@ -143,8 +143,8 @@ fig.savefig("second_order_rush_larsen.png")
 # printed ratios show (close to 2 for both families), since the model is
 # evaluated twice. In return, the second-order schemes reach a given accuracy
 # faster: for the smallest error that all four schemes reach, about
-# $2 \times 10^{-3}$, they need roughly half the wall time of the
-# corresponding first-order scheme. This is a moderate accuracy; at the
+# $2 \times 10^{-3}$, they need between a third and a half less wall
+# time than the corresponding first-order scheme. This is a moderate accuracy; at the
 # coarsest steps above, where the second-order schemes are no more accurate,
 # there is no gain. The right panel of the figure shows the same trade-off
 # over the whole range.

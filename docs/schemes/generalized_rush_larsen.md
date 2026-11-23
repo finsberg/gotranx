@@ -60,7 +60,7 @@ Compared with {doc}`forward_euler` we see that each component of the update is s
 - **Exact for linear scalar equations.** For $\mathrm{d}y/\mathrm{d}t = \lambda y$ the scheme gives $y^{n+1} = e^{\lambda \Delta t} y^n$, which is the exact solution. There is no stability restriction on $\Delta t$ for this test equation, unlike the bound $\Delta t \le 2/|\lambda|$ for forward Euler.
 - **Reduces to Rush–Larsen for gating variables.** For a gating equation $\mathrm{d}y/\mathrm{d}t = (y_\infty - y)/\tau$ we have $g = -1/\tau$, and {eq}`grl` is the classical Rush–Larsen update (see {doc}`rush_larsen`).
 - **Reduces to forward Euler when $g_i = 0$.** Since $\varphi_1(z) \to 1$ as $z \to 0$, a state whose derivative does not depend on the state itself is updated with forward Euler. This is the exact limit of {eq}`grl`, not an approximation.
-- **First order.** The scheme is first-order accurate. A second-order variant (GRL2) is described by {ref}`Sundnes et al. (2009) <references-grl>`. It is not available in `gotranx`.
+- **First order.** The scheme is first-order accurate. A second-order variant (GRL2) is described by {ref}`Sundnes et al. (2009) <references-grl>`. In `gotranx` it is the `generalized_rush_larsen_2` scheme, see the [second-order Rush–Larsen tutorial](../../examples/second-order-rush-larsen/main.py).
 - **Cost.** Each step needs the right-hand side, the diagonal Jacobian entries and one exponential per state.
 
 ### Implementation details

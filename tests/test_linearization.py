@@ -150,7 +150,7 @@ def test_gating_states_accepts_a_conditional_on_another_state():
     assert set(gating_states(ode)) == {"V", "y"}
 
 
-def test_gating_states_rejects_a_state_whose_derivative_ignores_it():
+def test_gating_states_keeps_only_states_whose_derivative_depends_on_them():
     ode = _ode("states(x=1.0, y=0.0)\ndx_dt = -x\ndy_dt = x\n")
     assert gating_states(ode) == ["x"]
 
