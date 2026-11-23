@@ -11,38 +11,53 @@ The files below are the toy composition the tests use
 
 ## The recipe
 
+`toy_recipe.toml`:
+
 ```toml
-time_unit = "ms"                  # the composed model's clock
+# The toy composition of tests/test_compose.py; toy_coupled.ode is its result, by hand.
+time_unit = "ms"
 glue = "toy_glue.ode"
 
 [[parts]]
-name = "ep"                       # mandatory; the part's components become one
-file = "toy_ep.ode"               # component "ep". .ode, or .cellml
+name = "ep"
+file = "toy_ep.ode"
 time_unit = "ms"
 
 [[parts]]
 name = "toy"
-file = "contraction_toy.ode"
-time_unit = "s"                   # rescaled to the model's ms
-rename = { dLambda = "dLambda_toy" }
+file = "../odefiles/contraction_toy.ode"
+time_unit = "s"
+rename = { dLambda = "dLambda_toy" }  # the glue adds a parameter dLambda, as for Land
+```
 
-[components.mechanics]            # optional: split at the end
+- `time_unit` (top level) is the composed model's clock, and each part's
+  `time_unit` is the part's own. Both are pint units of time, and both are
+  mandatory. Here `toy` is in seconds, and is rescaled to the model's
+  milliseconds.
+- Each part has a `name`, and its components become one component of that
+  name: `toy_ep.ode` has two, `calcium` and `gate`, which become `ep`.
+- `file` is an `.ode` or a `.cellml` file. Relative paths are relative to the
+  recipe.
+- `rename` is optional. It renames a parameter, intermediate or state of that
+  part everywhere it is defined or used, including a state's `d<X>_dt`.
+- `allow_missing = true` lets the glue use names that no part defines.
+- Recipes name local files only. Default values are not set here: calibration
+  belongs where the model is used.
+
+A recipe may also split the composed model, with one optional table per new
+component:
+
+```toml
+[components.mechanics]
 inputs  = ["toy.B"]
 outputs = ["toy.Zs", "toy.Ta"]
 ```
 
-- `time_unit` (top level) and each part's `time_unit` are pint units of time, and
-  both are mandatory.
-- `rename` is optional. It renames a parameter, intermediate or state of that
-  part everywhere it is defined or used, including a state's `d<X>_dt`.
-- `allow_missing = true` lets the glue use names that no part defines.
-- `[components.<name>]` is optional. Each table calls `ODE.split(name,
-  inputs=..., outputs=...)` on the composed model, in recipe order. Names may be
-  written `part.name`, which is checked against the part and then unqualified.
-  If a split fails, `compose` raises a `CompositionError` whose messages each
-  start `components.<name>:`.
-- Recipes name local files only. Default values are not set here: calibration
-  belongs where the model is used.
+Each table calls `ODE.split(name, inputs=..., outputs=...)` on the composed
+model, in recipe order. Names may be written `part.name`, which is checked
+against the part and then unqualified. If a split fails, `compose` raises a
+`CompositionError` with every message of that split, each starting
+`components.<name>:`.
 
 ## The glue file
 
@@ -51,7 +66,7 @@ files: `part.name` to reference another part's name, `replace`, and `+=` on a
 state derivative.
 
 ```
-# How ep and toy are coupled.
+# How ep (toy_ep.ode) and toy (contraction_toy.ode) are coupled.
 # In a block for part X, bare names are X's; another part's are written part.name.
 
 parameters("toy",
@@ -70,15 +85,28 @@ dcai_dt += -toy.J
 ```
 
 A plain statement creates a new name; `replace` changes an existing one. Every
-misuse is an error that names the fix, and all errors are reported together with
-the glue file's line numbers.
+misuse is an error that names the fix, with the glue file's line number.
+`compose` raises one `CompositionError` with the errors it found: those in the
+recipe, and every misuse in the table below. Some stop it before the rest are
+checked:
+
+- The glue file is parsed up to its first syntax error, unknown statement (a
+  word other than `replace`), `states` block, or block that does not name
+  exactly one part, so it reports one of those at a time.
+- A part that cannot be found or loaded, or a time unit that is missing or not
+  a unit of time, stops the glue from being checked.
+- Circular equations are reported once everything else is right, one cycle at
+  a time.
+- The `[components]` tables are split in order, and the first split that fails
+  is reported, with every message of that split; the tables after it are not
+  tried.
 
 | Statement, in a block for part X | Name exists in X? | Result |
 |---|---|---|
 | `name = ...` | no, and in no other part | new parameter or intermediate in X |
 | `name = ...` | yes | error: already a parameter/intermediate of X: use it, or write `replace name = ...` |
 | `name = ...` | no, but in another part | error: names must be unique; rename in the recipe or choose another |
-| `replace name = ...` | yes | parameters block: a new declaration (default, unit, description). Expressions block: a parameter becomes an input, or an intermediate gets a new definition. |
+| `replace name = ...` | yes | parameters block: a new declaration; the unit and description are kept unless it gives them. Expressions block: a parameter becomes an input, keeping its unit unless one is given, or an intermediate gets a new definition. |
 | `replace name = ...` | no | error: "not a name of X" (catches typos) |
 | `dX_dt += ...` | `X` is a state of X | the term is added to its derivative |
 | `dX_dt += ...` | otherwise | error |
@@ -100,8 +128,11 @@ itself is in the model's time unit.
 import gotranx
 
 ode = gotranx.compose("toy_recipe.toml")  # or a dict with the same keys
-zeta = ode.split("mechanics", inputs=["B"], outputs=["Zs", "Ta"])
+split = ode.split("mechanics", inputs=["B"], outputs=["Zs", "Ta"])
 ```
+
+With the `[components.mechanics]` table above in the recipe, `compose` returns
+the split model itself.
 
 `compose` takes a path, or a dict with the same keys and `base_dir=` for its
 relative paths. The saved model has a header with the recipe and the sha256 of
@@ -130,8 +161,9 @@ directory, and refuses to write over the recipe, the glue file or a part's file.
 It prints, for each component, what it needs from the others:
 
 ```
-ep needs: J
+Wrote toy.ode
 toy needs: cai
+ep needs: J
 ```
 
 Those are the names the component would take as missing variables if every
