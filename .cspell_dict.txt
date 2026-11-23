@@ -112,6 +112,7 @@ mathcal
 mathrm
 matplotlib
 metafunc
+minf
 modelparameters
 MPLBACKEND
 mpmath
