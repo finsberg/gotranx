@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Changed
+
+- Python 3.12 or newer is now required; CI tests every Python version from 3.12
+  that has not reached end of life.
+
 ### Changed — this changes generated code
 
 Removable singularities are now guarded by default, in the right-hand side as

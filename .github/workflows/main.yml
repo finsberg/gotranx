@@ -16,8 +16,8 @@ jobs:
       - id: set-matrix
         run: |
           set -o pipefail
-          # Fetch JSON from endoflife.date and filter out versions where the EOL date has passed
-          VERSIONS=$(curl -fsSL --retry 3 https://endoflife.date/api/python.json | jq -c '[.[] | select(.eol > (now | todate | .[0:10])) | .cycle]')
+          # Fetch JSON from endoflife.date and keep the versions >= 3.12 that have not reached end of life
+          VERSIONS=$(curl -fsSL --retry 3 https://endoflife.date/api/python.json | jq -c '[.[] | select(.eol > (now | todate | .[0:10])) | select((.cycle | split(".") | map(tonumber)) >= [3, 12]) | .cycle]')
           if [ -z "$VERSIONS" ] || [ "$VERSIONS" = "[]" ]; then
             echo "::error::Could not get the active Python versions from endoflife.date"
             exit 1
