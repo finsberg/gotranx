@@ -10,6 +10,7 @@ atol
 autodiff
 autouse
 axhline
+Bcai
 beeler
 betaz
 Biomed
@@ -24,6 +25,7 @@ cellmlfile
 cfile
 cipa
 cmap
+cmdnmax
 cmodel
 codegen
 codeprinter
@@ -40,6 +42,7 @@ CUDA
 cxxcode
 Cyto
 cytozoo
+dcai
 DCELL
 dolfinx
 doprint
@@ -93,6 +96,7 @@ Johan
 jphysiol
 jupytext
 kernelspec
+kmcmdn
 Kristian
 lalr
 lambdified
@@ -111,6 +115,7 @@ lmbda
 loadtxt
 logicalfunc
 loglog
+Margara
 mathcal
 mathrm
 matplotlib
@@ -180,6 +185,7 @@ sdpt
 sdtp
 seterr
 sharex
+simcardemsx
 Simula
 Skavhaug
 spdt
@@ -203,15 +209,18 @@ tentusscher
 timesteps
 tols
 Torabi
+torord
 tpsd
 transmembrane
 troponin
 TRPN
+trpnmax
 tsdp
 Tsit
 tspd
 Tusscher
 Tveito
+unqualify
 ureg
 userfunc
 varphi

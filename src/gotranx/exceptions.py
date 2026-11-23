@@ -94,6 +94,36 @@ class DuplicateSymbolError(GotranxError):
 
 
 @dataclass
+class GlueOnlyConstruct(GotranxError):
+    """A plain ``.ode`` file used one of the constructs only glue files accept."""
+
+    def __str__(self) -> str:
+        return "`replace`, `+=` and `part.name` are only allowed in glue files"
+
+
+@dataclass
+class UnknownStatement(GotranxError):
+    """A two-word statement, ``<word> name = ...``, whose first word is not ``replace``."""
+
+    word: str
+    line: int
+
+    def __str__(self) -> str:
+        return f"line {self.line}: unknown statement {self.word}"
+
+
+@dataclass
+class InvalidGlueBlock(GotranxError):
+    message: str
+    line: int | None = None
+
+    def __str__(self) -> str:
+        if self.line is None:
+            return self.message
+        return f"line {self.line}: {self.message}"
+
+
+@dataclass
 class UnknownTreeTypeError(GotranxError):
     datatype: str
     atom: str
