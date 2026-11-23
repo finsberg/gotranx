@@ -266,6 +266,8 @@ def _load_glue(path: Path, glue: str, errors: _Errors) -> tuple[GlueStatement, .
         errors.add(f"{glue}:{line}: parameter values must be numbers", fatal=True)
     except lark.exceptions.UnexpectedInput as e:
         errors.add(f"{glue}:{e.line}: syntax error at column {e.column}", fatal=True)
+    except UnicodeDecodeError as e:
+        errors.add(_not_utf8(glue, e), fatal=True)
     return ()
 
 
@@ -544,15 +546,21 @@ class _Recipe:
     text: str | None = None  # Its text
 
 
+def _not_utf8(name: str, error: UnicodeDecodeError) -> str:
+    return f"{name}: not UTF-8 ({error.reason} at position {error.start})"
+
+
 def _read_recipe(recipe: str | Path | Mapping[str, Any], base_dir: str | Path | None) -> _Recipe:
     if isinstance(recipe, Mapping):
         return _Recipe(recipe, Path.cwd() if base_dir is None else Path(base_dir))
     recipe_file = Path(recipe)
     if not recipe_file.is_file():
         raise exceptions.CompositionError([f"recipe file {recipe_file} not found"])
-    text = recipe_file.read_text()
     try:
+        text = recipe_file.read_text(encoding="utf-8")  # TOML is UTF-8, whatever the locale
         data = tomllib.loads(text)
+    except UnicodeDecodeError as e:
+        raise exceptions.CompositionError([_not_utf8(recipe_file.name, e)]) from e
     except tomllib.TOMLDecodeError as e:
         raise exceptions.CompositionError([f"{recipe_file.name}: {e}"]) from e
     return _Recipe(data, recipe_file.parent, recipe_file, text)

@@ -180,11 +180,13 @@ def load_glue(path: str | Path) -> tuple[GlueStatement, ...]:
     ------
     exceptions.ODEFileNotFound
         If the file is not found
+    UnicodeDecodeError
+        If the file is not UTF-8, which it is read as, whatever the locale
     """
     fname = Path(path)
     if not fname.is_file():
         raise exceptions.ODEFileNotFound(fname)
-    return parse_glue(fname.read_text())
+    return parse_glue(fname.read_text(encoding="utf-8"))
 
 
 def unqualify(tree: lark.Tree) -> lark.Tree:

@@ -853,3 +853,37 @@ def test_input_files(tmp_path):
     # Nothing is checked: a recipe that cannot be read is the only file
     (tmp_path / "r.toml").write_text("time_unit = \n")
     assert composition.input_files(tmp_path / "r.toml") == [("the recipe", tmp_path / "r.toml")]
+
+
+def test_recipe_and_glue_are_read_as_utf8(tmp_path, monkeypatch):
+    # TOML is UTF-8, whatever the locale's encoding: here Latin-1, for files read without
+    # one
+    read_text = Path.read_text
+
+    def latin1_by_default(self, encoding=None, *args, **kwargs):
+        return read_text(self, encoding or "latin-1", *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", latin1_by_default)
+    glue = 'parameters("ep",\nx = ScalarParam(1.0, description="Ca²⁺ in µM")\n)\n'
+    (tmp_path / "glue.ode").write_text(glue, encoding="utf-8")
+    recipe = tmp_path / "r.toml"
+    recipe.write_text(
+        '# Ca²⁺ in µM\ntime_unit = "ms"\nglue = "glue.ode"\n'
+        f'[[parts]]\nname = "ep"\nfile = "{TOY_EP}"\ntime_unit = "ms"\n',
+        encoding="utf-8",
+    )
+    ode = gotranx.compose(recipe)
+    assert ode["x"].description == "Ca²⁺ in µM"
+    assert ode.comments[1].text == "# Ca²⁺ in µM"
+
+
+def test_recipe_and_glue_must_be_utf8(tmp_path):
+    (tmp_path / "glue.ode").write_bytes('# Ca in µM\nparameters("ep", x = 1.0)\n'.encode("latin-1"))
+    recipe = toy_recipe(glue="glue.ode")
+    assert messages(recipe, base_dir=tmp_path) == [
+        "glue.ode: not UTF-8 (invalid start byte at position 8)"
+    ]
+    (tmp_path / "r.toml").write_bytes('# Ca in µM\ntime_unit = "ms"\n'.encode("latin-1"))
+    with pytest.raises(CompositionError) as e:
+        gotranx.compose(tmp_path / "r.toml")
+    assert e.value.messages == ["r.toml: not UTF-8 (invalid start byte at position 8)"]
