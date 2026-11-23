@@ -12,6 +12,7 @@ autouse
 axhline
 beeler
 betaz
+Biomed
 boolalg
 Cais
 capsys
@@ -72,9 +73,11 @@ funcname
 gammasu
 geomspace
 getfixturevalue
+goss
 gotran
 gotranx
 Hairer
+Hanek
 hasmethod
 Hochbruck
 hprint
@@ -107,10 +110,12 @@ literalinclude
 lmbda
 loadtxt
 logicalfunc
+loglog
 mathcal
 mathrm
 matplotlib
 metafunc
+minf
 modelparameters
 MPLBACKEND
 mpmath
@@ -183,6 +188,7 @@ sptd
 stdp
 Stim
 stpd
+Strang
 strcmp
 subexpression
 summands
@@ -208,6 +214,7 @@ Tusscher
 Tveito
 ureg
 userfunc
+varphi
 vcat
 Veneziani
 VFFRT
@@ -227,7 +234,9 @@ xlabel
 Xptxas
 xrelplace
 xreplace
+yinf
 ylabel
 ylim
 Ziaratgahi
+zinf
 zlabel

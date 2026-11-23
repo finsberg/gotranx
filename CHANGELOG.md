@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Changed
+
+- Python 3.12 or newer is now required; CI tests every Python version from 3.12
+  that has not reached end of life.
+- `get_scheme("rush_larsen")` (and the deprecated `forward_rush_larsen`) now
+  returns the new automatic `rush_larsen` scheme instead of
+  `hybrid_rush_larsen`, which without `stiff_states` was plain forward Euler.
+  The new scheme detects the gating states itself and no longer accepts
+  `stiff_states`; use `hybrid_rush_larsen` to pass an explicit list.
+
 ### Changed — this changes generated code
 
 Removable singularities are now guarded by default, in the right-hand side as
@@ -195,6 +205,15 @@ says so). `ode2julia` output does not change.
   still be variable names, as can names that start with `Min` or `Max`. **A
   variable named exactly `Min` or `Max` can no longer be used in an
   expression**: the model fails to parse.
+- Second-order Rush-Larsen schemes `generalized_rush_larsen_2`, `rush_larsen_2`
+  and `hybrid_rush_larsen_2`: a half step to a midpoint, then a full step with
+  the linearization taken at the midpoint (Sundnes et al. 2009; Perego &
+  Veneziani 2009). Unlike goss's `GRL2`, the full step uses
+  `f(y*) + a*(y - y*)` and evaluates the model at `t + dt/2`, which is what
+  makes it second order on stiff, time-dependent models.
+- `rush_larsen`: the first-order Rush-Larsen scheme applied to the gating
+  states, detected by the new `gotranx.linearization.gating_states`.
+- Tutorial "Second-order Rush-Larsen schemes".
 
 ## 2.0.0
 

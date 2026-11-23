@@ -1,0 +1,299 @@
+"""Second-order Rush-Larsen schemes: exactness, structure, order of convergence."""
+
+from __future__ import annotations
+
+import re
+from pathlib import Path
+
+import numpy as np
+import pytest
+import sympy
+from structlog.testing import capture_logs
+
+import gotranx
+from gotranx import schemes
+from gotranx.linearization import diagonal_jacobian, gating_states
+from gotranx.schemes import Scheme
+
+HERE = Path(__file__).parent
+ODEFILES = HERE / "odefiles"
+
+
+def _model(ode, scheme, **kwargs) -> dict:
+    code = gotranx.cli.gotran2py.get_code(ode, scheme=[scheme], **kwargs)
+    ns: dict = {}
+    exec(compile(code, "<generated>", "exec"), ns)
+    return ns
+
+
+def _run(step, y0, p, T, dt, *extra):
+    y, t = np.array(y0, dtype=float), 0.0
+    for _ in range(round(T / dt)):
+        y = step(y, t, dt, p, *extra)
+        t += dt
+    return y
+
+
+def _rates(errors):
+    e = np.asarray(errors)
+    return np.log2(e[:-1] / e[1:])
+
+
+def _reference(rhs, y0, p, edges):
+    from scipy.integrate import solve_ivp
+
+    y = np.array(y0, dtype=float)
+    for a, b in zip(edges[:-1], edges[1:]):
+        sol = solve_ivp(
+            lambda t, y: rhs(t, y, p), (a, b), y, method="Radau", rtol=1e-12, atol=1e-12
+        )
+        y = sol.y[:, -1]
+    return y
+
+
+def _lhs_names(eqs):
+    names = []
+    for e in eqs:
+        m = re.match(r"\s*([A-Za-z_]\w*)\s*=", e)
+        if m:
+            names.append(m.group(1))
+    return names
+
+
+def test_generalized_rush_larsen_2_is_listed():
+    assert "generalized_rush_larsen_2" in schemes.list_schemes()
+    assert schemes.get_scheme("generalized_rush_larsen_2") is schemes.generalized_rush_larsen_2
+
+
+def test_every_name_is_assigned_once():
+    ode = gotranx.load_ode(ODEFILES / "beeler_reuter_1977.ode")
+    names = _lhs_names(schemes.generalized_rush_larsen_2(ode, sympy.Symbol("dt")))
+    duplicates = {n for n in names if names.count(n) > 1}
+    assert not duplicates
+
+
+@pytest.mark.parametrize("cse", [True, False])
+@pytest.mark.parametrize(
+    "scheme, kwargs",
+    [
+        (Scheme.generalized_rush_larsen_2, {}),
+        (Scheme.rush_larsen_2, {}),
+        (Scheme.hybrid_rush_larsen_2, {"stiff_states": ["y"]}),
+    ],
+)
+def test_linear_gate_with_frozen_coefficients_is_exact(cse, scheme, kwargs):
+    ode = gotranx.load.ode_from_string(
+        "parameters(yinf=0.7, tau=0.3)\nstates(y=0.1)\ndy_dt = (yinf - y)/tau\n"
+    )
+    m = _model(ode, scheme, cse=cse, **kwargs)
+    dt = 0.25
+    out = m[scheme.value](m["init_state_values"](), 0.0, dt, m["init_parameter_values"]())
+    assert out[0] == pytest.approx(0.7 + (0.1 - 0.7) * np.exp(-dt / 0.3), rel=1e-13)
+
+
+def test_name_collisions_with_generated_names_are_avoided():
+    text = """
+    parameters(k=2.0)
+    states(V=0.3, w=0.2)
+    V_mid = 0.5*V
+    _linearization_temp_0 = exp(-V)
+    _linearization_mid_temp_0 = exp(-w)
+    dV_dt = -k*V_mid*_linearization_temp_0 + w
+    dw_dt = (_linearization_mid_temp_0 - w)/(1 + V**2)
+    """
+    renamed = (
+        text.replace("V_mid", "half_V")
+        .replace("_linearization_temp_0", "eV")
+        .replace("_linearization_mid_temp_0", "ew")
+    )
+    a = _model(gotranx.load.ode_from_string(text), Scheme.generalized_rush_larsen_2)
+    b = _model(gotranx.load.ode_from_string(renamed), Scheme.generalized_rush_larsen_2)
+    y, p = a["init_state_values"](), a["init_parameter_values"]()
+    np.testing.assert_allclose(
+        a["generalized_rush_larsen_2"](y, 0.1, 0.05, p),
+        b["generalized_rush_larsen_2"](y, 0.1, 0.05, p),
+        rtol=1e-14,
+    )
+
+
+def test_vectorized_states_match_column_by_column():
+    ode = gotranx.load_ode(ODEFILES / "stiff_gate.ode")
+    m = _model(ode, Scheme.generalized_rush_larsen_2)
+    p = m["init_parameter_values"]()
+    y = np.array([[0.1, -0.3, 0.8], [0.0, 0.5, 0.9]])
+    out = m["generalized_rush_larsen_2"](y, 0.2, 0.01, p)
+    for k in range(y.shape[1]):
+        np.testing.assert_allclose(
+            out[:, k], m["generalized_rush_larsen_2"](y[:, k].copy(), 0.2, 0.01, p), rtol=1e-14
+        )
+
+
+def test_missing_variables_are_held_constant(parser, trans):
+    main = gotranx.ode.make_ode(
+        *trans.transform(
+            parser.parse(
+                """
+                parameters("Main", rho=21.0, sigma=12.0)
+                parameters("Z", beta=2.4)
+                states("Main", x=1.0, y=2.0)
+                states("Z", z=3.05)
+                expressions("Main")
+                dy_dt = x*(rho - z) - y
+                dx_dt = sigma*(-x + y)
+                expressions("Z")
+                dz_dt = -beta*z + x*y
+                """
+            )
+        ),
+        name="lorentz",
+    )
+    z_ode = main.get_component("Z").to_ode()
+    m = _model(z_ode, Scheme.generalized_rush_larsen_2)
+    x, y, beta, z0, dt = 1.0, 2.0, 2.4, 3.05, 0.3
+    out = m["generalized_rush_larsen_2"](
+        np.array([z0]), 0.0, dt, m["init_parameter_values"](), np.array([x, y])
+    )
+    zinf = x * y / beta
+    assert out[0] == pytest.approx(zinf + (z0 - zinf) * np.exp(-beta * dt), rel=1e-13)
+
+
+def test_remove_unused_keeps_indices_consistent(ode_unused):
+    dt = 0.01
+    full = _model(ode_unused, Scheme.generalized_rush_larsen_2)
+    lean = _model(ode_unused, Scheme.generalized_rush_larsen_2, remove_unused=True)
+    y, p = full["init_state_values"](), full["init_parameter_values"]()
+    np.testing.assert_allclose(
+        full["generalized_rush_larsen_2"](y, 0.0, dt, p),
+        lean["generalized_rush_larsen_2"](y, 0.0, dt, p),
+        rtol=1e-14,
+    )
+
+
+def test_stiff_gate_order_generalized_rush_larsen_2():
+    ode = gotranx.load_ode(ODEFILES / "stiff_gate.ode")
+    m = _model(ode, Scheme.generalized_rush_larsen_2)
+    y0, p, T = m["init_state_values"](), m["init_parameter_values"](), 2.0
+    ref = _reference(m["rhs"], y0, p, [0.0, T])
+    errors = [
+        np.max(np.abs(_run(m["generalized_rush_larsen_2"], y0, p, T, T / 2**k) - ref))
+        for k in range(6, 10)
+    ]
+    rates = _rates(errors)
+    assert min(rates[-2:]) >= 1.9, rates
+
+
+def test_julia_code_is_generated():
+    ode = gotranx.load_ode(ODEFILES / "stiff_gate.ode")
+    code = gotranx.cli.gotran2julia.get_code(ode, scheme=[Scheme.generalized_rush_larsen_2])
+    assert "function generalized_rush_larsen_2(" in code
+    assert "g_mid" in code
+
+
+def test_second_order_schemes_are_listed():
+    for name in ("rush_larsen_2", "hybrid_rush_larsen_2"):
+        assert name in schemes.list_schemes()
+        assert schemes.get_scheme(name) is getattr(schemes, name)
+
+
+def test_hybrid_rush_larsen_2_without_stiff_states_is_explicit_midpoint():
+    ode = gotranx.load.ode_from_string(
+        "parameters(c=0.5)\nstates(x=0.3, y=0.7)\ndx_dt = -x*y + sin(time)\ndy_dt = c*x - y**2\n"
+    )
+    m = _model(ode, Scheme.hybrid_rush_larsen_2)
+    y0, p, t, dt = m["init_state_values"](), m["init_parameter_values"](), 0.4, 0.05
+    f = m["rhs"]
+    expected = y0 + dt * f(t + dt / 2, y0 + dt / 2 * f(t, y0, p), p)
+    np.testing.assert_allclose(m["hybrid_rush_larsen_2"](y0, t, dt, p), expected, rtol=1e-14)
+
+
+def test_zero_diagonal_state_falls_back_to_midpoint():
+    ode = gotranx.load.ode_from_string("states(x=1.0, y=0.0)\ndx_dt = -2*x\ndy_dt = x\n")
+    m = _model(ode, Scheme.generalized_rush_larsen_2)
+    y0, p, dt = m["init_state_values"](), m["init_parameter_values"](), 0.1
+    out = m["generalized_rush_larsen_2"](y0, 0.0, dt, p)
+    x_half = np.exp(-2 * dt / 2)
+    assert out[0] == pytest.approx(np.exp(-2 * dt), rel=1e-13)
+    assert out[1] == pytest.approx(dt * x_half, rel=1e-13)
+
+
+def test_generalized_equals_hybrid_with_every_linearizable_state():
+    ode = gotranx.load_ode(ODEFILES / "beeler_reuter_1977.ode")
+    dt = sympy.Symbol("dt")
+    stiff = [s for s, a in diagonal_jacobian(ode).items() if not a.is_zero]
+    assert schemes.generalized_rush_larsen_2(ode, dt) == schemes.hybrid_rush_larsen_2(
+        ode, dt, stiff_states=stiff
+    )
+
+
+def test_rush_larsen_2_equals_hybrid_with_the_gating_states():
+    ode = gotranx.load_ode(ODEFILES / "beeler_reuter_1977.ode")
+    dt = sympy.Symbol("dt")
+    assert schemes.rush_larsen_2(ode, dt) == schemes.hybrid_rush_larsen_2(
+        ode, dt, stiff_states=gating_states(ode)
+    )
+
+
+def test_rush_larsen_2_warns_when_no_state_is_gating():
+    ode = gotranx.load.ode_from_string("states(y=1.0)\ndy_dt = -y**2\n")
+    with capture_logs() as logs:
+        schemes.rush_larsen_2(ode, sympy.Symbol("dt"))
+    assert any("explicit midpoint" in log["event"] for log in logs)
+
+
+def test_hybrid_rush_larsen_2_warns_about_unusable_stiff_states():
+    ode = gotranx.load.ode_from_string("states(x=1.0, y=0.0)\ndx_dt = -x\ndy_dt = x\n")
+    with capture_logs() as logs:
+        schemes.hybrid_rush_larsen_2(ode, sympy.Symbol("dt"), stiff_states=["y", "nope"])
+    events = [log["event"] for log in logs]
+    assert any("use explicit midpoint" in e and "'y'" in e for e in events)
+    assert any("not found in the ODE" in e and "'nope'" in e for e in events)
+
+
+@pytest.mark.parametrize(
+    "scheme, kwargs",
+    [(Scheme.rush_larsen_2, {}), (Scheme.hybrid_rush_larsen_2, {"stiff_states": ["g"]})],
+)
+def test_stiff_gate_order(scheme, kwargs):
+    ode = gotranx.load_ode(ODEFILES / "stiff_gate.ode")
+    m = _model(ode, scheme, **kwargs)
+    y0, p, T = m["init_state_values"](), m["init_parameter_values"](), 2.0
+    ref = _reference(m["rhs"], y0, p, [0.0, T])
+    errors = [np.max(np.abs(_run(m[scheme.value], y0, p, T, T / 2**k) - ref)) for k in range(6, 10)]
+    assert min(_rates(errors)[-2:]) >= 1.9, _rates(errors)
+
+
+@pytest.fixture(scope="module")
+def beeler_reuter():
+    ode = gotranx.load_ode(ODEFILES / "beeler_reuter_1977.ode")
+    m = _model(ode, Scheme.generalized_rush_larsen)
+    y0, p = m["init_state_values"](), m["init_parameter_values"]()
+    T = 10.0
+    # The stimulus is a box in time (on at 1 ms, off at 3 ms): integrate the
+    # reference piece by piece, and use dt = 2^-k ms so both edges fall on
+    # step boundaries; otherwise the discontinuity alone limits the order.
+    ref = _reference(m["rhs"], y0, p, [0.0, 1.0, 3.0, T])
+    return ode, y0, p, T, ref
+
+
+@pytest.mark.parametrize(
+    "scheme, order",
+    [
+        (Scheme.rush_larsen, 1),
+        (Scheme.generalized_rush_larsen_2, 2),
+        (Scheme.rush_larsen_2, 2),
+        (Scheme.hybrid_rush_larsen_2, 2),
+    ],
+)
+def test_beeler_reuter_order(beeler_reuter, scheme, order):
+    ode, y0, p, T, ref = beeler_reuter
+    kwargs = {"stiff_states": gating_states(ode)} if scheme == Scheme.hybrid_rush_larsen_2 else {}
+    m = _model(ode, scheme, **kwargs)
+    scale = np.maximum(np.abs(ref), 1e-3)
+    errors = [
+        np.max(np.abs(_run(m[scheme.value], y0, p, T, 2.0**-k) - ref) / scale) for k in range(6, 10)
+    ]
+    rates = _rates(errors)
+    if order == 1:
+        assert 0.9 <= rates[-1] <= 1.1, rates
+    else:
+        assert min(rates[-2:]) >= 1.9, rates

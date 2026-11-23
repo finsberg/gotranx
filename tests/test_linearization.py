@@ -1,6 +1,7 @@
 import sympy
 
-from gotranx.linearization import diagonal_jacobian
+import gotranx
+from gotranx.linearization import diagonal_jacobian, gating_states
 from gotranx.ode import make_ode
 
 
@@ -102,3 +103,59 @@ def test_does_not_confuse_symbols_that_share_a_name(parser, trans):
     result = diagonal_jacobian(ode)["V"]
     assert sympy.Symbol("g") not in result.free_symbols
     assert sympy.Symbol("g", real=True) in result.free_symbols
+
+
+def _ode(text):
+    return gotranx.load.ode_from_string(text)
+
+
+def test_gating_states_detects_hodgkin_huxley_gates_only():
+    ode = _ode(
+        """
+        parameters(g=1.0)
+        states(V=-80.0, m=0.1, h=0.6)
+        minf = 1/(1 + exp(-(V + 40)/7))
+        tau_m = 0.1 + 0.5*exp(-((V + 40)/30)**2)
+        alpha_h = 0.07*exp(-(V + 65)/20)
+        beta_h = 1/(1 + exp(-(V + 35)/10))
+        dm_dt = (minf - m)/tau_m
+        dh_dt = alpha_h*(1 - h) - beta_h*h
+        dV_dt = -g*m**3*h*(V - 50) - 0.1*(V + 80)**3/1000
+        """
+    )
+    # ode.states is sorted by name, so compare sets
+    assert set(gating_states(ode)) == {"m", "h"}
+
+
+def test_gating_states_rejects_a_state_nonlinear_in_itself():
+    ode = _ode("states(y=1.0)\ndy_dt = -y**2\n")
+    assert gating_states(ode) == []
+
+
+def test_gating_states_rejects_a_conditional_on_the_state_itself():
+    ode = _ode("states(y=1.0)\ndy_dt = Conditional(Gt(y, 0.5), -y, -2*y)\n")
+    assert gating_states(ode) == []
+
+
+def test_gating_states_rejects_a_conditional_on_the_state_through_an_intermediate():
+    ode = _ode("states(y=1.0)\nrate = Conditional(Gt(y, 0.5), 1.0, 2.0)\ndy_dt = -rate*y\n")
+    assert gating_states(ode) == []
+
+
+def test_gating_states_accepts_a_conditional_on_another_state():
+    ode = _ode(
+        "states(V=0.0, y=1.0)\nrate = Conditional(Gt(V, 0.5), 1.0, 2.0)\n"
+        "dy_dt = -rate*y\ndV_dt = -V\n"
+    )
+    assert set(gating_states(ode)) == {"V", "y"}
+
+
+def test_gating_states_keeps_only_states_whose_derivative_depends_on_them():
+    ode = _ode("states(x=1.0, y=0.0)\ndx_dt = -x\ndy_dt = x\n")
+    assert gating_states(ode) == ["x"]
+
+
+def test_gating_states_is_exported():
+    import gotranx.linearization as lin
+
+    assert "gating_states" in lin.__all__

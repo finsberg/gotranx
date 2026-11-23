@@ -1,0 +1,11 @@
+parameters("Voltage", omega=3.0)
+states("Voltage", v=0.1)
+states("Gate", g=0.0)
+
+expressions("Gate")
+tau = 0.05 + 0.5/(1 + exp(-4*v))
+ginf = 1/(1 + exp(-3*(v - 0.2)))
+dg_dt = (ginf - g)/tau
+
+expressions("Voltage")
+dv_dt = -2*g*(v - 1) - 0.5*v**3 + sin(omega*time)

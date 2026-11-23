@@ -1,8 +1,12 @@
 import re
 
+import numpy as np
 import pytest
 import sympy
 from structlog.testing import capture_logs
+import gotranx
+from gotranx.codegen import PythonCodeGenerator
+from gotranx.linearization import gating_states
 from gotranx.ode import make_ode
 from gotranx.ode import ODE
 from gotranx import schemes
@@ -404,3 +408,77 @@ def test_hybrid_rush_larsen_is_invariant_to_naming_a_subexpression(parser, trans
     )
     assert inlined == via_intermediate
     assert "dV_dt_linearized = -g" in inlined
+
+
+HH = """
+parameters(g=1.0)
+states(V=-80.0, m=0.1, h=0.6)
+minf = 1/(1 + exp(-(V + 40)/7))
+tau_m = 0.1 + 0.5*exp(-((V + 40)/30)**2)
+alpha_h = 0.07*exp(-(V + 65)/20)
+beta_h = 1/(1 + exp(-(V + 35)/10))
+dm_dt = (minf - m)/tau_m
+dh_dt = alpha_h*(1 - h) - beta_h*h
+dV_dt = -g*m**3*h*(V - 50) - 0.1*(V + 80)**3/1000
+"""
+
+
+def test_rush_larsen_equals_hybrid_with_the_gating_states():
+    ode = gotranx.load.ode_from_string(HH)
+    dt = sympy.Symbol("dt")
+    assert schemes.rush_larsen(ode, dt) == schemes.hybrid_rush_larsen(
+        ode, dt, stiff_states=gating_states(ode)
+    )
+
+
+def test_rush_larsen_warns_when_no_state_is_gating():
+    ode = gotranx.load.ode_from_string("states(y=1.0)\ndy_dt = -y**2\n")
+    with capture_logs() as logs:
+        eqs = schemes.rush_larsen(ode, sympy.Symbol("dt"))
+    assert eqs == schemes.explicit_euler(ode, sympy.Symbol("dt"))
+    assert any(
+        "no state" in log["event"].lower() and "forward euler" in log["event"].lower()
+        for log in logs
+    )
+
+
+def test_get_scheme_rush_larsen_is_the_automatic_scheme():
+    assert schemes.get_scheme("rush_larsen") is schemes.rush_larsen
+    assert schemes.get_scheme("hybrid_rush_larsen") is schemes.hybrid_rush_larsen
+    assert "rush_larsen" in schemes.list_schemes()
+
+
+def test_forward_rush_larsen_is_a_deprecated_alias_of_rush_larsen():
+    with pytest.warns(DeprecationWarning):
+        f = schemes.get_scheme("forward_rush_larsen")
+    assert f is schemes.rush_larsen
+
+
+def test_rush_larsen_alias_lookup_does_not_rename_hybrid():
+    # get_scheme renames the function it returns (__code__.co_name). The old
+    # alias returned hybrid_rush_larsen itself, so looking up "rush_larsen"
+    # renamed hybrid_rush_larsen for every later direct use.
+    ode = gotranx.load.ode_from_string(HH)
+    with pytest.warns(DeprecationWarning):
+        schemes.get_scheme("forward_rush_larsen")
+    schemes.get_scheme("rush_larsen")
+    code = PythonCodeGenerator(ode).scheme(schemes.hybrid_rush_larsen, stiff_states=["m"])
+    assert code.lstrip().startswith("def hybrid_rush_larsen(")
+
+
+def test_rush_larsen_matches_hybrid_numerically_on_beeler_reuter():
+    from pathlib import Path
+
+    ode = gotranx.load_ode(Path(__file__).parent / "odefiles" / "beeler_reuter_1977.ode")
+    code = gotranx.cli.gotran2py.get_code(ode, scheme=[schemes.Scheme.rush_larsen])
+    ns: dict = {}
+    exec(code, ns)
+    hcode = gotranx.cli.gotran2py.get_code(
+        ode, scheme=[schemes.Scheme.hybrid_rush_larsen], stiff_states=gating_states(ode)
+    )
+    hns: dict = {}
+    exec(hcode, hns)
+    y, p = ns["init_state_values"](), ns["init_parameter_values"]()
+    np.testing.assert_array_equal(
+        ns["rush_larsen"](y, 0.0, 0.01, p), hns["hybrid_rush_larsen"](y, 0.0, 0.01, p)
+    )

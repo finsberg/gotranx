@@ -26,7 +26,7 @@ pytestmark = pytest.mark.julia
 
 ODEFILES = sorted((Path(__file__).parent / "odefiles").glob("*.ode"))
 TOY = Path(__file__).parent / "odefiles" / "contraction_toy.ode"
-SCHEME = [Scheme.generalized_rush_larsen]
+SCHEME = [Scheme.generalized_rush_larsen, Scheme.generalized_rush_larsen_2]
 DT = 0.01
 
 
@@ -68,6 +68,7 @@ def python_values(ode) -> dict:
         "rhs": namespace["rhs"](0.0, states, parameters),
         "monitors": namespace["monitor_values"](0.0, states, parameters),
         "step": namespace["generalized_rush_larsen"](states, 0.0, DT, parameters),
+        "step2": namespace["generalized_rush_larsen_2"](states, 0.0, DT, parameters),
         "state_index": namespace["state_index"],
         "monitor_index": namespace["monitor_index"],
     }
@@ -85,10 +86,11 @@ def test_ode2julia_agrees_with_python(ode, python, run_julia, tmp_path, type_sta
         out = zeros(NUM_STATES); rhs(0.0, s, p, out)
         mon = zeros(NUM_MONITORED); monitor_values(0.0, s, p, mon)
         st = zeros(NUM_STATES); generalized_rush_larsen(s, 0.0, {DT}, p, st)
-        foreach(v -> println(join(v, " ")), (s, p, out, mon, st))
+        st2 = zeros(NUM_STATES); generalized_rush_larsen_2(s, 0.0, {DT}, p, st2)
+        foreach(v -> println(join(v, " ")), (s, p, out, mon, st, st2))
         """
     )
-    keys = ("states", "parameters", "rhs", "monitors", "step")
+    keys = ("states", "parameters", "rhs", "monitors", "step", "step2")
     assert len(lines) == len(keys)
     for key, line in zip(keys, lines):
         assert_close(numbers(line), python[key])

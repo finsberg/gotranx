@@ -23,7 +23,7 @@ def add_schemes(
             if "rush_larsen" in s.value:
                 kwargs["delta"] = delta
                 kwargs["cse"] = cse
-            if s.value == "hybrid_rush_larsen":
+            if s.value.startswith("hybrid_rush_larsen"):
                 kwargs["stiff_states"] = stiff_states
 
             comp.append(codegen.scheme(get_scheme(s.value), **kwargs))

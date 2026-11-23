@@ -8,6 +8,7 @@ The plan is to have all the features from the old [gotran](https://github.com/Co
     - [x] Forward Euler
     - [x] Generalized Rush Larsen
     - [x] Hybrid Generalized Rush Larsen
+    - [x] Rush Larsen (automatic gating states) and second-order Rush Larsen schemes (`generalized_rush_larsen_2`, `rush_larsen_2`, `hybrid_rush_larsen_2`)
     - [ ] Simplified Implicit Euler
 - [ ] Code generation for more languages
     - [x] Python

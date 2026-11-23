@@ -79,13 +79,19 @@ which is exactly {eq}`rush-larsen`. The advantage of {eq}`rush-larsen-general` i
 
 ### Rush–Larsen in `gotranx`
 
-There is no separate `rush_larsen` scheme in `gotranx`. The classical Rush–Larsen scheme is the {doc}`hybrid_rush_larsen` scheme with the gating variables as the *stiff states*:
+`gotranx` has a `rush_larsen` scheme that finds the gating states automatically:
+
+```shell
+gotranx ode2py hodgkin_huxley.ode --scheme rush_larsen -o hodgkin_huxley.py
+```
+
+Here a "gating state" is any state whose right-hand side is affine in the state itself, as detected by {py:func}`gotranx.linearization.gating_states`. In large models this includes more than the Hodgkin–Huxley gates, for example in the `ToRORd_dyn_chloride` test model, 40 of the 52 states qualify, including the SR calcium concentration and Markov-model states. Every other state is updated with forward Euler. The `rush_larsen` scheme does not accept `stiff_states`. To choose the exponentially updated states yourself, use the {doc}`hybrid_rush_larsen` scheme with the states as *stiff states*:
 
 ```shell
 gotranx ode2py hodgkin_huxley.ode --scheme hybrid_rush_larsen -s m -s h -s n -o hodgkin_huxley.py
 ```
 
-In Python, {py:func}`gotranx.schemes.get_scheme` also accepts `"rush_larsen"` as an alias for `"hybrid_rush_larsen"`.
+In Python, {py:func}`gotranx.schemes.get_scheme` accepts `"rush_larsen"` for the automatic scheme and `"hybrid_rush_larsen"` for the explicit one. A second-order version, `rush_larsen_2`, is described in the [second-order Rush–Larsen tutorial](../../examples/second-order-rush-larsen/main.py).
 
 ## Examples
 
@@ -111,7 +117,7 @@ print("Difference:", sympy.simplify(general - classical))
 
 ### A single gate at a fixed voltage
 
-Let us look at the sodium activation gate $m$ of the Hodgkin–Huxley model with the membrane potential clamped at $V = 0$ mV. Then $\tau_m \approx 0.24$ ms and $m_\infty \approx 0.97$. We generate code for both forward Euler and the hybrid Rush–Larsen scheme with $m$ as the stiff state.
+Let us look at the sodium activation gate $m$ of the Hodgkin–Huxley model with the membrane potential clamped at $V = 0$ mV. Then $\tau_m \approx 0.24$ ms and $m_\infty \approx 0.97$. We generate code for both forward Euler and the hybrid Rush–Larsen scheme with $m$ as the stiff state (the `rush_larsen` scheme would pick $m$ automatically).
 
 ```{code-cell} python
 import numpy as np

@@ -236,3 +236,11 @@ for ti in t[1:]:
 plt.plot(t, V)
 plt.show()
 ```
+
+Run `gotranx list-schemes` to see every scheme. The Rush-Larsen schemes come
+in three families, each in a first-order and a second-order (`_2`) version:
+`generalized_rush_larsen{,_2}` applies the exponential update to every state,
+`rush_larsen{,_2}` to the automatically detected gating states, and
+`hybrid_rush_larsen{,_2}` to the states passed with `--stiff-states`. The
+second-order schemes evaluate the model twice per step; see the
+[second-order Rush-Larsen tutorial](../examples/second-order-rush-larsen/main.py).

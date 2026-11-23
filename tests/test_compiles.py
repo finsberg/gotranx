@@ -2,10 +2,10 @@
 
 The codegen tests pin what the backends print; these compile it, with warnings as errors,
 and evaluate each model at its initial state against the Python backend: the initial
-values, the index lookups, the right-hand side, the monitored values and one step of two
-schemes. The C++ header is loaded through a small `extern "C"` shim, so both languages run
-the same ctypes tests. They need a C and a C++ compiler (`conftest.c_compiler`,
-`conftest.cxx_compiler`).
+values, the index lookups, the right-hand side, the monitored values and one step of each
+scheme in `SCHEMES`. The C++ header is loaded through a small `extern "C"` shim, so both
+languages run the same ctypes tests. They need a C and a C++ compiler
+(`conftest.c_compiler`, `conftest.cxx_compiler`).
 """
 
 import ctypes
@@ -27,7 +27,13 @@ ODEFILES = sorted(
     path for path in (HERE / "odefiles").glob("*.ode") if path.name != "ohara_rudy_cipa_v1_2017.ode"
 )
 CARDIAC_MODEL = HERE / "odefiles" / "ToRORd_dyn_chloride.ode"
-SCHEMES = [Scheme.generalized_rush_larsen, Scheme.forward_explicit_euler]
+SCHEMES = [
+    Scheme.generalized_rush_larsen,
+    Scheme.forward_explicit_euler,
+    Scheme.generalized_rush_larsen_2,
+    Scheme.rush_larsen,
+    Scheme.rush_larsen_2,
+]
 LANGUAGES = ["c", "cpp"]
 DT = 0.01
 T = 0.0
@@ -135,8 +141,7 @@ def python(ode) -> dict:
         "parameters": parameters,
         "rhs": namespace["rhs"](T, states, parameters),
         "monitors": namespace["monitor_values"](T, states, parameters),
-        "generalized_rush_larsen": namespace["generalized_rush_larsen"](states, T, DT, parameters),
-        "forward_explicit_euler": namespace["forward_explicit_euler"](states, T, DT, parameters),
+        **{s.value: namespace[s.value](states, T, DT, parameters) for s in SCHEMES},
         "state_index": namespace["state_index"],
         "parameter_index": namespace["parameter_index"],
         "monitor_index": namespace["monitor_index"],

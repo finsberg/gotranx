@@ -14,7 +14,7 @@ classifiers = [
 ]
 keywords = ["parser", "lark", "gotran", "ode"]
 urls = {Homepage = "https://github.com/finsberg/gotranx"}
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 dependencies = [
     "attrs",
     "black",
@@ -62,6 +62,7 @@ test = [
     "cmake",
     "fenics-ufl",
     "gotranx[formatters]",
+    "scipy",
 ]
 benchmark = [
     "pytest-benchmark>=4.0.0",
@@ -143,8 +144,8 @@ exclude = [
 # Same as Black.
 line-length = 100
 
-# Assume Python 3.11.
-target-version = "py311"
+# Assume Python 3.12.
+target-version = "py312"
 
 [tool.ruff.lint]
 # Enable pycodestyle (`E`) and Pyflakes (`F`) codes by default.

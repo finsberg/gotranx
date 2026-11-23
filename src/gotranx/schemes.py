@@ -7,7 +7,7 @@ from structlog import get_logger
 
 from . import atoms
 from .ode import ODE
-from .linearization import diagonal_jacobian
+from .linearization import diagonal_jacobian, gating_states
 from . import sympytools
 from enum import Enum
 
@@ -54,6 +54,10 @@ class Scheme(str, Enum):
     forward_explicit_euler = "forward_explicit_euler"
     forward_generalized_rush_larsen = "forward_generalized_rush_larsen"
     hybrid_rush_larsen = "hybrid_rush_larsen"
+    rush_larsen = "rush_larsen"
+    generalized_rush_larsen_2 = "generalized_rush_larsen_2"
+    rush_larsen_2 = "rush_larsen_2"
+    hybrid_rush_larsen_2 = "hybrid_rush_larsen_2"
 
 
 def get_scheme(scheme: str) -> scheme_func:
@@ -62,8 +66,16 @@ def get_scheme(scheme: str) -> scheme_func:
         func = explicit_euler
     elif scheme in ["forward_generalized_rush_larsen", "generalized_rush_larsen"]:
         func = generalized_rush_larsen
-    elif scheme in ["forward_rush_larsen", "rush_larsen", "hybrid_rush_larsen"]:
+    elif scheme in ["forward_rush_larsen", "rush_larsen"]:
+        func = rush_larsen
+    elif scheme == "hybrid_rush_larsen":
         func = hybrid_rush_larsen
+    elif scheme == "generalized_rush_larsen_2":
+        func = generalized_rush_larsen_2
+    elif scheme == "rush_larsen_2":
+        func = rush_larsen_2
+    elif scheme == "hybrid_rush_larsen_2":
+        func = hybrid_rush_larsen_2
     else:
         raise ValueError(f"Unknown scheme {scheme}")
 
@@ -138,6 +150,7 @@ def _taken_names(ode: ODE) -> set[str]:
 def _linearized_assignments(
     items: list[tuple[str, sympy.Expr]],
     taken: set[str],
+    prefix: str = "_linearization_temp_",
 ) -> dict[str, tuple[list[tuple[sympy.Symbol, sympy.Expr]], sympy.Expr]]:
     """Factor shared subexpressions out of every state's linearized expression
     at once.
@@ -168,7 +181,7 @@ def _linearized_assignments(
     def fresh():
         i = 0
         while True:
-            name = f"_linearization_temp_{i}"
+            name = f"{prefix}{i}"
             if name not in taken:
                 yield sympy.Symbol(name, real=True)
             i += 1
@@ -214,6 +227,7 @@ def _linearization_plan(
     items: list[tuple[str, sympy.Expr]],
     taken: set[str],
     cse: bool,
+    prefix: str = "_linearization_temp_",
 ) -> dict[str, tuple[list[tuple[sympy.Symbol, sympy.Expr]], sympy.Expr]]:
     """Compute the temporaries to emit and the reduced expression to assign,
     per derivative name, for exactly the states about to be linearized (never
@@ -224,59 +238,222 @@ def _linearization_plan(
     ``StateDerivative`` ``x``) rather than state name.
     """
     if cse:
-        return _linearized_assignments(items, taken)
+        return _linearized_assignments(items, taken, prefix)
     # Nothing factored out: the full expression stands as-is, so there are no
     # temporaries to emit.
     return {name: ([], expr) for name, expr in items}
 
 
-def _rush_larsen_update(
-    x: atoms.StateDerivative,
-    replacements: list[tuple[sympy.Symbol, sympy.Expr]],
+class _NameAllocator:
+    """Hand out identifiers that collide with nothing in the model, nor with
+    anything handed out before (``V_mid`` taken -> ``V_mid_1``)."""
+
+    def __init__(self, taken: typing.Iterable[str]) -> None:
+        self.used: set[str] = set(taken)
+
+    def reserve(self, names: typing.Iterable[str]) -> None:
+        self.used |= set(names)
+
+    def __call__(self, base: str) -> sympy.Symbol:
+        name, k = base, 0
+        while name in self.used:
+            k += 1
+            name = f"{base}_{k}"
+        self.used.add(name)
+        return sympy.Symbol(name, real=True)
+
+
+def _exponential_update(
+    *,
+    base: sympy.Expr,
+    rate: sympy.Expr,
+    linearized: sympy.Symbol,
     expr_diff: sympy.Expr,
-    dt: sympy.Symbol,
+    replacements: list[tuple[sympy.Symbol, sympy.Expr]],
+    dt: sympy.Expr,
     target: sympy.Symbol | sympy.Expr,
     printer: printer_func,
     delta: float,
+    declare_target: bool = False,
 ) -> list[str]:
-    """Emit the CSE temporaries, the linearized assignment, and the Rush-Larsen update.
+    """Emit the CSE temporaries, the linearized assignment and the update
+    ``target = base + rate * (exp(linearized*dt) - 1)/linearized``.
 
-    Shared by every scheme that reaches this point for a state whose diagonal
-    Jacobian entry is non-zero. The zero-derivative case is each caller's own
-    forward-Euler fallback, decided before this is called, since the two
-    schemes reach it under different conditions.
+    ``rate`` is ``f`` for a first-order step and the stage-1 half step, and
+    the midpoint linearization ``f* + a*(y - y*)`` for the second-order full
+    step. Where ``linearized`` could be zero the update is guarded and falls
+    back to its exact ``linearized -> 0`` limit ``base + dt*rate``.
 
-    ``replacements`` and ``expr_diff`` (the post-CSE reduced expression) are
-    computed by the caller, which decides -- once, for the whole scheme --
-    whether they come from ``_linearized_assignments`` (``cse=True``) or are
-    ``([], expr_diff)`` unchanged (``cse=False``).
+    ``expr_diff`` is the post-CSE reduced expression, so the non-zero check
+    runs on the CSE'd form: a provably-nonzero factor hidden behind an opaque
+    temporary is conservatively guarded. That is an accepted cost of
+    factoring first, not a bug.
     """
-    eqs = []
-    for symbol, sub_expr in replacements:
-        eqs.append(printer(symbol, sub_expr, use_variable_prefix=True))
-
-    linearized_name = x.name + "_linearized"
-    linearized = sympy.Symbol(linearized_name)
+    eqs = [printer(symbol, sub_expr, use_variable_prefix=True) for symbol, sub_expr in replacements]
     eqs.append(printer(linearized, expr_diff, use_variable_prefix=True))
 
-    # `expr_diff` is the post-CSE reduced expression, so this check runs on
-    # the CSE'd form: if a provably-nonzero factor is hidden behind an
-    # opaque temporary, the check can't see through it and conservatively
-    # asks for a zero-division guard that a pre-CSE check would have
-    # skipped. That's an accepted cost of factoring first, not a bug.
     need_zero_div_check = not fraction_numerator_is_nonzero(expr_diff)
     if not need_zero_div_check:
-        logger.debug(f"{linearized_name} cannot be zero. Skipping zero division check")
+        logger.debug(f"{linearized.name} cannot be zero. Skipping zero division check")
 
-    RL_term = x.symbol / linearized * (sympy.exp(linearized * dt) - 1)
+    RL_term = rate / linearized * (sympy.exp(linearized * dt) - 1)
     if need_zero_div_check:
-        RL_term = sympytools.Conditional(
-            abs(linearized) > delta,
-            RL_term,
-            dt * x.symbol,
-        )
-    eqs.append(printer(target, x.state.symbol + RL_term))
+        RL_term = sympytools.Conditional(abs(linearized) > delta, RL_term, dt * rate)
+    eqs.append(printer(target, base + RL_term, use_variable_prefix=declare_target))
     return eqs
+
+
+def _rush_larsen_scheme(
+    ode: ODE,
+    dt: sympy.Symbol,
+    *,
+    linearize: set[str],
+    order: int,
+    name: str,
+    printer: printer_func,
+    remove_unused: bool,
+    delta: float,
+    cse: bool,
+    jacobian: dict[str, sympy.Expr],
+) -> list[str]:
+    """Every Rush-Larsen scheme: states in ``linearize`` (with a non-zero
+    diagonal Jacobian entry) get the exponential update, all others the
+    ``a -> 0`` limit (forward Euler at order 1, explicit midpoint at order 2).
+    """
+    if order not in (1, 2):
+        raise ValueError(f"order must be 1 or 2, got {order}")
+    values = sympy.IndexedBase(name, shape=(len(ode.state_derivatives),))
+    assignments = ode.sorted_assignments(remove_unused=remove_unused)
+    taken = _taken_names(ode)
+    derivatives = [x for x in assignments if isinstance(x, atoms.StateDerivative)]
+    to_linearize = [
+        x for x in derivatives if x.state.name in linearize and not jacobian[x.state.name].is_zero
+    ]
+    linearized_names = {x.name for x in to_linearize}
+    plan = _linearization_plan([(x.name, jacobian[x.state.name]) for x in to_linearize], taken, cse)
+
+    if order == 1:
+        stage1_dt = dt
+        target: dict[str, sympy.Symbol | sympy.Expr] = {
+            x.name: values[i] for i, x in enumerate(derivatives)
+        }
+        declare = False
+    else:
+        names = _NameAllocator(taken)
+        names.reserve(x.name + "_linearized" for x in to_linearize)
+        names.reserve(s.name for replacements, _ in plan.values() for s, _ in replacements)
+        midpoint = {x.state.symbol: names(x.state.name + "_mid") for x in derivatives}
+        stage1_dt = dt / 2
+        target = {x.name: midpoint[x.state.symbol] for x in derivatives}
+        declare = True
+
+    eqs = []
+    for x in assignments:
+        eqs.append(printer(x.symbol, x.expr, use_variable_prefix=True))
+        if not isinstance(x, atoms.StateDerivative):
+            continue
+        if x.name in linearized_names:
+            replacements, reduced = plan[x.name]
+            eqs.extend(
+                _exponential_update(
+                    base=x.state.symbol,
+                    rate=x.symbol,
+                    linearized=sympy.Symbol(x.name + "_linearized"),
+                    expr_diff=reduced,
+                    replacements=replacements,
+                    dt=stage1_dt,
+                    target=target[x.name],
+                    printer=printer,
+                    delta=delta,
+                    declare_target=declare,
+                )
+            )
+        else:
+            logger.debug(f"{x.state.name} is not linearized; using the a -> 0 limit")
+            eqs.append(
+                printer(
+                    target[x.name],
+                    x.state.symbol + stage1_dt * x.symbol,
+                    use_variable_prefix=declare,
+                )
+            )
+    if order == 1:
+        return eqs
+
+    # Stage 2: the whole model again at (t + dt/2, y*), every assignment
+    # under a fresh name, then the full step from y with the linearization
+    # taken at the midpoint. Parameters and missing variables are unchanged.
+    substitution: dict[sympy.Basic, sympy.Expr] = dict(midpoint)
+    substitution[ode.t] = ode.t + dt / 2
+    for x in assignments:
+        substitution[x.symbol] = names(x.name + "_mid")
+    linearized2 = {x.name: names(x.name + "_mid_linearized") for x in to_linearize}
+    plan2 = _linearization_plan(
+        [
+            (substitution[x.symbol].name, jacobian[x.state.name].xreplace(substitution))
+            for x in to_linearize
+        ],
+        names.used,
+        cse,
+        prefix="_linearization_mid_temp_",
+    )
+
+    i = 0
+    for x in assignments:
+        stage2_symbol = substitution[x.symbol]
+        eqs.append(printer(stage2_symbol, x.expr.xreplace(substitution), use_variable_prefix=True))
+        if not isinstance(x, atoms.StateDerivative):
+            continue
+        y = x.state.symbol
+        if x.name in linearized_names:
+            replacements, reduced = plan2[stage2_symbol.name]
+            a_mid = linearized2[x.name]
+            eqs.extend(
+                _exponential_update(
+                    base=y,
+                    rate=stage2_symbol + a_mid * (y - midpoint[y]),
+                    linearized=a_mid,
+                    expr_diff=reduced,
+                    replacements=replacements,
+                    dt=dt,
+                    target=values[i],
+                    printer=printer,
+                    delta=delta,
+                )
+            )
+        else:
+            eqs.append(printer(values[i], y + dt * stage2_symbol))
+        i += 1
+    return eqs
+
+
+def _hybrid_linearize(
+    ode: ODE,
+    jacobian: dict[str, sympy.Expr],
+    stiff_states: list[str] | None,
+    remove_unused: bool,
+    fallback: str,
+) -> set[str]:
+    """The stiff states to linearize, with the hybrid schemes' warnings."""
+    stiff = set(stiff_states or [])
+    found = {
+        x.state.name
+        for x in ode.sorted_assignments(remove_unused=remove_unused)
+        if isinstance(x, atoms.StateDerivative) and x.state.name in stiff
+    }
+    not_linearizable = {s for s in found if jacobian[s].is_zero}
+    if not_linearizable:
+        logger.warning(
+            "The following states were marked as stiff but their derivative does "
+            f"not depend on the state, so they use {fallback}: "
+            f"{sorted(not_linearizable)}"
+        )
+    missing = stiff.difference(found)
+    if missing:
+        logger.warning(
+            f"The following states were marked as stiff but not found in the ODE: {sorted(missing)}"
+        )
+    return found - not_linearizable
 
 
 def explicit_euler(
@@ -401,76 +578,277 @@ def hybrid_rush_larsen(
         A list of equations as strings
 
     """
-    if stiff_states is None:
-        stiff_states = []
     logger.debug("Generating hybrid Rush-Larsen scheme", stiff_states=stiff_states, cse=cse)
-    stiff_states_set = set(stiff_states)
-    found_stiff_states_set = set()
-    not_linearizable = set()
-    eqs = []
-    values = sympy.IndexedBase(name, shape=(len(ode.state_derivatives),))
     jacobian = diagonal_jacobian(ode, remove_unused=remove_unused)
-    taken = _taken_names(ode)
+    linearize = _hybrid_linearize(ode, jacobian, stiff_states, remove_unused, "forward Euler")
+    return _rush_larsen_scheme(
+        ode,
+        dt,
+        linearize=linearize,
+        order=1,
+        name=name,
+        printer=printer,
+        remove_unused=remove_unused,
+        delta=delta,
+        cse=cse,
+        jacobian=jacobian,
+    )
 
-    # The states that will actually receive the Rush-Larsen update, in
-    # emission order: stiff and linearizable. Anything else (not stiff, or
-    # stiff but not linearizable) falls back to forward Euler and must not be
-    # included -- CSE would factor a temporary nothing uses.
-    to_linearize = [
-        x
-        for x in ode.sorted_assignments(remove_unused=remove_unused)
-        if isinstance(x, atoms.StateDerivative)
-        and x.state.name in stiff_states_set
-        and not jacobian[x.state.name].is_zero
-    ]
-    plan = _linearization_plan([(x.name, jacobian[x.state.name]) for x in to_linearize], taken, cse)
 
-    i = 0
-    for x in ode.sorted_assignments(remove_unused=remove_unused):
-        eqs.append(printer(x.symbol, x.expr, use_variable_prefix=True))
-
-        if not isinstance(x, atoms.StateDerivative):
-            continue
-
-        expr_diff = jacobian[x.state.name]
-        state_is_stiff = x.state.name in stiff_states_set
-
-        # Record the state as found before deciding how to integrate it, so a
-        # state that is present but cannot be linearized is never reported as
-        # missing from the ODE.
-        if state_is_stiff:
-            found_stiff_states_set.add(x.state.name)
-            if expr_diff.is_zero:
-                not_linearizable.add(x.state.name)
-
-        if not state_is_stiff or expr_diff.is_zero:
-            # Use forward Euler
-            eqs.append(
-                printer(
-                    values[i],
-                    x.state.symbol + dt * x.symbol,
-                )
-            )
-            i += 1
-            continue
-
-        logger.debug(f"State {x.state.name} is stiff")
-        replacements, reduced = plan[x.name]
-        eqs.extend(_rush_larsen_update(x, replacements, reduced, dt, values[i], printer, delta))
-        i += 1
-
-    if not_linearizable:
+def _gating_linearize(ode: ODE, remove_unused: bool, scheme: str, fallback: str) -> set[str]:
+    gating = gating_states(ode, remove_unused=remove_unused)
+    if not gating:
         logger.warning(
-            "The following states were marked as stiff but their derivative does "
-            "not depend on the state, so they use forward Euler: "
-            f"{sorted(not_linearizable)}"
+            f"No state of the ODE is affine in itself, so {scheme} integrates "
+            f"every state with {fallback}"
         )
-    missing = stiff_states_set.difference(found_stiff_states_set)
-    if missing:
-        logger.warning(
-            f"The following states were marked as stiff but not found in the ODE: {sorted(missing)}"
-        )
-    return eqs
+    return set(gating)
+
+
+def rush_larsen(
+    ode: ODE,
+    dt: sympy.Symbol,
+    name: str = "values",
+    printer: printer_func = default_printer,
+    remove_unused: bool = False,
+    delta: float = 1e-8,
+    cse: bool = True,
+) -> list[str]:
+    r"""Generate the (first-order) Rush-Larsen scheme for the ODE
+
+    The exponential update of :func:`generalized_rush_larsen` is applied to
+    the gating states, i.e. the states whose right-hand side is affine in the
+    state itself (see :func:`gotranx.linearization.gating_states`); every
+    other state uses forward Euler. Use :func:`hybrid_rush_larsen` to choose
+    the states yourself.
+
+    Parameters
+    ----------
+    ode : gotranx.ode.ODE
+        The ODE
+    dt : sympy.Symbol
+        The time step
+    name : str, optional
+        Name of array to be returned by the scheme, by default "values"
+    printer : printer_func, optional
+        A code printer, by default default_printer
+    remove_unused : bool, optional
+        Remove unused variables, by default False
+    delta : float, optional
+        Tolerance for zero division check, by default 1e-8
+    cse : bool, optional
+        Factor shared subexpressions out of the linearized expressions, by
+        default True (see :func:`generalized_rush_larsen`)
+
+    Returns
+    -------
+    list[str]
+        A list of equations as strings
+    """
+    logger.debug("Generating Rush-Larsen scheme", cse=cse)
+    jacobian = diagonal_jacobian(ode, remove_unused=remove_unused)
+    linearize = _gating_linearize(ode, remove_unused, "rush_larsen", "forward Euler")
+    return _rush_larsen_scheme(
+        ode,
+        dt,
+        linearize=linearize,
+        order=1,
+        name=name,
+        printer=printer,
+        remove_unused=remove_unused,
+        delta=delta,
+        cse=cse,
+        jacobian=jacobian,
+    )
+
+
+def generalized_rush_larsen_2(
+    ode: ODE,
+    dt: sympy.Symbol,
+    name: str = "values",
+    printer: printer_func = default_printer,
+    remove_unused: bool = False,
+    delta: float = 1e-8,
+    cse: bool = True,
+) -> list[str]:
+    r"""Generate the second-order generalized Rush-Larsen scheme for the ODE
+
+    With :math:`a_i = \partial f_i / \partial y_i` and
+    :math:`\varphi(a, h) = (e^{a h} - 1)/a`, one step is
+
+    .. math::
+        y^*_i &= y_i + f_i(t_n, y)\, \varphi(a_i(t_n, y), \Delta t/2) \\
+        y^{n+1}_i &= y_i + \left[f_i^* + a_i^* (y_i - y^*_i)\right] \varphi(a_i^*, \Delta t)
+
+    where :math:`f^*` and :math:`a^*` are evaluated at :math:`(t_n + \Delta t/2, y^*)`.
+    The bracket is the linearization of :math:`f_i` around :math:`y^*`
+    evaluated at :math:`y_n`, which makes the step exact for a gate with
+    frozen coefficients (Sundnes et al. 2009, Perego & Veneziani 2009).
+    States with a zero diagonal entry get explicit midpoint.
+
+    This differs from goss's ``GRL2``, which uses :math:`f(y^*)` as the
+    numerator and evaluates the second stage at :math:`t_n`; that variant
+    converges at first order on stiff, non-autonomous problems.
+
+    Missing variables (values supplied by the caller) are held constant over
+    the step. The generated code evaluates the model twice, so it is about
+    twice the size of :func:`generalized_rush_larsen`.
+
+    Parameters
+    ----------
+    ode : gotranx.ode.ODE
+        The ODE
+    dt : sympy.Symbol
+        The time step
+    name : str, optional
+        Name of array to be returned by the scheme, by default "values"
+    printer : printer_func, optional
+        A code printer, by default default_printer
+    remove_unused : bool, optional
+        Remove unused variables, by default False
+    delta : float, optional
+        Tolerance for zero division check, by default 1e-8
+    cse : bool, optional
+        Factor shared subexpressions out of the linearized expressions of each
+        stage, by default True (see :func:`generalized_rush_larsen`)
+
+    Returns
+    -------
+    list[str]
+        A list of equations as strings
+    """
+    logger.debug("Generating second-order generalized Rush-Larsen scheme", cse=cse)
+    jacobian = diagonal_jacobian(ode, remove_unused=remove_unused)
+    return _rush_larsen_scheme(
+        ode,
+        dt,
+        linearize=set(jacobian),
+        order=2,
+        name=name,
+        printer=printer,
+        remove_unused=remove_unused,
+        delta=delta,
+        cse=cse,
+        jacobian=jacobian,
+    )
+
+
+def rush_larsen_2(
+    ode: ODE,
+    dt: sympy.Symbol,
+    name: str = "values",
+    printer: printer_func = default_printer,
+    remove_unused: bool = False,
+    delta: float = 1e-8,
+    cse: bool = True,
+) -> list[str]:
+    r"""Generate the second-order Rush-Larsen scheme for the ODE
+
+    The two-stage update of :func:`generalized_rush_larsen_2` applied to the
+    gating states (see :func:`gotranx.linearization.gating_states`); every
+    other state uses explicit midpoint. Use :func:`hybrid_rush_larsen_2` to
+    choose the states yourself.
+
+    Parameters
+    ----------
+    ode : gotranx.ode.ODE
+        The ODE
+    dt : sympy.Symbol
+        The time step
+    name : str, optional
+        Name of array to be returned by the scheme, by default "values"
+    printer : printer_func, optional
+        A code printer, by default default_printer
+    remove_unused : bool, optional
+        Remove unused variables, by default False
+    delta : float, optional
+        Tolerance for zero division check, by default 1e-8
+    cse : bool, optional
+        Factor shared subexpressions out of the linearized expressions of each
+        stage, by default True
+
+    Returns
+    -------
+    list[str]
+        A list of equations as strings
+    """
+    logger.debug("Generating second-order Rush-Larsen scheme", cse=cse)
+    jacobian = diagonal_jacobian(ode, remove_unused=remove_unused)
+    linearize = _gating_linearize(ode, remove_unused, "rush_larsen_2", "explicit midpoint")
+    return _rush_larsen_scheme(
+        ode,
+        dt,
+        linearize=linearize,
+        order=2,
+        name=name,
+        printer=printer,
+        remove_unused=remove_unused,
+        delta=delta,
+        cse=cse,
+        jacobian=jacobian,
+    )
+
+
+def hybrid_rush_larsen_2(
+    ode: ODE,
+    dt: sympy.Symbol,
+    name: str = "values",
+    printer: printer_func = default_printer,
+    remove_unused: bool = False,
+    delta: float = 1e-8,
+    stiff_states: list[str] | None = None,
+    cse: bool = True,
+) -> list[str]:
+    r"""Generate the second-order hybrid Rush-Larsen scheme for the ODE
+
+    The two-stage update of :func:`generalized_rush_larsen_2` applied to
+    ``stiff_states``; every other state uses explicit midpoint, so with no
+    stiff states this is the explicit midpoint (RK2) method. A stiff state
+    whose derivative does not depend on itself also gets explicit midpoint,
+    and a warning is logged.
+
+    Parameters
+    ----------
+    ode : gotranx.ode.ODE
+        The ODE
+    dt : sympy.Symbol
+        The time step
+    name : str, optional
+        Name of array to be returned by the scheme, by default "values"
+    printer : printer_func, optional
+        A code printer, by default default_printer
+    remove_unused : bool, optional
+        Remove unused variables, by default False
+    delta : float, optional
+        Tolerance for zero division check, by default 1e-8
+    stiff_states : list[str] | None, optional
+        States to integrate with the exponential update, by default None
+    cse : bool, optional
+        Factor shared subexpressions out of the linearized expressions of each
+        stage, by default True
+
+    Returns
+    -------
+    list[str]
+        A list of equations as strings
+    """
+    logger.debug(
+        "Generating second-order hybrid Rush-Larsen scheme", stiff_states=stiff_states, cse=cse
+    )
+    jacobian = diagonal_jacobian(ode, remove_unused=remove_unused)
+    linearize = _hybrid_linearize(ode, jacobian, stiff_states, remove_unused, "explicit midpoint")
+    return _rush_larsen_scheme(
+        ode,
+        dt,
+        linearize=linearize,
+        order=2,
+        name=name,
+        printer=printer,
+        remove_unused=remove_unused,
+        delta=delta,
+        cse=cse,
+        jacobian=jacobian,
+    )
 
 
 def generalized_rush_larsen(
@@ -530,47 +908,16 @@ def generalized_rush_larsen(
         A list of equations as strings
     """
     logger.debug("Generating generalized Rush-Larsen scheme", cse=cse)
-    eqs = []
-    values = sympy.IndexedBase(name, shape=(len(ode.state_derivatives),))
     jacobian = diagonal_jacobian(ode, remove_unused=remove_unused)
-    taken = _taken_names(ode)
-
-    # Every state that will actually be linearized (non-zero diagonal entry),
-    # in emission order. A zero entry falls back to forward Euler below and
-    # must not be included -- CSE would factor a temporary nothing uses.
-    to_linearize = [
-        x
-        for x in ode.sorted_assignments(remove_unused=remove_unused)
-        if isinstance(x, atoms.StateDerivative) and not jacobian[x.state.name].is_zero
-    ]
-    plan = _linearization_plan([(x.name, jacobian[x.state.name]) for x in to_linearize], taken, cse)
-
-    i = 0
-    for x in ode.sorted_assignments(remove_unused=remove_unused):
-        eqs.append(printer(x.symbol, x.expr, use_variable_prefix=True))
-
-        if not isinstance(x, atoms.StateDerivative):
-            continue
-
-        expr_diff = jacobian[x.state.name]
-
-        if expr_diff.is_zero:
-            # df/dx is genuinely zero, so f*dt is the exact dx -> 0 limit of the
-            # exponential update, not a fallback.
-            logger.debug(
-                f"d{x.state.name}/dt does not depend on {x.state.name}; "
-                "the exponential update reduces to forward Euler"
-            )
-            eqs.append(
-                printer(
-                    values[i],
-                    x.state.symbol + dt * x.symbol,
-                )
-            )
-            i += 1
-            continue
-
-        replacements, reduced = plan[x.name]
-        eqs.extend(_rush_larsen_update(x, replacements, reduced, dt, values[i], printer, delta))
-        i += 1
-    return eqs
+    return _rush_larsen_scheme(
+        ode,
+        dt,
+        linearize=set(jacobian),
+        order=1,
+        name=name,
+        printer=printer,
+        remove_unused=remove_unused,
+        delta=delta,
+        cse=cse,
+        jacobian=jacobian,
+    )

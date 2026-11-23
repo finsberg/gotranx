@@ -128,7 +128,11 @@ def convert(
     ] = None,
     stiff_states: typing.Annotated[
         typing.Optional[typing.List[str]],
-        typer.Option("-s", "--stiff-states", help="Stiff states for the hybrid rush larsen scheme"),
+        typer.Option(
+            "-s",
+            "--stiff-states",
+            help="Stiff states for the hybrid_rush_larsen and hybrid_rush_larsen_2 schemes",
+        ),
     ] = None,
     delta: float = typer.Option(
         1e-8,
@@ -363,7 +367,11 @@ def ode2py(
     ] = [],
     stiff_states: typing.Annotated[
         typing.List[str],
-        typer.Option("-s", "--stiff-states", help="Stiff states for the hybrid rush larsen scheme"),
+        typer.Option(
+            "-s",
+            "--stiff-states",
+            help="Stiff states for the hybrid_rush_larsen and hybrid_rush_larsen_2 schemes",
+        ),
     ] = [],
     delta: float = typer.Option(
         1e-8,
@@ -498,7 +506,11 @@ def ode2c(
     ] = [],
     stiff_states: typing.Annotated[
         typing.List[str],
-        typer.Option("-s", "--stiff-states", help="Stiff states for the hybrid rush larsen scheme"),
+        typer.Option(
+            "-s",
+            "--stiff-states",
+            help="Stiff states for the hybrid_rush_larsen and hybrid_rush_larsen_2 schemes",
+        ),
     ] = [],
     delta: float = typer.Option(
         1e-8,
@@ -619,7 +631,11 @@ def ode2cpp(
     ] = [],
     stiff_states: typing.Annotated[
         typing.List[str],
-        typer.Option("-s", "--stiff-states", help="Stiff states for the hybrid rush larsen scheme"),
+        typer.Option(
+            "-s",
+            "--stiff-states",
+            help="Stiff states for the hybrid_rush_larsen and hybrid_rush_larsen_2 schemes",
+        ),
     ] = [],
     delta: float = typer.Option(
         1e-8,
@@ -760,7 +776,11 @@ def ode2cuda(
     ] = [],
     stiff_states: typing.Annotated[
         typing.List[str],
-        typer.Option("-s", "--stiff-states", help="Stiff states for the hybrid rush larsen scheme"),
+        typer.Option(
+            "-s",
+            "--stiff-states",
+            help="Stiff states for the hybrid_rush_larsen and hybrid_rush_larsen_2 schemes",
+        ),
     ] = [],
     delta: float = typer.Option(
         1e-8,
@@ -896,7 +916,11 @@ def ode2julia(
     ] = [],
     stiff_states: typing.Annotated[
         typing.List[str],
-        typer.Option("-s", "--stiff-states", help="Stiff states for the hybrid rush larsen scheme"),
+        typer.Option(
+            "-s",
+            "--stiff-states",
+            help="Stiff states for the hybrid_rush_larsen and hybrid_rush_larsen_2 schemes",
+        ),
     ] = [],
     delta: float = typer.Option(
         1e-8,
@@ -1293,7 +1317,11 @@ def ode2ufl(
     ] = [],
     stiff_states: typing.Annotated[
         typing.List[str],
-        typer.Option("-s", "--stiff-states", help="Stiff states for the hybrid rush larsen scheme"),
+        typer.Option(
+            "-s",
+            "--stiff-states",
+            help="Stiff states for the hybrid_rush_larsen and hybrid_rush_larsen_2 schemes",
+        ),
     ] = [],
     delta: float = typer.Option(
         1e-8,
