@@ -112,6 +112,9 @@ def _validate_components(tables: Any, errors: _Errors) -> None:
         return
     for name, table in tables.items():
         label = f"components.{name}"
+        if "." in name:
+            errors.add(f"{label}: a split name cannot contain a dot")
+            continue
         if not isinstance(table, Mapping):
             errors.add(f"{label} must be a table with inputs and outputs")
             continue

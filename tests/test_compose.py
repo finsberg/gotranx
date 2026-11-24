@@ -961,3 +961,10 @@ def test_recipe_and_glue_must_be_utf8(tmp_path):
     with pytest.raises(CompositionError) as e:
         gotranx.compose(tmp_path / "r.toml")
     assert e.value.messages == ["r.toml: not UTF-8 (invalid start byte at position 8)"]
+
+
+def test_components_table_refuses_a_dotted_name():
+    tables = {"toy.mech": {"inputs": ["B"], "outputs": ["Zs", "Ta"]}}
+    with pytest.raises(CompositionError) as e:
+        gotranx.compose(toy_recipe(glue=str(FILES / "toy_glue.ode"), components=tables))
+    assert e.value.messages == ["components.toy.mech: a split name cannot contain a dot"]

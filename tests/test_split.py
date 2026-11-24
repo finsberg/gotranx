@@ -310,3 +310,9 @@ def test_no_outputs(ode):
     assert split_messages(ode, "mechanics", inputs=["B"], outputs=[]) == [
         "mechanics needs at least one output"
     ]
+
+
+def test_dotted_split_name_is_refused(ode):
+    assert split_messages(ode, "toy.mech", ["B"], ["Zs", "Ta"]) == [
+        "toy.mech: a split name cannot contain a dot"
+    ]

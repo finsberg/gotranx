@@ -381,7 +381,6 @@ class ODE:
         self.name = name
         if comments is None:
             comments = (atoms.Comment(""),)
-        self._components = {comp.name: comp for comp in components}
 
         self.comments = comments
         self.text = " ".join(comment.text for comment in comments)
@@ -585,7 +584,8 @@ class ODE:
         atoms of ``"ep"``, ``"ep.calcium"`` and ``"ep.gate"``. The model need not have a
         component named ``"ep"`` itself. A component with nothing nested under it is
         returned as it is; otherwise a new :class:`Component` holds the atoms of all of
-        them, each with its own ``components``.
+        them, each with its own ``components``. On such a union's ``to_ode()`` model the
+        only component is ``name``; its sub-components are not addressable there.
 
         Parameters
         ----------

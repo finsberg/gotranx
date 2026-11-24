@@ -203,3 +203,9 @@ def test_cli_selects_the_sub_components():
     assert removed.name == "nested_without_ep"
     with pytest.raises(typer.BadParameter, match="no component 'e' in nested"):
         select_components(ode, keep="e")
+
+
+@pytest.mark.parametrize("remove", [["ep", "ep.a"], ["ep.a", "ep"]])
+def test_cli_remove_overlapping_names(remove):
+    ode = ode_from_string(NESTED, name="nested")
+    assert names(select_components(ode, remove=remove).states) == {"z"}

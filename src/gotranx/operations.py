@@ -329,6 +329,8 @@ def split(ode: ODE, name: str, inputs: Iterable[str], outputs: Iterable[str]) ->
     for label, names in (("inputs", inputs), ("outputs", outputs)):
         if isinstance(names, str):
             raise TypeError(f"{label} must be a sequence of names, not a string")
+    if "." in name:
+        raise SplitError([f"{name}: a split name cannot contain a dot"])
     inputs = list(dict.fromkeys(inputs))
     outputs = list(dict.fromkeys(outputs))
     lookup = {a.name: a for a in all_atoms(ode)}

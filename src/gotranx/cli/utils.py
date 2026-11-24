@@ -152,5 +152,7 @@ def select_components(ode: ODE, remove: list[str] | None = None, keep: str | Non
     # model name (ode2cytozoo derives the struct name from it).
     name = f"{ode.name}_without_{'_'.join(remove)}"
     for comp in remove:
+        if not any(in_subtree(c.name, comp) for c in ode.components):
+            continue  # inside a subtree that an earlier name already removed
         ode = ode - ode.get_component(comp)
     return ODE(components=ode.components, t=ode.t, name=name, comments=ode.comments)
