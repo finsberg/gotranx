@@ -26,6 +26,10 @@ import matplotlib.pyplot as plt
 ord_path = odezoo.get("ohara_rudy_2011", version="pmr-e65b98c")
 land_path = odezoo.get("land_2017", version="github-6e5a5aa")
 
+# The coupling is written in the glue file `ord_land.glue.ode`, next to this script. It uses the `.ode` syntax, plus three statements of its own: `ep.cai` is the name `cai` of the part `ep`, `replace` gives an existing parameter or expression a new definition, and `+=` adds a term to a state's derivative. A plain statement, such as `J_TRPN = ...`, defines a new name.
+
+print(Path("ord_land.glue.ode").read_text())
+
 # The recipe lists the parts and their time units, and points at the glue file (it is next to this script). Land has a parameter `a`, an intermediate `h` and an intermediate `dLambda`, which collide with names in O'Hara-Rudy or the glue, so we rename them. The recipe could equally be a TOML file, but here the paths come from odezoo so we write it as a dictionary.
 
 recipe = {
