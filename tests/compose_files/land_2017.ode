@@ -1,0 +1,92 @@
+# Land et al. (2017) human cardiac contraction model, as crossbridge.Land2017 implements it
+# (Land et al., J Mol Cell Cardiol 106:68-83, https://doi.org/10.1016/j.yjmcc.2017.03.008).
+# Loaded through Land2017.ODE_FILE; tests/test_ode_files.py pins it to the class.
+#
+# Units: s, uM, um, Pa internally; Ta, Tp and Ka are reported in kPa (Ka per unit Lambda).
+#
+# The contract: the component `inputs` holds Ca, SL and dSL. Standalone they are
+# parameters, set before each step (zero-order hold, like advance_step). Subtracting
+# the component turns them into missing variables, the seam to an EP or tissue model.
+# The outputs are the intermediates Ta, Ka, bound_ca and Tp.
+
+parameters("inputs",
+Ca = ScalarParam(0.1, unit="uM", description="cytosolic calcium"),
+SL = ScalarParam(1.8, unit="um", description="sarcomere length"),
+dSL = ScalarParam(0.0, unit="um/s", description="sarcomere length rate")
+)
+
+parameters("land",
+SL0 = ScalarParam(1.8, unit="um"),
+a = ScalarParam(2100.0, unit="Pa"),
+b = 9.1,
+k = 7.0,
+eta_l = ScalarParam(0.2, unit="s"),
+eta_s = ScalarParam(0.02, unit="s"),
+k_trpn = ScalarParam(100.0, unit="1/s"),
+ntrpn = 2.0,
+ca50_ref = ScalarParam(2.5, unit="uM"),
+ku = ScalarParam(1000.0, unit="1/s"),
+nTm = 2.2,
+trpn50 = 0.35,
+kuw = ScalarParam(26.0, unit="1/s"),
+kws = ScalarParam(4.0, unit="1/s"),
+rw = 0.5,
+rs = 0.25,
+gs = ScalarParam(8.5, unit="1/s"),
+gw = ScalarParam(615.0, unit="1/s"),
+phi = 2.23,
+Aeff = 25.0,
+beta0 = 2.3,
+beta1 = ScalarParam(-2.4, unit="uM"),
+Tref = ScalarParam(40500.0, unit="Pa")
+)
+
+# CaTRPN starts at its steady state for Ca0 = 0.1 uM: 1 / (1 + (2.5/0.1)**2).
+states("troponin", CaTRPN = 0.0015974440894568689)
+states("crossbridges", B = 0.0, S = 0.0, W = 0.0, Zs = 0.0, Zw = 0.0)
+states("passive", Cd = 0.0)
+
+expressions("kinematics")
+Lambda = SL / SL0
+dLambda = dSL / SL0
+Lambda_c = Min(Lambda, 1.2)
+
+expressions("troponin")
+Ca_safe = Max(Ca, 0.0)
+Ca50_raw = ca50_ref + beta1 * (Lambda_c - 1.0)
+Ca50 = Max(Ca50_raw, 1e-6)
+kon = k_trpn * (Ca_safe / Ca50) ** ntrpn
+dCaTRPN_dt = kon * (1.0 - CaTRPN) - k_trpn * CaTRPN
+bound_ca = CaTRPN
+
+expressions("crossbridges")
+kb = ku * trpn50 ** nTm / (1.0 - rs - (1.0 - rs) * rw)
+kwu = kuw * (1.0 / rw - 1.0) - kws
+ksu = kws * rw * (1.0 / rs - 1.0)
+Aw = Aeff * rs / ((1.0 - rs) * rw + rs)
+As = Aw
+cw = phi * kuw * ((1.0 - rs) * (1.0 - rw)) / ((1.0 - rs) * rw)
+cs = phi * kws * ((1.0 - rs) * rw) / rs
+CaTRPN_safe = Max(CaTRPN, 1e-12)
+U = 1.0 - B - S - W
+gwu = gw * Abs(Zw)
+gsu = Conditional(Lt(Zs, -1.0), -gs * (Zs + 1.0), Conditional(Gt(Zs, 0.0), gs * Zs, 0.0))
+dB_dt = kb * CaTRPN_safe ** (-nTm / 2.0) * U - ku * CaTRPN_safe ** (nTm / 2.0) * B
+dS_dt = kws * W - (ksu + gsu) * S
+dW_dt = kuw * U - (kwu + kws + gwu) * W
+dZw_dt = Aw * dLambda - cw * Zw
+dZs_dt = As * dLambda - cs * Zs
+
+expressions("passive")
+Cd_target = Lambda - 1.0
+eta = Conditional(Gt(Cd_target - Cd, 0.0), eta_l, eta_s)
+dCd_dt = k / eta * (Cd_target - Cd)
+F1 = a * (exp(b * (Lambda - 1.0)) - 1.0)
+F2 = a * k * ((Lambda - 1.0) - Cd)
+Tp = (F1 + F2) / 1000.0
+
+expressions("tension")
+h_raw = 1.0 + beta0 * (Lambda_c + Min(Lambda_c, 0.87) - 1.87)
+h = Max(h_raw, 0.0)
+Ta = h * Tref / rs * (S * (Zs + 1.0) + W * Zw) / 1000.0
+Ka = h * Tref / rs * (As * S + Aw * W) / 1000.0

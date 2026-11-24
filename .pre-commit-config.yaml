@@ -5,7 +5,9 @@ repos:
     rev: v6.0.0
     hooks:
       - id: trailing-whitespace
+        exclude: ^tests/compose_files/(land_2017\.ode|tentusscher_2006_epi\.cellml)$  # verbatim copies, checked by sha256
       - id: end-of-file-fixer
+        exclude: ^tests/compose_files/(land_2017\.ode|tentusscher_2006_epi\.cellml)$  # verbatim copies, checked by sha256
       - id: check-yaml
       - id: check-added-large-files
       - id: check-docstring-first

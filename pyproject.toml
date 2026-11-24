@@ -54,6 +54,8 @@ docs = [
     "jax",
     "numba",
     "gotranx[formatters]",
+    # The split-ode example fetches its models from the odezoo registry.
+    "odezoo",
 ]
 test = [
     "pytest",
@@ -63,6 +65,8 @@ test = [
     "fenics-ufl",
     "gotranx[formatters]",
     "scipy",
+    # The split-ode example, which test_demos.py runs, fetches its models from odezoo.
+    "odezoo",
 ]
 benchmark = [
     "pytest-benchmark>=4.0.0",

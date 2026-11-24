@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import TypeVar, Callable
 from functools import reduce
+from itertools import groupby
 from sympy.printing.str import StrPrinter
 from structlog import get_logger
 
@@ -25,6 +26,16 @@ def break_comment_at_80(acc, x):
 
 
 class BaseGotranODECodePrinter(StrPrinter):
+    def _print_Mul(self, expr):
+        # The parser reads `-2.5` as -1 times 2.5, unevaluated. sympy prints that as
+        # `-1*2.5`, which reads back as (-1*1)*2.5, so each print and parse added a factor.
+        # Printed as it was written, it reads back as itself.
+        if len(expr.args) == 2 and expr.args[0] == -1:
+            number = expr.args[1]
+            if (number.is_Integer or number.is_Float) and number.is_nonnegative:
+                return "-" + self._print(number)
+        return super()._print_Mul(expr)
+
     def _print_Relational(self, expr):
         # v = super()._print_Relational(expr)
         lhs = self._print(expr.lhs)
@@ -81,18 +92,17 @@ class GotranODECodePrinter(BaseGotranODECodePrinter):
         self.ode = ode
 
     def print_comments(self) -> str:
-        if len(self.ode.comments) == 0:
+        lines: list[str] = []
+        for verbatim, group in groupby(self.ode.comments, key=lambda c: c.verbatim):
+            if verbatim:  # One line each, as it is
+                lines.extend(f"# {c.text}" if c.text else "#" for c in group)
+                continue
+            text = "\n".join(reduce(break_comment_at_80, c.text.split(" ")) for c in group)
+            if len(text) > 0:
+                lines.append("# " + "\n# ".join(text.strip().split("\n")))
+        if not lines:
             return ""
-        text_lst = []
-
-        for comment in self.ode.comments:
-            text_lst.append(reduce(break_comment_at_80, comment.text.split(" ")))
-
-        text = "\n".join(text_lst)
-        if len(text) > 0:
-            text = "# " + "\n# ".join(text.strip().split("\n"))
-            text += "\n\n"
-        return text
+        return "\n".join(lines) + "\n\n"
 
     def print_states(self) -> str:
         d: dict[tuple[str, ...], list[atoms.State]] = defaultdict(list)
@@ -124,8 +134,10 @@ class GotranODECodePrinter(BaseGotranODECodePrinter):
         for i in self.ode.intermediates + self.ode.state_derivatives:
             d[i.components].append(i)
 
+        # Unnamed expressions are printed without a header, so they go first: after a
+        # named block they would be read back as part of it. (sorted is stable.)
         text = ""
-        for components, intermediates in d.items():
+        for components, intermediates in sorted(d.items(), key=lambda x: x[0] not in ((), ("",))):
             text += start_odeblock("expressions", names=components, is_expression=True) + "\n"
             text += "\n".join([print_assignment(i, doprint=self.doprint) for i in intermediates])
             text += "\n\n"

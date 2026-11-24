@@ -2,22 +2,54 @@
 #
 # In some cases it might be useful to split an ODE into two separate ODEs, for example when you are modeling different dynamics and these are happening on different time scales. One example of this is when we model both the electrical and mechanical dynamics of heart cells. We can model them within the same ODE, but you might want to embed the model inside a 3D tissue model, in which it is important to solve the dependent variables within the correct model (the PDEs for mechanics are typically more expensive to solve, so we want to solve them less frequently)
 #
-# In this demo we will show how to split a model containing both the mechanical and the electrical models for a human heart cell.
-# We will use a rather large system of ODEs which simulates the electromechanics in cardiac cells that are based on the [O'Hara-Rudy model for electrophysiology](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1002061) and the [Land model](https://www.sciencedirect.com/science/article/abs/pii/S0022282817300639). You can download the model in `.ode` format {download}`here <./ORdmm_Land.ode>`
+# In this demo we will build a model of the electromechanics in cardiac cells from two existing models, and then split it again:
+#
+# 1. **Fetch** the [O'Hara-Rudy model for electrophysiology](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1002061) (`ohara_rudy_2011`, version `pmr-e65b98c`, a CellML file) and the [Land model](https://www.sciencedirect.com/science/article/abs/pii/S0022282817300639) of contraction (`land_2017`, version `github-6e5a5aa`, an `.ode` file) from [odezoo](https://github.com/ComputationalPhysiology/odezoo), a registry of cardiac models.
+# 2. **Compose** them with {py:func}`gotranx.compose`. A small glue file, `ord_land.glue.ode`, says how they are coupled: Land's troponin replaces the rapid troponin buffering of O'Hara-Rudy, the calcium that Land sees is that of O'Hara-Rudy, and the troponin flux of Land enters the calcium balance of O'Hara-Rudy (as in [Margara et al. (2021)](https://doi.org/10.1098/rsta.2019.0345)). Land is in seconds, µM and Pa, and O'Hara-Rudy in milliseconds and mM, and the glue converts between them. See the [composition how-to](../../docs/composition.md) for the recipe and the glue file.
+# 3. **Split** the composed model with {py:meth}`gotranx.ODE.split` into a `mechanics` component, which needs the calcium concentration and gives the active tension and the troponin flux, and an electrophysiology remainder.
+#
+# The numbers differ somewhat from earlier versions of this example, which used `ORdmm`, a modified O'Hara-Rudy model: this is the original 2011 model, so the action potential (for instance its peak) and the calcium transient differ somewhat, and the active tension by a few percent.
+#
+# Then we solve the full model, and the two halves separately with the mechanics stepped less often.
 #
 # First let's do the necessary imports
 
 from pathlib import Path
 import gotranx
+import odezoo
 from typing import Any
 import numpy as np
 import matplotlib.pyplot as plt
 
-# And load the model
-ode = gotranx.load_ode(Path.cwd() / "ORdmm_Land.ode")
+# Fetch the two models. `odezoo.get` downloads a model once and returns the path of the cached file.
 
-# We will now pull out the component called `"mechanics"` and turn it into a separate ODE
+ord_path = odezoo.get("ohara_rudy_2011", version="pmr-e65b98c")
+land_path = odezoo.get("land_2017", version="github-6e5a5aa")
 
+# The coupling is written in the glue file `ord_land.glue.ode`, next to this script. It uses the `.ode` syntax, plus three statements of its own: `ep.cai` is the name `cai` of the part `ep`, `replace` gives an existing parameter or expression a new definition, and `+=` adds a term to a state's derivative. A plain statement, such as `J_TRPN = ...`, defines a new name.
+
+print(Path("ord_land.glue.ode").read_text())
+
+# The recipe lists the parts and their time units, and points at the glue file (it is next to this script). Land has a parameter `a`, an intermediate `h` and an intermediate `dLambda`, which collide with names in O'Hara-Rudy or the glue, so we rename them. The recipe could equally be a TOML file, but here the paths come from odezoo so we write it as a dictionary.
+
+recipe = {
+    "time_unit": "ms",
+    "glue": "ord_land.glue.ode",
+    "parts": [
+        {"name": "ep", "file": str(ord_path), "time_unit": "ms"},
+        {
+            "name": "land",
+            "file": str(land_path),
+            "time_unit": "s",
+            "rename": {"a": "a_land", "h": "h_land", "dLambda": "dLambda_land"},
+        },
+    ],
+}
+ode = gotranx.compose(recipe, base_dir=Path.cwd())
+
+# The composed model is an ordinary `gotranx.ODE`, with the components of the two parts as `ep.<component>` and `land.<component>`. We now split out a component called `"mechanics"`: it takes the calcium concentration `cai` as an input and the active tension `Ta` and the troponin flux `J_TRPN` are its outputs. Everything that is needed to compute them moves into the new component.
+
+ode = ode.split("mechanics", inputs=["cai"], outputs=["Ta", "J_TRPN"])
 mechanics_comp = ode.get_component("mechanics")
 mechanics_ode = mechanics_comp.to_ode()
 
@@ -25,18 +57,23 @@ mechanics_ode = mechanics_comp.to_ode()
 
 ep_ode = ode - mechanics_comp
 
+# The variables that cross between the two are the missing variables of each side: the mechanics model needs the calcium concentration from EP, and EP needs the troponin flux from mechanics
+
+print("Mechanics needs:", mechanics_ode.missing_variables)
+print("EP needs:", ep_ode.missing_variables)
+
 # Now let us generate code for all the ODEs. We generate code for the full model
 
 code = gotranx.cli.gotran2py.get_code(
     ode,
-    scheme=[gotranx.schemes.Scheme.forward_generalized_rush_larsen],
+    scheme=[gotranx.schemes.Scheme.generalized_rush_larsen],
 )
 
 # the electrophysiology model
 
 code_ep = gotranx.cli.gotran2py.get_code(
     ep_ode,
-    scheme=[gotranx.schemes.Scheme.forward_generalized_rush_larsen],
+    scheme=[gotranx.schemes.Scheme.generalized_rush_larsen],
     missing_values=mechanics_ode.missing_variables,
 )
 
@@ -44,7 +81,7 @@ code_ep = gotranx.cli.gotran2py.get_code(
 
 code_mechanics = gotranx.cli.gotran2py.get_code(
     mechanics_ode,
-    scheme=[gotranx.schemes.Scheme.forward_generalized_rush_larsen],
+    scheme=[gotranx.schemes.Scheme.generalized_rush_larsen],
     missing_values=ep_ode.missing_variables,
 )
 
@@ -57,6 +94,45 @@ exec(code_ep, ep_model)
 mechanics_model: dict[str, Any] = {}
 exec(code_mechanics, mechanics_model)
 
+# The default parameters of Land are those of a skinned cell (one without a cell membrane), with a calcium sensitivity `ca50_ref` of 2.5 µM and a reference tension `Tref` of 40.5 kPa. We want an intact human cell, so we set the parameters to the values of the Land model as it is used with the O'Hara-Rudy model (in Land's units: rates in 1/s, tensions in Pa, times in s), and let the cross-bridges start fully blocked (`B = 1`). We pass the same values to the full model and to the mechanics half.
+
+land_parameters = dict(
+    k_trpn=100.0,
+    ntrpn=2.0,
+    trpn50=0.35,
+    rw=0.5,
+    rs=0.25,
+    gs=8.5,
+    gw=615.0,
+    phi=2.23,
+    Aeff=25.0,
+    beta0=2.3,
+    beta1=-2.4,
+    ca50_ref=0.805,
+    Tref=120_000.0,
+    kuw=182.0,
+    kws=12.0,
+    ku=40.0,
+    nTm=2.4,
+    a_land=2100.0,
+    b=9.1,
+    k=7.0,
+    eta_l=0.2,
+    eta_s=0.02,
+)
+land_states = dict(B=1.0, CaTRPN=0.0)
+
+# The stimulus of the CellML model starts at 50 ms (`stimStart`), and we start it at 0 ms. The mechanics half does not have that parameter, and neither does it have the passive parameters, so for each module we pick out the overrides that it has. We check that every name is a parameter of the full model, so that a typo is not silently dropped everywhere.
+
+overrides = {**land_parameters, "stimStart": 0.0}
+unknown = sorted(set(overrides) - set(model["parameter"]))
+assert not unknown, f"Not parameters of the model: {unknown}"
+
+
+def overrides_for(module: dict[str, Any]) -> dict[str, float]:
+    return {k: v for k, v in overrides.items() if k in module["parameter"]}
+
+
 # We set the time step to 0.1 ms, and simulate the model for 1000 ms
 
 dt = 0.1
@@ -67,7 +143,7 @@ t = np.arange(0, 1000, dt)
 # Get the index of the membrane potential
 V_index_ep = ep_model["state_index"]("v")
 # Forward generalized rush larsen scheme for the electrophysiology model
-fgr_ep = ep_model["forward_generalized_rush_larsen"]
+fgr_ep = ep_model["generalized_rush_larsen"]
 # Monitor function for the electrophysiology model
 mon_ep = ep_model["monitor_values"]
 # Missing values function for the electrophysiology model
@@ -75,7 +151,7 @@ mv_ep = ep_model["missing_values"]
 # Index of the calcium concentration
 Ca_index_ep = ep_model["state_index"]("cai")
 # Forward generalized rush larsen scheme for the mechanics model
-fgr_mechanics = mechanics_model["forward_generalized_rush_larsen"]
+fgr_mechanics = mechanics_model["generalized_rush_larsen"]
 # Monitor function for the mechanics model
 mon_mechanics = mechanics_model["monitor_values"]
 # Missing values function for the mechanics model
@@ -85,7 +161,7 @@ Ta_index_mechanics = mechanics_model["monitor_index"]("Ta")
 # Index of the J_TRPN
 J_TRPN_index_mechanics = mechanics_model["monitor_index"]("J_TRPN")
 # Forward generalized rush larsen scheme for the full model
-fgr = model["forward_generalized_rush_larsen"]
+fgr = model["generalized_rush_larsen"]
 # Monitor function for the full model
 mon = model["monitor_values"]
 # Index of the active tension for the full model
@@ -119,17 +195,17 @@ fig, ax = plt.subplots(3, 2, sharex=True, figsize=(10, 10))
 for j, (col, tol) in enumerate(zip(colors, tols)):
     # Get initial values from the EP model
     y_ep = ep_model["init_state_values"]()
-    p_ep = ep_model["init_parameter_values"]()
+    p_ep = ep_model["init_parameter_values"](**overrides_for(ep_model))
     ep_missing_values = np.zeros(len(ep_ode.missing_variables))
 
     # Get initial values from the mechanics model
-    y_mechanics = mechanics_model["init_state_values"]()
-    p_mechanics = mechanics_model["init_parameter_values"]()
+    y_mechanics = mechanics_model["init_state_values"](**land_states)
+    p_mechanics = mechanics_model["init_parameter_values"](**overrides_for(mechanics_model))
     mechanics_missing_values = np.zeros(len(mechanics_ode.missing_variables))
 
     # Get the initial values from the full model
-    y = model["init_state_values"]()
-    p = model["init_parameter_values"]()
+    y = model["init_state_values"](**land_states)
+    p = model["init_parameter_values"](**overrides_for(model))
 
     # Get the default values of the missing values
     # A little bit chicken and egg problem here, but in this specific case we know that the mechanics_missing_values is only the calcium concentration, which is a state variable and this doesn't require any additional information to be calculated.
@@ -155,7 +231,7 @@ for j, (col, tol) in enumerate(zip(colors, tols)):
         monitor_ep = mon_ep(ti, y_ep, p_ep, ep_missing_values)
 
         # Update missing values for the mechanics model
-        mechanics_missing_values[:] = mv_ep(t, y_ep, p_ep, ep_missing_values)
+        mechanics_missing_values[:] = mv_ep(ti, y_ep, p_ep, ep_missing_values)
 
         # Compute the change in the missing values
         change = np.linalg.norm(

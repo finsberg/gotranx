@@ -15,6 +15,8 @@ from . import schemes
 from . import templates
 from . import myokit
 from .load import load_ode
+from . import composition
+from .composition import compose
 from .schemes import get_scheme
 from .ode import ODE
 from .ode_component import Component
@@ -39,6 +41,8 @@ __all__ = [
     "exceptions",
     "load",
     "load_ode",
+    "composition",
+    "compose",
     "ode_component",
     "Component",
     "ode",

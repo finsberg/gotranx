@@ -198,6 +198,50 @@ def convert(
 
 
 @app.command()
+def compose(
+    recipe: Path = typer.Argument(
+        ...,
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        readable=True,
+        resolve_path=True,
+        help="Recipe (TOML) file naming the parts and the glue file",
+    ),
+    outname: typing.Optional[Path] = typer.Option(
+        None,
+        "-o",
+        "--outname",
+        help="Output name, by default <recipe stem>.ode in the current directory",
+    ),
+    version: bool = typer.Option(
+        None,
+        "--version",
+        callback=version_callback,
+        is_eager=True,
+        help="Show version",
+    ),
+    license: bool = typer.Option(
+        None,
+        "--license",
+        callback=license_callback,
+        is_eager=True,
+        help="Show license",
+    ),
+) -> None:
+    """Compose parts and a glue file into one .ode model, and print what each
+    part or split needs from the others"""
+    from .compose import main as _main
+    from ..exceptions import CompositionError
+
+    try:
+        _main(recipe=recipe, outname=outname)
+    except CompositionError as e:
+        typer.echo(str(e), err=True)
+        raise typer.Exit(1)
+
+
+@app.command()
 def cellml2ode(
     fname: typing.Optional[Path] = typer.Argument(
         None,

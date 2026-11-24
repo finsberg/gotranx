@@ -103,9 +103,14 @@ def _set_unit(instance, unit_str: str) -> None:
 class Comment:
     """A comment is a string that is not parsed by the parser. It is
     used to add human readable information to the model.
+
+    A ``verbatim`` comment is saved as one line, exactly as it is, where others are
+    wrapped at 80 columns. It is how the comment is printed, not part of what it says,
+    so two comments with the same text are equal either way.
     """
 
     text: str = attr.ib()
+    verbatim: bool = attr.ib(default=False, eq=False)
 
 
 @attr.s(frozen=True, kw_only=True, slots=True)

@@ -1,0 +1,16 @@
+# How ep (toy_ep.ode) and toy (contraction_toy.ode) are coupled.
+# In a block for part X, bare names are X's; another part's are written part.name.
+
+parameters("toy",
+lmbda = 1.0,
+dLambda = 0.0
+)
+
+expressions("toy")
+replace Ca = 1000.0*ep.cai
+replace SL = lmbda*SL0
+replace dSL = 1000.0*dLambda*SL0
+J = 0.07*dCaTRPN_dt
+
+expressions("ep")
+dcai_dt += -toy.J

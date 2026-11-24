@@ -93,6 +93,89 @@ class DuplicateSymbolError(GotranxError):
         )
 
 
+# The glue-file errors carry the line they were found on as ``line``, and leave it out of
+# the message, so that the caller can put the file and the line in front of it.
+
+
+@dataclass
+class GlueOnlyConstruct(GotranxError):
+    """A plain ``.ode`` file used one of the constructs only glue files accept."""
+
+    line: int | None = None
+
+    def __str__(self) -> str:
+        return "`replace`, `+=` and `part.name` are only allowed in glue files"
+
+
+@dataclass
+class UnknownStatement(GotranxError):
+    """A two-word statement, ``<word> name = ...``, whose first word is not ``replace``."""
+
+    word: str
+    line: int | None = None
+
+    def __str__(self) -> str:
+        return f"unknown statement {self.word}"
+
+
+@dataclass
+class InvalidGlueBlock(GotranxError):
+    """A glue block that declares states, or does not name exactly one component."""
+
+    message: str
+    line: int | None = None
+
+    def __str__(self) -> str:
+        return self.message
+
+
+@dataclass
+class CompositionError(GotranxError):
+    """Everything wrong with a composition: its recipe, its parts or its glue.
+
+    The messages are collected before this is raised, and ``str()`` lists them one per
+    line. A glue file's messages start with ``<glue file>:<line>:``.
+    """
+
+    messages: list[str]
+
+    def __str__(self) -> str:
+        return "\n".join(self.messages)
+
+
+@dataclass
+class SplitError(GotranxError):
+    """Everything wrong with a split (:meth:`gotranx.ode.ODE.split`).
+
+    The messages are collected before this is raised, and ``str()`` lists them one per
+    line.
+    """
+
+    messages: list[str]
+
+    def __str__(self) -> str:
+        return "\n".join(self.messages)
+
+
+@dataclass
+class RenameError(GotranxError, ValueError):
+    """Everything wrong with a rename (:meth:`gotranx.ode.ODE.rename`).
+
+    ``problems`` maps each name whose rename is refused to the reason, in the order of
+    the mapping; the other names could be renamed. ``str()`` lists the messages, one
+    per line.
+    """
+
+    problems: dict[str, str]
+
+    @property
+    def messages(self) -> list[str]:
+        return [f"rename {name}: {reason}" for name, reason in self.problems.items()]
+
+    def __str__(self) -> str:
+        return "\n".join(self.messages)
+
+
 @dataclass
 class UnknownTreeTypeError(GotranxError):
     datatype: str

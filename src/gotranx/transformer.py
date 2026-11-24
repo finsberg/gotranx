@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from typing import NamedTuple
-from typing import TypeVar, Any
+from typing import TypeVar, Any, TYPE_CHECKING
 
 import lark
 
@@ -10,6 +10,9 @@ from . import atoms
 from . import exceptions
 from . import ode_component
 from . import units
+
+if TYPE_CHECKING:
+    from .glue import Block, GlueStatement
 
 T = TypeVar("T", atoms.State, atoms.Parameter)
 
@@ -59,8 +62,10 @@ def get_unit_and_comment_from_assignment(
             try:
                 # Try to parse the unit
                 unit = units.ureg(potential_unit.text)
-            except (units.pint.UndefinedUnitError, AttributeError):
-                # Not a proper unit so it's a comment
+            except Exception:
+                # Not a proper unit so it's a comment. On free text pint raises
+                # UndefinedUnitError, but also tokenize.TokenError (an apostrophe,
+                # as in "Land's") or AssertionError ("?").
                 return None, atoms.Comment(potential_unit.text)
             else:
                 if isinstance(unit, units.pint.Quantity):
@@ -223,12 +228,81 @@ def tree2parameter(
         raise exceptions.UnknownTreeTypeError(datatype=s.data, atom="Parameter")
 
 
+# Statements of the form `<word> name = ...`, valid only with <word> == "replace"
+TWO_WORD_STATEMENTS = ("replace_param", "replace_scalarparam", "replace_assignment")
+# Statements only glue files accept
+GLUE_STATEMENTS = (*TWO_WORD_STATEMENTS, "add_assignment")
+
+
+def check_statement_word(tree: lark.Tree) -> None:
+    """Raise :class:`exceptions.UnknownStatement` if ``tree`` is a two-word
+    statement whose first word is not ``replace``.
+
+    The grammar reads any two names before ``=``, so that ``replace`` stays
+    an ordinary name everywhere else.
+    """
+    if tree.data in TWO_WORD_STATEMENTS:
+        word = tree.children[0]
+        if word != "replace":
+            raise exceptions.UnknownStatement(word=str(word), line=getattr(word, "line", None))
+
+
+def refuse_glue_constructs(items: list[Any]) -> None:
+    """Raise if a block of a plain ``.ode`` file holds a glue-only construct
+
+    Parameters
+    ----------
+    items : list[Any]
+        The children of a ``states``, ``parameters`` or ``expressions`` block
+
+    Raises
+    ------
+    exceptions.UnknownStatement
+        For a two-word statement that does not start with ``replace``
+    exceptions.GlueOnlyConstruct
+        For ``replace``, ``+=`` or ``part.name``
+    """
+    for item in items:
+        if not isinstance(item, lark.Tree):
+            continue
+        check_statement_word(item)
+        if item.data in GLUE_STATEMENTS:
+            raise exceptions.GlueOnlyConstruct(line=first_line([item]))
+        for subtree in item.iter_subtrees_topdown():
+            if subtree.data == "qualified_variable":
+                raise exceptions.GlueOnlyConstruct(line=first_line([subtree]))
+
+
+def first_line(items: list[Any]) -> int | None:
+    """The line of the first token in ``items`` (searching trees depth first), if any"""
+    for item in items:
+        if isinstance(item, lark.Token):
+            return item.line
+        if isinstance(item, lark.Tree):
+            line = first_line(item.children)
+            if line is not None:
+                return line
+    return None
+
+
 class TreeToODE(lark.Transformer):
     """Transform a lark tree to an ODE
 
     See https://lark-parser.readthedocs.io/en/latest/recipes.html
     for more information on how to use lark transformers.
+
+    Parameters
+    ----------
+    glue : bool, optional
+        Transform a glue file instead, by default False. The result is then a
+        tuple of :class:`gotranx.glue.GlueStatement`, in the order of the file
+        (see :func:`gotranx.glue.parse_glue`). Without it, ``replace``, ``+=``
+        and ``part.name`` raise :class:`exceptions.GlueOnlyConstruct`.
     """
+
+    def __init__(self, glue: bool = False) -> None:
+        super().__init__()
+        self.glue = glue
 
     def _call_userfunc(self, tree, new_children=None):  # pragma: nocover
         # Assumes tree is already transformed
@@ -264,14 +338,31 @@ class TreeToODE(lark.Transformer):
 
     def states(self, s: list[Any]) -> tuple[atoms.State | atoms.Comment, ...]:
         """Convert a list of states to atoms.State"""
+        if self.glue:
+            raise exceptions.InvalidGlueBlock(
+                "glue files cannot declare states", line=first_line(s)
+            )
+        refuse_glue_constructs(s)
         return lark_list_to_parameters(s, cls=atoms.State)
 
-    def parameters(self, s: list[Any]) -> tuple[atoms.Parameter | atoms.Comment, ...]:
-        """Convert a list of parameters to atoms.Parameter"""
+    def parameters(
+        self, s: list[Any]
+    ) -> tuple[atoms.Parameter | atoms.Comment, ...] | tuple[GlueStatement, ...]:
+        """Convert a list of parameters to atoms.Parameter
+        (or to glue statements, in glue mode)"""
+        if self.glue:
+            return self._glue_statements(s, block="parameters")
+        refuse_glue_constructs(s)
         return lark_list_to_parameters(s, cls=atoms.Parameter)
 
-    def expressions(self, s) -> tuple[atoms.Assignment | atoms.Comment, ...]:
-        """Convert a list of expressions to atoms.Assignment and atoms.Comment"""
+    def expressions(
+        self, s
+    ) -> tuple[atoms.Assignment | atoms.Comment, ...] | tuple[GlueStatement, ...]:
+        """Convert a list of expressions to atoms.Assignment and atoms.Comment
+        (or to glue statements, in glue mode)"""
+        if self.glue:
+            return self._glue_statements(s, block="expressions")
+        refuse_glue_constructs(s)
         i, components = find_components(s)
 
         assignments: list[atoms.Assignment | atoms.Comment] = []
@@ -284,7 +375,26 @@ class TreeToODE(lark.Transformer):
 
         return tuple(assignments)
 
-    def ode(self, s) -> LarkODE:
+    def _glue_statements(self, s: list[Any], block: Block) -> tuple[GlueStatement, ...]:
+        """The glue statements of one block, which must name exactly one component"""
+        from .glue import glue_statement  # lazy: glue imports this module
+
+        i, components = find_components(s)
+        trees = [si for si in s[i:] if isinstance(si, lark.Tree)]
+        if not trees:  # Only comments and blank lines
+            return ()
+        if len(components) != 1 or components[0] == "":
+            names = ", ".join(f'"{c}"' for c in components if c) or "none"
+            raise exceptions.InvalidGlueBlock(
+                "a glue block must name exactly one component, the part it belongs to, "
+                f"but this one names {names}",
+                # The header's line, or, in a block without one, the first statement's
+                # (not that of the blank lines or comments before it)
+                line=s[0].line if i > 0 else first_line(trees),
+            )
+        return tuple(glue_statement(tree, block=block, component=components[0]) for tree in trees)
+
+    def ode(self, s) -> LarkODE | tuple[GlueStatement, ...]:
         """Convert a lark tree to an ODE
 
         Parameters
@@ -295,8 +405,14 @@ class TreeToODE(lark.Transformer):
         Returns
         -------
         LarkODE
-            A tuple of components and comments
+            A tuple of components and comments (in glue mode, a tuple of
+            the file's glue statements, in order)
         """
+        if self.glue:
+            return tuple(
+                statement for block in s if isinstance(block, tuple) for statement in block
+            )
+
         # FIXME: Could use Enum here
         mapping = {
             atoms.Parameter: "parameters",

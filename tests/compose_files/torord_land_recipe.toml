@@ -1,0 +1,14 @@
+# ToR-ORd + Land 2017, two-way (Margara 2021). Splits are made by the tests.
+time_unit = "ms"
+glue = "torord_land.glue.ode"
+
+[[parts]]
+name = "ep"
+file = "../cellml_files/ToRORd_dynCl_mid.cellml"
+time_unit = "ms"
+
+[[parts]]
+name = "land"
+file = "land_2017.ode"
+time_unit = "s"
+rename = { a = "a_land", h = "h_land", dLambda = "dLambda_land" }

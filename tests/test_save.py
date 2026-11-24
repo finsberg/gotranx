@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 from gotranx import load_ode
 from gotranx import save
+from gotranx.load import ode_from_string
 from gotranx.ode import make_ode
 
 
@@ -63,3 +64,24 @@ def test_write_ode_file_write_lorentz(path, parser, trans):
     save.write_ODE_to_ode_file(old_ode, path)
     ode = load_ode(path)
     assert ode == old_ode
+
+
+MIXED = """
+states(x = 0.0)
+parameters(k = 1.0)
+dx_dt = -k*x
+expressions("a")
+y = 2*x
+"""
+
+
+def test_save_unnamed_expressions_before_named_ones(tmp_path):
+    # The unnamed dx_dt is saved without a header, so it must come before
+    # expressions("a"), or it is read back as part of component "a".
+    ode = ode_from_string(MIXED, name="mixed")
+    assert ode["dx_dt"].components == ("",)
+    assert ode["y"].components == ("a",)
+    ode.save(tmp_path / "mixed.ode")
+    loaded = load_ode(tmp_path / "mixed.ode")
+    for name in ("x", "k", "dx_dt", "y"):
+        assert loaded[name].components == ode[name].components, name

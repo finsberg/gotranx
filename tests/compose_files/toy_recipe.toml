@@ -1,0 +1,14 @@
+# The toy composition of tests/test_compose.py; toy_coupled.ode is its result, by hand.
+time_unit = "ms"
+glue = "toy_glue.ode"
+
+[[parts]]
+name = "ep"
+file = "toy_ep.ode"
+time_unit = "ms"
+
+[[parts]]
+name = "toy"
+file = "../odefiles/contraction_toy.ode"
+time_unit = "s"
+rename = { dLambda = "dLambda_toy" }  # the glue adds a parameter dLambda, as for Land

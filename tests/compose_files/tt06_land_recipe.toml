@@ -1,0 +1,14 @@
+# TT06 epicardial + Land 2017, one way: Ca_i goes to Land, nothing comes back.
+time_unit = "ms"
+glue = "tt06_land.glue.ode"
+
+[[parts]]
+name = "ep"
+file = "tentusscher_2006_epi.cellml"
+time_unit = "ms"
+
+[[parts]]
+name = "mechanics"
+file = "land_2017.ode"
+time_unit = "s"
+rename = { h = "h_land", dLambda = "dLambda_land" }
