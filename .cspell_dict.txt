@@ -258,3 +258,5 @@ Zetaw
 Ziaratgahi
 zinf
 zlabel
+ntrpn
+Aeff

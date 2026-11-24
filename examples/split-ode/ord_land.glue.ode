@@ -1,0 +1,17 @@
+# How ep (O'Hara-Rudy 2011) and land (Land 2017) are coupled, as in Margara et al. (2021).
+# In a block for part X, bare names are X's; another part's are written part.name.
+
+parameters("land",
+lmbda = 1.0,
+dLambda = ScalarParam(0.0, unit="1/ms")
+)
+
+expressions("land")
+replace Ca = 1000.0*ep.cai
+replace SL = lmbda*SL0
+replace dSL = 1000.0*dLambda*SL0
+J_TRPN = ep.trpnmax*dCaTRPN_dt
+
+expressions("ep")
+replace Bcai = 1.0/(1.0 + cmdnmax*kmcmdn/(cai + kmcmdn)**2)
+dcai_dt += -Bcai*land.J_TRPN
