@@ -11,6 +11,14 @@
   `hybrid_rush_larsen`, which without `stiff_states` was plain forward Euler.
   The new scheme detects the gating states itself and no longer accepts
   `stiff_states`; use `hybrid_rush_larsen` to pass an explicit list.
+- A dot in a component name nests it under every prefix that ends before a
+  dot: `"ep.gate"` is under `"ep"`, and `"a.b.c"` under `"a.b"` and `"a"`.
+  `ODE.get_component("ep")` returns the atoms of `ep` and of every component
+  nested under it, in a new `Component` when there is more than one, and
+  `ode - component` removes the component and everything nested under it,
+  matched by name rather than by equality. `rescale_time(components=...)` and
+  `--keep-component`/`--remove-component` select the same way. A model without
+  dots in its component names behaves as before.
 
 ### Changed — this changes generated code
 
@@ -174,12 +182,15 @@ says so). `ode2julia` output does not change.
 - Model composition. `gotranx.compose(recipe)` builds one `ODE` from parts
   (`.ode` or `.cellml`) named in a TOML recipe and coupled by a glue file,
   which uses the `.ode` grammar plus `part.name`, `replace` and `+=` on a state
-  derivative. The recipe's optional `[components.<name>]` tables split the result
-  with `ODE.split`. Also new: `ODE.split(name, inputs, outputs)`, `ODE.rename`
-  (every rename it refuses is reported in one `RenameError`, a `ValueError`),
+  derivative. Each part keeps its components, as `part.component`, so
+  `get_component("ep")` takes the whole part. The recipe's optional
+  `[components.<name>]` tables split the result with `ODE.split`, in which what
+  moves keeps its place: `land.crossbridges` becomes `mechanics.crossbridges`.
+  Also new: `ODE.split(name, inputs, outputs)`, `ODE.rename` (every rename it
+  refuses is reported in one `RenameError`, a `ValueError`),
   `ODE.rescale_time`, and the command `gotranx compose RECIPE [-o OUT]`, which
-  writes the model and prints what each component needs from the others. Like
-  every other `.ode` file, the model it writes is not guarded against
+  writes the model and prints what each part or split needs from the others.
+  Like every other `.ode` file, the model it writes is not guarded against
   singularities: loading it guards them, once. See the how-to guide on
   composition.
 - `gotranx.atoms.Comment(text, verbatim=True)`, a comment saved as one line,

@@ -3,8 +3,8 @@
 `gotranx.compose` builds one model from several: a **recipe** (TOML) says which
 models are combined and how each is adapted to the others, and a **glue file**
 says how they are coupled. The result is an ordinary `gotranx.ODE`, in which each
-part is one component named after the part. `ODE.split` then carves a component
-such as `mechanics` out of the result by what goes in and what comes out.
+part keeps its components, nested under the part's name. `ODE.split` then carves a
+component such as `mechanics` out of the result by what goes in and what comes out.
 
 The files below are the toy composition the tests use
 (`tests/compose_files/`): a calcium model and a contraction model.
@@ -34,8 +34,10 @@ rename = { dLambda = "dLambda_toy" }  # the glue adds a parameter dLambda, as fo
   `time_unit` is the part's own. Both are pint units of time, and both are
   mandatory. Here `toy` is in seconds, and is rescaled to the model's
   milliseconds.
-- Each part has a `name`, and its components become one component of that
-  name: `toy_ep.ode` has two, `calcium` and `gate`, which become `ep`.
+- Each part has a `name`, which must be a valid name, so without a dot. Its
+  components keep their names under it: `toy_ep.ode` has two, `calcium` and
+  `gate`, which become `ep.calcium` and `ep.gate`, and `contraction_toy.ode`'s
+  `kinetics` becomes `toy.kinetics`; see "Components" below.
 - `file` is an `.ode` or a `.cellml` file. Relative paths are relative to the
   recipe.
   On Windows, write paths with forward slashes, or in single quotes: inside
@@ -114,15 +116,54 @@ checked:
 | `dX_dt += ...` | otherwise | error |
 | `replace` on a state | | error for now |
 
-A parameter of one component that another uses is written under both components,
-so both halves of a split carry it. A state or intermediate used by another
-component becomes a missing variable when the model is split.
+A parameter of one part that another part uses is written under its own
+component and under each component that uses it, here
+`parameters("ep.calcium", "toy", k_up=...)` for a `J = ep.k_up*dCaTRPN_dt` in
+the glue, so that both halves of a split carry it. A state or intermediate used
+by another part becomes a missing variable when the model is split.
 
 A part whose `time_unit` differs from the model's has every state derivative
 multiplied by `k`, one model time unit expressed in the part's unit, and `t`
 replaced by `k*t`. Only derivatives and `t` change: an intermediate that is a
 rate stays in the part's unit, so glue that reads one must convert it. The glue
 itself is in the model's time unit.
+
+## Components
+
+A dot in a component name nests it under every prefix that ends before a dot:
+`ep.gate` is under `ep`, and `a.b.c` under `a.b` and `a`. `ode.get_component("ep")`
+returns the atoms of `ep` and of every component nested under it, and
+`ode - ode.get_component("ep")` removes them all. An atom that is also in a
+component outside them stays. Each atom still lists the components it is in, so
+this holds for any `.ode` file, and one without dots behaves as it always has.
+
+In a composed model, part `ep`'s component `calcium` is `ep.calcium`, and its
+unnamed component, if it has one, is `ep` itself. What the glue defines for
+`ep` is in `ep` too, and a name the glue replaces stays where it was. The saved
+model has blocks such as `states("ep.gate", ...)` and
+`parameters("toy.kinetics", ...)`, and:
+
+```
+expressions("ep.calcium")
+release = c_rel*n
+dcai_dt = release + (-J - cai*k_up)
+
+expressions("ep.gate")
+dn_dt = (0.02*n)*((-1000)*cai) + 0.01*(1 - n)
+
+expressions("toy")
+J = 0.07*dCaTRPN_dt
+```
+
+`ODE.split` follows the outputs' dependencies within the parts they belong to,
+across those parts' components, and what moves keeps its place under the new
+name: with `ode.split("mechanics", inputs=["B"], outputs=["Zs", "Ta"])`,
+`toy.crossbridges` becomes `mechanics.crossbridges` and `toy` becomes
+`mechanics`. An intermediate computed on both sides, or a parameter used on
+both, keeps its components and gains those under `mechanics`. What moves from
+another part, such as a parameter of `ep` that only the new component uses, goes
+to `mechanics` itself. A split cannot be named after a component, or after a
+name that holds components, such as `ep`.
 
 ## From Python
 
@@ -160,7 +201,7 @@ gotranx compose toy_recipe.toml -o toy.ode
 
 It writes the model, unguarded, by default to `<recipe stem>.ode` in the current
 directory, and refuses to write over the recipe, the glue file or a part's file.
-It prints, for each component, what it needs from the others:
+It prints, for each part and each split, what it needs from the others:
 
 ```
 Wrote toy.ode
@@ -168,8 +209,9 @@ toy needs: cai
 ep needs: J
 ```
 
-Those are the names the component would take as missing variables if every
-other component were removed.
+Those are the names the part would take as missing variables if every other
+part and split were removed, each with the components nested under it. There is
+one line per part, not one per component such as `ep.calcium`.
 
 ```{warning}
 With `allow_missing = true` the model can be saved, but gotranx cannot load an
