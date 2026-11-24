@@ -1,5 +1,6 @@
 abstol
 Acta
+Aeff
 afterload
 allclose
 arange
@@ -141,6 +142,7 @@ njit
 nocover
 Nonstiff
 nsimplify
+ntrpn
 numba
 Numerica
 numpy
@@ -258,5 +260,3 @@ Zetaw
 Ziaratgahi
 zinf
 zlabel
-ntrpn
-Aeff

@@ -5,8 +5,10 @@
 # In this demo we will build a model of the electromechanics in cardiac cells from two existing models, and then split it again:
 #
 # 1. **Fetch** the [O'Hara-Rudy model for electrophysiology](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1002061) (`ohara_rudy_2011`, version `pmr-e65b98c`, a CellML file) and the [Land model](https://www.sciencedirect.com/science/article/abs/pii/S0022282817300639) of contraction (`land_2017`, version `github-6e5a5aa`, an `.ode` file) from [odezoo](https://github.com/finsberg/odezoo), a registry of cardiac models.
-# 2. **Compose** them with {func}`gotranx.compose`. A small glue file, `ord_land.glue.ode`, says how they are coupled: Land's troponin replaces the rapid troponin buffering of O'Hara-Rudy, the calcium that Land sees is that of O'Hara-Rudy, and the troponin flux of Land enters the calcium balance of O'Hara-Rudy (as in [Margara et al. (2021)](https://doi.org/10.1098/rsta.2019.0345)). Land is in seconds, µM and Pa, and O'Hara-Rudy in milliseconds and mM, and the glue converts between them. See the [composition how-to](../../docs/composition.md) for the recipe and the glue file.
-# 3. **Split** the composed model with {meth}`gotranx.ODE.split` into a `mechanics` component, which needs the calcium concentration and gives the active tension and the troponin flux, and an electrophysiology remainder.
+# 2. **Compose** them with {py:func}`gotranx.compose`. A small glue file, `ord_land.glue.ode`, says how they are coupled: Land's troponin replaces the rapid troponin buffering of O'Hara-Rudy, the calcium that Land sees is that of O'Hara-Rudy, and the troponin flux of Land enters the calcium balance of O'Hara-Rudy (as in [Margara et al. (2021)](https://doi.org/10.1098/rsta.2019.0345)). Land is in seconds, µM and Pa, and O'Hara-Rudy in milliseconds and mM, and the glue converts between them. See the [composition how-to](../../docs/composition.md) for the recipe and the glue file.
+# 3. **Split** the composed model with {py:meth}`gotranx.ODE.split` into a `mechanics` component, which needs the calcium concentration and gives the active tension and the troponin flux, and an electrophysiology remainder.
+#
+# The numbers differ somewhat from earlier versions of this example, which used `ORdmm`, a modified O'Hara-Rudy model: this is the original 2011 model, so the action potential (for instance its peak) and the calcium transient differ somewhat, and the active tension by a few percent.
 #
 # Then we solve the full model, and the two halves separately with the mechanics stepped less often.
 #
@@ -116,11 +118,15 @@ land_parameters = dict(
 )
 land_states = dict(B=1.0, CaTRPN=0.0)
 
-# The mechanics half only has the parameters that Ta and J_TRPN depend on (the passive tension is not among them), so we pick out the ones that each module has
+# The stimulus of the CellML model starts at 50 ms (`stimStart`), and we start it at 0 ms. The mechanics half does not have that parameter, and neither does it have the passive parameters, so for each module we pick out the overrides that it has. We check that every name is a parameter of the full model, so that a typo is not silently dropped everywhere.
+
+overrides = {**land_parameters, "stimStart": 0.0}
+unknown = sorted(set(overrides) - set(model["parameter"]))
+assert not unknown, f"Not parameters of the model: {unknown}"
 
 
-def land_overrides(module: dict[str, Any]) -> dict[str, float]:
-    return {k: v for k, v in land_parameters.items() if k in module["parameter"]}
+def overrides_for(module: dict[str, Any]) -> dict[str, float]:
+    return {k: v for k, v in overrides.items() if k in module["parameter"]}
 
 
 # We set the time step to 0.1 ms, and simulate the model for 1000 ms
@@ -185,17 +191,17 @@ fig, ax = plt.subplots(3, 2, sharex=True, figsize=(10, 10))
 for j, (col, tol) in enumerate(zip(colors, tols)):
     # Get initial values from the EP model
     y_ep = ep_model["init_state_values"]()
-    p_ep = ep_model["init_parameter_values"]()
+    p_ep = ep_model["init_parameter_values"](**overrides_for(ep_model))
     ep_missing_values = np.zeros(len(ep_ode.missing_variables))
 
     # Get initial values from the mechanics model
     y_mechanics = mechanics_model["init_state_values"](**land_states)
-    p_mechanics = mechanics_model["init_parameter_values"](**land_overrides(mechanics_model))
+    p_mechanics = mechanics_model["init_parameter_values"](**overrides_for(mechanics_model))
     mechanics_missing_values = np.zeros(len(mechanics_ode.missing_variables))
 
     # Get the initial values from the full model
     y = model["init_state_values"](**land_states)
-    p = model["init_parameter_values"](**land_overrides(model))
+    p = model["init_parameter_values"](**overrides_for(model))
 
     # Get the default values of the missing values
     # A little bit chicken and egg problem here, but in this specific case we know that the mechanics_missing_values is only the calcium concentration, which is a state variable and this doesn't require any additional information to be calculated.
