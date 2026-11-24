@@ -40,12 +40,30 @@ def test_torord_land_zeta_split(torord_land):
     assert "lmbda" in names(rest(m, "mechanics").parameters)
 
 
+def test_torord_land_zeta_split_as_simcardemsx_takes_it(torord_land):
+    # simcardemsx's generate_ode_code, word for word
+    ode = torord_land.split("mechanics", inputs=["S", "W"], outputs=["Zs", "Zw", "Ta"])
+    mechanics_comp = ode.get_component("mechanics")
+    mechanics_ode = mechanics_comp.to_ode()
+    ep_ode = ode - mechanics_comp
+    assert set(ep_ode.missing_variables) == {"Zs", "Zw"}
+    assert set(mechanics_ode.missing_variables) == {"S", "W"}
+    # Land's components that move keep their names, under the new component's
+    assert ode["Zs"].components == ("mechanics.crossbridges",)
+    assert ode["Ta"].components == ("mechanics.tension",)
+    assert ode["S"].components == ("land.crossbridges",)
+
+
 def test_torord_land_cai_split(torord_land):
     m = torord_land.split("mechanics", inputs=["cai"], outputs=["Ta", "J_TRPN"])
     assert set(rest(m, "mechanics").missing_variables) == {"J_TRPN"}
     assert set(only(m, "mechanics").missing_variables) == {"cai"}
     assert {"CaTRPN", "B", "S", "W", "Zs", "Zw"} <= names(m.get_component("mechanics").states)
     assert "Cd" in names(m.get_component("land").states)
+    # trpnmax, ToR-ORd's, moves with J_TRPN, the only thing that reads it once the glue has
+    # replaced Bcai: to mechanics itself, as it comes from outside the outputs' part
+    assert torord_land["trpnmax"].components == ("ep.intracellular_ions", "land")
+    assert m["trpnmax"].components == ("mechanics",)
 
 
 def test_torord_land_bcai_has_no_troponin(torord_land):

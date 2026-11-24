@@ -10,6 +10,7 @@ import sympy as sp
 import gotranx
 from gotranx import atoms, composition
 from gotranx.exceptions import CompositionError
+from gotranx.ode import top_level
 
 here = Path(__file__).parent
 FILES = here / "compose_files"
@@ -92,10 +93,62 @@ def test_dict_recipe_resolves_against_the_current_directory(monkeypatch):
     same_model(gotranx.compose(tomllib.loads(RECIPE.read_text())), gotranx.compose(RECIPE))
 
 
-def test_each_part_is_one_component():
+def tops(ode: gotranx.ODE) -> set[str]:
+    """The top-level components: the parts, and the splits"""
+    return {top_level(c.name) for c in ode.components}
+
+
+def test_each_part_keeps_its_components():
+    # Each under its part, and what the glue defines under the part itself
     ode = gotranx.compose(RECIPE)
-    assert {c.name for c in ode.components} == {"ep", "toy"}
-    assert gotranx.load_ode(TOY_EP).num_components == 2  # "calcium" and "gate"
+    toy = {c.name for c in gotranx.load_ode(TOY).components}
+    assert toy == {"inputs", "kinetics", "troponin", "crossbridges", "kinematics", "tension"}
+    assert {c.name for c in ode.components} == {
+        "ep.calcium",
+        "ep.gate",
+        *(f"toy.{c}" for c in toy),
+        "toy",
+    }
+    assert ode["dn_dt"].components == ("ep.gate",)
+    assert ode["dZs_dt"].components == ode["Zs"].components == ("toy.crossbridges",)
+    for glue in ("lmbda", "dLambda", "J"):
+        assert ode[glue].components == ("toy",), glue
+    # A replaced name stays where it was, and a derivative a term is added to
+    assert ode["Ca"].components == ("toy.inputs",)
+    assert ode["dcai_dt"].components == ("ep.calcium",)
+
+
+def test_a_part_without_component_names_is_the_part(tmp_path):
+    # A block without a component name is in component "": the part's own
+    (tmp_path / "m.ode").write_text(
+        "parameters(k = 1.0)\nstates(x = 0.5)\ndx_dt = -k*x\n"
+        'states("gate", y = 0.5)\nexpressions("gate")\ndy_dt = x - y\n'
+    )
+    ode = gotranx.compose(
+        {"time_unit": "ms", "parts": [{"name": "p", "file": "m.ode", "time_unit": "ms"}]},
+        base_dir=tmp_path,
+    )
+    for name in ("k", "x", "dx_dt"):
+        assert ode[name].components == ("p",), name
+    assert ode["dy_dt"].components == ode["y"].components == ("p.gate",)
+    assert {s.name for s in ode.get_component("p").states} == {"x", "y"}
+
+
+def test_each_part_is_its_components():
+    ode = gotranx.compose(RECIPE)
+    assert tops(ode) == {"ep", "toy"}
+    ep = ode.get_component("ep")
+    assert {s.name for s in ep.states} == {"cai", "n"}
+    assert {s.name for s in ode.get_component("toy").states} == {"CaTRPN", "B", "Zs"}
+
+
+def test_saved_text_names_the_components(tmp_path):
+    gotranx.compose(RECIPE).save(tmp_path / "m.ode")
+    text = (tmp_path / "m.ode").read_text()
+    assert 'expressions("ep.calcium")' in text
+    assert 'states("ep.gate",\nn=' in text
+    assert 'parameters("toy.kinetics",' in text
+    assert 'expressions("toy")\nJ = ' in text
 
 
 def test_composed_model_has_no_missing_variables():
@@ -107,11 +160,12 @@ def test_identity_composition_equals_load_ode():
     ode = gotranx.compose(
         {"time_unit": "ms", "parts": [{"name": "ep", "file": str(TOY_EP), "time_unit": "ms"}]}
     )
-    assert {c.name for c in ode.components} == {"ep"}
+    assert tops(ode) == {"ep"}
     expected = gotranx.load_ode(TOY_EP)
     same_model(ode, expected, components=False)
     for atom in (*ode.states, *ode.parameters, *ode.intermediates, *ode.state_derivatives):
-        assert atom.components == ("ep",), atom.name
+        own = expected[atom.name].components
+        assert atom.components == tuple(f"ep.{c}" for c in own), atom.name
 
 
 def test_identity_composition_removes_singularities_once():
@@ -140,8 +194,11 @@ def test_cellml_part():
     ode = gotranx.compose(
         {"time_unit": "ms", "parts": [{"name": "noble", "file": str(NOBLE), "time_unit": "ms"}]}
     )
-    assert {c.name for c in ode.components} == {"noble"}
     imported = gotranx.myokit.cellml_to_gotran(NOBLE)
+    # Its components that hold something (the import's "environment" holds only time)
+    own = {c for a in gotranx.operations.all_atoms(imported) for c in a.components}
+    assert "membrane" in own
+    assert {c.name for c in ode.components} == {f"noble.{c}" for c in own}
     assert {s.name for s in ode.states} == {s.name for s in imported.states}
     assert {p.name for p in ode.parameters} == {p.name for p in imported.parameters}
 
@@ -247,11 +304,24 @@ def test_header_records_sha256():
 
 def test_cross_component_parameter_under_both(tmp_path):
     ode = compose_glue(tmp_path, 'expressions("toy")\nJ = ep.k_up*dCaTRPN_dt\n')
-    assert ode["k_up"].components == ("ep", "toy")
-    assert ode["c_rel"].components == ("ep",)
+    assert ode["k_up"].components == ("ep.calcium", "toy")
+    assert ode["c_rel"].components == ("ep.calcium",)
     assert ode["J"].components == ("toy",)
     ode.save(tmp_path / "m.ode")
-    assert gotranx.load_ode(tmp_path / "m.ode")["k_up"].components == ("ep", "toy")
+    assert gotranx.load_ode(tmp_path / "m.ode")["k_up"].components == ("ep.calcium", "toy")
+
+
+def test_cross_component_parameter_under_each_user(tmp_path):
+    # Under its own component, then under each component of another part that uses it
+    glue = (
+        'expressions("toy")\nreplace Ca = 1000.0*ep.cai*ep.k_up\n'
+        "replace Lambda = ep.k_up*SL/SL0\nJ = ep.k_up*dCaTRPN_dt\n"
+    )
+    ode = compose_glue(tmp_path, glue)
+    assert ode["k_up"].components == ("ep.calcium", "toy", "toy.inputs", "toy.kinematics")
+    # Each side of the parts keeps it
+    assert "k_up" in {p.name for p in (ode - ode.get_component("toy")).parameters}
+    assert ode["k_up"] in ode.get_component("toy").parameters
 
 
 # One test per row of the spec's rules table
@@ -307,7 +377,7 @@ def test_replace_parameter_declaration(tmp_path):
     )
     ode = compose_glue(tmp_path, glue)
     k = ode["k_trpn"]
-    assert isinstance(k, atoms.Parameter) and k.components == ("toy",)
+    assert isinstance(k, atoms.Parameter) and k.components == ("toy.kinetics",)
     assert (k.value, k.unit_str, k.description) == (200.0, "1/ms", "faster")
 
 
@@ -324,7 +394,7 @@ def test_replace_parameter_keeps_its_unit_and_description(tmp_path, line, expect
     # Unless the glue line gives them, as a replace in an expressions block keeps the unit
     ode = compose_glue(tmp_path, f'parameters("toy",\n{line}\n)\n')
     ca = ode["Ca"]
-    assert isinstance(ca, atoms.Parameter) and ca.components == ("toy",)
+    assert isinstance(ca, atoms.Parameter) and ca.components == ("toy.inputs",)
     assert (ca.value, ca.unit_str, ca.description) == expected
     assert ca.unit == gotranx.units.ureg(expected[1]).units
 
@@ -332,7 +402,7 @@ def test_replace_parameter_keeps_its_unit_and_description(tmp_path, line, expect
 def test_replace_parameter_with_expression_makes_an_input(tmp_path):
     ode = compose_glue(tmp_path, 'expressions("toy")\nreplace Ca = 1000.0*ep.cai\n')
     assert isinstance(ode["Ca"], atoms.Intermediate)
-    assert ode["Ca"].components == ("toy",)
+    assert ode["Ca"].components == ("toy.inputs",)  # Where the parameter was
     assert "Ca" not in {p.name for p in ode.parameters}
     assert ode["Ca"].expr == 1000.0 * ode["cai"].symbol
     assert ode["Ca"].unit_str == "uM"  # The parameter's unit, as the glue gives none
@@ -342,13 +412,15 @@ def test_replace_intermediate(tmp_path):
     ode = compose_glue(tmp_path, 'expressions("toy")\nreplace Lambda = 2*SL/SL0\n')
     s = ode.symbols
     assert sp.simplify(ode["Lambda"].expr - 2 * s["SL"] / s["SL0"]) == 0
-    assert ode["Lambda"].components == ("toy",)
+    assert ode["Lambda"].components == ("toy.kinematics",)
 
 
 def test_replace_state_derivative(tmp_path):
     ode = compose_glue(tmp_path, 'expressions("toy")\nreplace dZs_dt = -Zs\n')
     assert isinstance(ode["dZs_dt"], atoms.StateDerivative)
     assert ode["dZs_dt"].expr == -ode["Zs"].symbol
+    # With its state, or the component would hold a state without its derivative
+    assert ode["dZs_dt"].components == ode["Zs"].components == ("toy.crossbridges",)
 
 
 def test_replace_unknown_name(tmp_path):
@@ -424,7 +496,7 @@ def test_missing_names_refused_unless_allowed(tmp_path):
     ]
     ode = compose_glue(tmp_path, glue, allow_missing=True)
     assert ode.missing_variables == {"cai_ext": 0, "x_ext": 1}
-    assert {c.name for c in ode.components} == {"ep", "toy"}
+    assert tops(ode) == {"ep", "toy"}
     assert isinstance(ode["Ca"], atoms.Intermediate)
 
 
@@ -436,7 +508,7 @@ def test_missing_names_with_a_part_named_missing(tmp_path):
     (tmp_path / "glue.ode").write_text('expressions("missing")\nreplace Ca = 1000.0*cai_ext\n')
     ode = gotranx.compose(recipe, base_dir=tmp_path)
     assert ode.missing_variables == {"cai_ext": 0}
-    assert {c.name for c in ode.components} == {"ep", "missing"}
+    assert tops(ode) == {"ep", "missing"}
     assert len(ode.get_component("missing").states) == 3
 
 
@@ -714,7 +786,8 @@ def test_new_glue_name_is_time(tmp_path, glue, line):
 
 @pytest.mark.parametrize("name", ["a.b", "my toy", "", "1x"])
 def test_part_names_must_be_valid_names(name):
-    # Glue writes part.name, so a part's name must be a name
+    # Glue writes part.name, so a part's name must be a name. Without a dot, too: the
+    # part's components are named part.component, and a dot nests
     recipe = toy_recipe()
     recipe["parts"][1]["name"] = name
     assert messages(recipe) == [
@@ -782,7 +855,8 @@ def test_components_table_checks_qualifiers():
         (
             {"inputs": [], "outputs": ["toy.Zs", "toy.Ta"]},
             [
-                "components.mechanics: mechanics needs cai from component ep: add it to inputs",
+                "components.mechanics: mechanics needs cai from component ep.calcium: add it "
+                "to inputs",
                 "components.mechanics: the rest uses dCaTRPN_dt from mechanics: add it to outputs",
             ],
         ),
@@ -803,7 +877,7 @@ def test_components_table_bare_names():
 
     bare = compose(["B"], ["Zs", "Ta"])
     assert bare.components == compose(["toy.B"], ["toy.Zs", "toy.Ta"]).components
-    assert {c.name for c in bare.components} == {"ep", "toy", "mechanics"}
+    assert tops(bare) == {"ep", "toy", "mechanics"}
     with pytest.raises(CompositionError) as e:
         compose(["B"], ["Zs", "nonsense"])
     assert e.value.messages == ["components.mechanics: nonsense is not a name of the model"]

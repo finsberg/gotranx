@@ -7,8 +7,9 @@ A composition has two files:
 - a **glue file**, which says how they are coupled, in the ``.ode`` grammar plus
   ``part.name``, ``replace`` and ``+=`` (see :mod:`gotranx.glue`).
 
-The result is an ordinary :class:`gotranx.ode.ODE`, in which each part is exactly one
-component, named after the part. See :func:`compose`.
+The result is an ordinary :class:`gotranx.ode.ODE`, in which each part keeps its
+components, each named ``part.component`` and so nested under the part (see
+:func:`gotranx.ode.in_subtree`). See :func:`compose`.
 """
 
 from __future__ import annotations
@@ -35,7 +36,7 @@ from .atoms import make_symbol
 from .expressions import build_expression
 from .glue import GlueStatement, load_glue, unqualify
 from .load import load_ode
-from .ode import ODE
+from .ode import ODE, top_level
 from .ode_component import STATE_DERIV_EXPR
 from .operations import (
     TIME_NAMES,
@@ -444,6 +445,7 @@ class _Glue:
                         unit_str=s.atom.unit_str if given_unit else old.unit_str,
                         unit=s.atom.unit if given_unit else old.unit,
                         description=s.atom.description or old.description,
+                        components=old.components,
                     )
             else:
                 assert isinstance(s.atom, atoms.Assignment)
@@ -457,7 +459,8 @@ class _Glue:
                     name=name,
                     value=value,
                     expr=e,
-                    components=(part,),
+                    # A replaced name stays where it was: a derivative must, with its state
+                    components=(part,) if old is None else old.components,
                     unit_str=unit_str,
                     comment=s.atom.comment,
                 )
@@ -467,12 +470,17 @@ class _Glue:
         return result
 
 
-def _in_component(atom: atoms.Atom, part: str) -> atoms.Atom:
+def _under(part: str, components: tuple[str, ...]) -> tuple[str, ...]:
+    """A part's components in the composed model: ``part.component``, or ``part`` for the
+    part's unnamed one"""
+    return tuple(dict.fromkeys(f"{part}.{c}" if c else part for c in components))
+
+
+def _in_part(atom: atoms.Atom, part: str) -> atoms.Atom:
     if isinstance(atom, atoms.StateDerivative):
-        return attr.evolve(
-            atom, components=(part,), state=attr.evolve(atom.state, components=(part,))
-        )
-    return attr.evolve(atom, components=(part,))
+        state = attr.evolve(atom.state, components=_under(part, atom.state.components))
+        return attr.evolve(atom, components=_under(part, atom.components), state=state)
+    return attr.evolve(atom, components=_under(part, atom.components))
 
 
 def _rename(part: _Part, ode: ODE, errors: _Errors) -> ODE:
@@ -517,19 +525,20 @@ def _circular(
 
 
 def _share_parameters(atoms_: dict[str, dict[str, atoms.Atom]]) -> None:
-    """Give each parameter the components ``(home, *every other part that uses it)``"""
+    """Give each parameter that another part uses the components of the assignments that
+    use it, in name order, after its own"""
     users: dict[str, set[str]] = defaultdict(set)
-    for part, by_name in atoms_.items():
+    for by_name in atoms_.values():
         for atom in by_name.values():
             if isinstance(atom, atoms.Assignment):
                 for symbol in atom.expr.free_symbols:
-                    users[str(symbol)].add(part)
+                    users[str(symbol)].update(atom.components)
     for part, by_name in atoms_.items():
         for name, atom in by_name.items():
             if isinstance(atom, atoms.Parameter):
-                others = tuple(p for p in atoms_ if p != part and p in users[name])
+                others = sorted(c for c in users[name] if top_level(c) != part)
                 if others:
-                    by_name[name] = attr.evolve(atom, components=(part, *others))
+                    by_name[name] = attr.evolve(atom, components=(*atom.components, *others))
 
 
 def _sha256(path: Path) -> str:
@@ -619,9 +628,11 @@ def compose(
     Returns
     -------
     gotranx.ode.ODE
-        The composed model, in which each part is one component, named after the part.
-        Its comments hold the recipe and the sha256 of every file read, and no timestamp,
-        so that composing the same files again saves the same text.
+        The composed model. Each part keeps its components, under its name: part ``ep``'s
+        component ``gate`` is ``ep.gate``, and its unnamed one ``ep``, which also holds
+        what the glue defines for ``ep``. ``get_component("ep")`` takes them all. Its
+        comments hold the recipe and the sha256 of every file read, and no timestamp, so
+        that composing the same files again saves the same text.
 
     Raises
     ------
@@ -679,14 +690,14 @@ def compose(
     if errors.fatal:
         raise exceptions.CompositionError(errors.messages)
 
-    # 3. Rename, then rescale time. 4. One component per part.
+    # 3. Rename, then rescale time. 4. Each part's components under the part.
     own: dict[str, dict[str, atoms.Atom]] = {}
     for part in parts:
         ode = _rename(part, odes[part.name], errors)
         k = ureg.Quantity(1, data["time_unit"]).to(part.time_unit).magnitude
         if k != 1:
             ode = rescale_time(ode, k)
-        own[part.name] = {a.name: _in_component(a, part.name) for a in all_atoms(ode)}
+        own[part.name] = {a.name: _in_part(a, part.name) for a in all_atoms(ode)}
 
     # 5. Names are unique across parts
     owners: dict[str, list[str]] = defaultdict(list)
@@ -702,7 +713,7 @@ def compose(
             f"names must be unique: {n} is defined in {' and in '.join(o)}; rename it in the recipe"
         )
 
-    # 6. The glue. 7. Parameters used by several parts are under each.
+    # 6. The glue. 7. A parameter another part uses is also under the components using it.
     applied = _Glue(statements, own)
     for line, message in sorted(applied.errors):
         errors.add(f"{glue}:{line}: {message}")

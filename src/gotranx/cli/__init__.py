@@ -230,7 +230,7 @@ def compose(
     ),
 ) -> None:
     """Compose parts and a glue file into one .ode model, and print what each
-    component needs from the others"""
+    part or split needs from the others"""
     from .compose import main as _main
     from ..exceptions import CompositionError
 

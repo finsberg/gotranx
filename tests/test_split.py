@@ -14,6 +14,7 @@ import gotranx
 from gotranx import operations
 from gotranx.exceptions import SplitError
 from gotranx.load import ode_from_string
+from gotranx.ode import top_level
 
 RECIPE = Path(__file__).parent / "compose_files" / "toy_recipe.toml"
 
@@ -52,15 +53,35 @@ def test_cai_like_cut(ode):
     assert set(only(m, "mechanics").missing_variables) == {"cai"}
     assert "CaTRPN" in names(m.get_component("mechanics").states)  # pulled in from home
     assert names(m.get_component("mechanics").states) == {"CaTRPN", "B", "Zs"}
-    assert "toy" not in [c.name for c in m.components]  # every toy atom moved
+    assert "toy" not in {top_level(c.name) for c in m.components}  # every toy atom moved
 
 
 def test_monitor_joins_the_component_whose_state_it_reads(ode):
     # bound_ca = CaTRPN is a monitor: no derivative depends on it.
     cai = ode.split("mechanics", inputs=["cai"], outputs=["Ta", "J"])
-    assert cai["bound_ca"].components == ("mechanics",)
+    assert cai["bound_ca"].components == ("mechanics.troponin",)
     zeta = ode.split("mechanics", inputs=["B"], outputs=["Zs", "Ta"])
-    assert zeta["bound_ca"].components == ("toy",)
+    assert zeta["bound_ca"].components == ("toy.troponin",)
+
+
+def test_moved_atoms_keep_their_sub_names(ode):
+    # toy.crossbridges moves to mechanics.crossbridges, and what the glue put in toy to
+    # mechanics
+    m = ode.split("mechanics", inputs=["B"], outputs=["Zs", "Ta"])
+    assert m["Zs"].components == m["dZs_dt"].components == ("mechanics.crossbridges",)
+    assert m["dZs_dt"].state.components == ("mechanics.crossbridges",)
+    assert m["Ta"].components == ("mechanics.tension",)
+    assert m["lmbda"].components == ("mechanics",)
+    # What stays keeps its name
+    assert m["B"].components == ("toy.crossbridges",)
+    assert {c.name for c in m.components} >= {"mechanics", "mechanics.crossbridges", "toy"}
+
+
+def test_split_name_must_not_hold_existing_components(ode):
+    # The composed model has no component "ep" of its own, but "ep" holds ep.calcium
+    assert split_messages(ode, "ep", inputs=["B"], outputs=["Zs", "Ta"]) == [
+        "ep is already a component of the model: choose another name"
+    ]
 
 
 BOTH_SIDES = """
@@ -75,6 +96,38 @@ K = q*x
 expressions("b")
 dy_dt = q*x - c*y
 """
+
+
+NESTED_BOTH_SIDES = """
+parameters("a.kin", p = 1.0, k = 2.0)
+parameters("b.x", c = 3.0, r = 4.0)
+states("a.kin", x = 0.0)
+states("b.x", y = 0.0)
+states("b.z", z = 0.0)
+expressions("a.kin")
+q = 2*p
+dx_dt = q - k*x
+expressions("b.x")
+s = 3*r
+dy_dt = q*x + s - c*y
+expressions("b.z")
+dz_dt = s - z
+"""
+
+
+def test_shared_on_both_sides_gains_the_corresponding_sub_name():
+    m = ode_from_string(NESTED_BOTH_SIDES, name="both").split("mech", inputs=["x"], outputs=["y"])
+    # From the outputs' home, b: under the new component, in the same place
+    assert m["s"].components == m["r"].components == ("b.x", "mech.x")
+    for x in ("y", "dy_dt", "c"):
+        assert m[x].components == ("mech.x",), x
+    # From outside the home: under the new component itself, not as a mech.kin it never had
+    assert m["q"].components == m["p"].components == ("a.kin", "mech")
+    # What stays keeps its name
+    assert m["k"].components == ("a.kin",)
+    assert m["dz_dt"].components == ("b.z",)
+    assert set(only(m, "mech").missing_variables) == {"x"}
+    assert set(rest(m, "mech").missing_variables) == set()
 
 
 def test_parameter_only_intermediates_on_both_sides():
@@ -123,10 +176,17 @@ def test_split_a_model_without_component_names():
 
 def test_parameter_only_intermediate_used_by_one_side_moves(ode):
     m = ode.split("mechanics", inputs=["B"], outputs=["Zs", "Ta"])
-    for x in ("Lambda", "SL", "SL0", "lmbda", "Tref"):
-        assert m[x].components == ("mechanics",), x
+    moved = {
+        "Lambda": "mechanics.kinematics",
+        "SL": "mechanics.inputs",
+        "SL0": "mechanics.kinetics",
+        "lmbda": "mechanics",
+        "Tref": "mechanics.kinetics",
+    }
+    for x, component in moved.items():
+        assert m[x].components == (component,), x
     for x in ("kb", "ku"):  # read by dB_dt alone, which stays
-        assert m[x].components == ("toy",), x
+        assert m[x].components == ("toy.kinetics",), x
 
 
 def test_outputs_need_not_be_used_by_the_rest(ode):
@@ -137,7 +197,7 @@ def test_outputs_need_not_be_used_by_the_rest(ode):
 
 def test_reaching_another_component(ode):
     assert split_messages(ode, "mechanics", inputs=[], outputs=["Ta", "J"]) == [
-        "mechanics needs cai from component ep: add it to inputs"
+        "mechanics needs cai from component ep.calcium: add it to inputs"
     ]
 
 
@@ -186,7 +246,7 @@ def test_unknown_name_and_existing_component(ode):
 def test_all_errors_reported_together(ode):
     # Ta and J reach cai in ep, and n is not needed.
     assert split_messages(ode, "mechanics", inputs=["n"], outputs=["Ta", "J"]) == [
-        "mechanics needs cai from component ep: add it to inputs",
+        "mechanics needs cai from component ep.calcium: add it to inputs",
         "n is not needed by mechanics",
     ]
 
@@ -196,7 +256,7 @@ def test_split_does_not_change_the_original(ode):
     ode.split("mechanics", inputs=["cai"], outputs=["Ta", "J"])
     assert {a.name: a for a in operations.all_atoms(ode)} == before
     assert ode == gotranx.compose(RECIPE)
-    assert [c.name for c in ode.components] == ["toy", "ep"]
+    assert {top_level(c.name) for c in ode.components} == {"toy", "ep"}
 
 
 def test_function_and_method_agree(ode):

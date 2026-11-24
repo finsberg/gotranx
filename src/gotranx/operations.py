@@ -15,7 +15,7 @@ from . import atoms
 from .atoms import make_symbol
 from .codegen.ode import GotranODECodePrinter
 from .exceptions import RenameError, SplitError
-from .ode import ODE, in_subtree
+from .ode import ODE, in_subtree, top_level
 from .ode_component import STATE_DERIV_EXPR, Component
 
 TIME_NAMES = ("t", "time")
@@ -293,22 +293,26 @@ def split(ode: ODE, name: str, inputs: Iterable[str], outputs: Iterable[str]) ->
     dependencies until an input or a parameter:
 
     - A state brings its derivative, and a derivative its state.
-    - States, derivatives and intermediates are followed only inside the components the
-      outputs belong to. Reaching one of another component is an error: add it to
-      ``inputs``.
+    - States, derivatives and intermediates are followed only inside the outputs' home:
+      the top-level components the outputs belong to, with everything nested under them
+      (``ep`` for ``ep.gate``, see :func:`gotranx.ode.in_subtree`). Reaching one outside
+      it is an error: add it to ``inputs``.
     - An intermediate that depends, recursively, only on parameters is followed from any
-      component. If the rest of the model uses it too, it is computed on both sides
-      (written under its old components and ``name``).
+      component. If the rest of the model uses it too, it is computed on both sides.
     - A parameter used on both sides is written under both. One used only by the new
       component moves there.
-    - A monitor, an intermediate that no state derivative depends on, in a component the
-      outputs belong to, joins the new component if it reads a state, a derivative or an
-      intermediate (other than a parameter-only one) of the new component, under the
-      same rules. A monitor of another component stays, and reads outputs as crossings.
+    - A monitor, an intermediate that no state derivative depends on, in the outputs'
+      home, joins the new component if it reads a state, a derivative or an intermediate
+      (other than a parameter-only one) of the new component, under the same rules. A
+      monitor outside the home stays, and reads outputs as crossings.
 
-    Everything else stays where it was. So the declared inputs are exactly what the new
-    component needs from the rest, and the outputs the only things of the new component
-    the rest may use (an output need not be used).
+    What moves keeps its place under the new component: each of its components in the
+    outputs' home has its top-level name replaced by ``name``, so ``land.crossbridges``
+    becomes ``mechanics.crossbridges`` and ``land`` becomes ``mechanics``. An atom with no
+    component in the home goes to ``name`` itself. What is on both sides keeps its
+    components and gains those. Everything else stays where it was. So the declared
+    inputs are exactly what the new component needs from the rest, and the outputs the
+    only things of the new component the rest may use (an output need not be used).
 
     Raises
     ------
@@ -316,10 +320,11 @@ def split(ode: ODE, name: str, inputs: Iterable[str], outputs: Iterable[str]) ->
         If ``inputs`` or ``outputs`` is a string rather than a sequence of names.
     gotranx.exceptions.SplitError
         With every message at once: a name that is not in the model, ``name`` already a
-        component, no outputs, a dependency in another component, an input the new
-        component computes or does not need, and the rest using something of the new
-        component that is not an output. An unknown output, or none, stops the checks
-        that follow the outputs' dependencies, since they would mislead.
+        component or a component with others nested under it, no outputs, a dependency
+        outside the outputs' home, an input the new component computes or does not need,
+        and the rest using something of the new component that is not an output. An
+        unknown output, or none, stops the checks that follow the outputs' dependencies,
+        since they would mislead.
     """
     for label, names in (("inputs", inputs), ("outputs", outputs)):
         if isinstance(names, str):
@@ -331,7 +336,7 @@ def split(ode: ODE, name: str, inputs: Iterable[str], outputs: Iterable[str]) ->
     unknown_outputs = [x for x in outputs if x not in lookup]
     unknown = [x for x in dict.fromkeys([*inputs, *outputs]) if x not in lookup]
     messages = [f"{x} is not a name of the model" for x in unknown]
-    if name in {c.name for c in ode.components}:
+    if any(in_subtree(c.name, name) for c in ode.components):
         messages.append(f"{name} is already a component of the model: choose another name")
     if not outputs:
         messages.append(f"{name} needs at least one output")
@@ -344,7 +349,12 @@ def split(ode: ODE, name: str, inputs: Iterable[str], outputs: Iterable[str]) ->
     monitors = _monitors(ode, deps)
     partner = {d.name: d.state.name for d in ode.state_derivatives}
     partner.update({state: derivative for derivative, state in partner.items()})
-    home = {c for x in outputs for c in lookup[x].components}
+    # The outputs' home: the top-level components they belong to
+    home = {top_level(c) for x in outputs for c in lookup[x].components}
+
+    def at_home(atom: atoms.Atom) -> bool:
+        return any(top_level(c) in home for c in atom.components)
+
     input_set, output_set = set(inputs), set(outputs)
 
     # The closure: an ordered set, followed breadth first in a fixed order, so that the
@@ -369,7 +379,7 @@ def split(ode: ODE, name: str, inputs: Iterable[str], outputs: Iterable[str]) ->
                     used_inputs.add(dep)
                 elif atom is None or isinstance(atom, atoms.Parameter):
                     continue  # a parameter, time, or a name the model already lacks
-                elif dep in parameter_only or home & set(atom.components):
+                elif dep in parameter_only or at_home(atom):
                     add(dep)
                 else:
                     where = ", ".join(atom.components)
@@ -391,7 +401,7 @@ def split(ode: ODE, name: str, inputs: Iterable[str], outputs: Iterable[str]) ->
         for m in sorted(monitors)
         if m not in closure
         and m not in input_set
-        and home & set(lookup[m].components)
+        and at_home(lookup[m])
         and any(carved(d) for d in deps[m])
     ]:
         for m in joining:
@@ -431,20 +441,27 @@ def split(ode: ODE, name: str, inputs: Iterable[str], outputs: Iterable[str]) ->
                     through.append(dep)
     new_uses = {dep for x in closure for dep in deps[x]} - input_set
 
-    def both(atom: atoms.Atom) -> tuple[str, ...]:
-        return (*atom.components, name)
+    def moved(components: tuple[str, ...]) -> tuple[str, ...]:
+        """At home, ``land.crossbridges`` -> ``name.crossbridges`` and ``land`` -> ``name``;
+        from outside the home, ``name``"""
+        renamed = [name + c[len(top_level(c)) :] for c in components if top_level(c) in home]
+        return tuple(dict.fromkeys(renamed)) or (name,)
 
     def place(atom: atoms.Atom) -> atoms.Atom:
         n = atom.name
         if n in closure:
-            components = both(atom) if n in shared and n in rest_uses else (name,)
+            on_both = n in shared and n in rest_uses
         elif isinstance(atom, atoms.Parameter) and n in new_uses:
-            components = both(atom) if n in rest_uses else (name,)
+            on_both = n in rest_uses
         else:
             return atom
+
+        def new(components: tuple[str, ...]) -> tuple[str, ...]:
+            return (*components, *moved(components)) if on_both else moved(components)
+
         if isinstance(atom, atoms.StateDerivative):
-            state = attr.evolve(atom.state, components=components)
-            return attr.evolve(atom, components=components, state=state)
-        return attr.evolve(atom, components=components)
+            state = attr.evolve(atom.state, components=new(atom.state.components))
+            return attr.evolve(atom, components=new(atom.components), state=state)
+        return attr.evolve(atom, components=new(atom.components))
 
     return rebuild([place(a) for a in all_atoms(ode)], name=ode.name, comments=ode.comments)

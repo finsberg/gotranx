@@ -17,15 +17,32 @@ def strip_ansi(text: str) -> str:
     return re.sub(r"\x1b\[[0-9;]*m", "", text)
 
 
+def needs_lines(text: str) -> set[str]:
+    return {line for line in strip_ansi(text).splitlines() if " needs: " in line}
+
+
 def test_cli_compose_writes_and_reports(tmp_path):
     out = tmp_path / "m.ode"
     result = runner.invoke(app, ["compose", str(FILES / "toy_recipe.toml"), "-o", str(out)])
     assert result.exit_code == 0, result.output
     text = strip_ansi(result.stdout)
-    assert "ep needs: J" in text
-    assert "toy needs: cai" in text
+    # One line per part, not per component (ep.calcium, ep.gate, ...)
+    assert needs_lines(text) == {"ep needs: J", "toy needs: cai"}
     assert "Warning" not in text
     gotranx.load_ode(out)
+
+
+def test_cli_compose_reports_a_split(tmp_path):
+    recipe = toy_in(tmp_path)
+    table = '\n[components.mechanics]\ninputs = ["toy.B"]\noutputs = ["toy.Zs", "toy.Ta"]\n'
+    recipe.write_text(recipe.read_text() + table)
+    result = runner.invoke(app, ["compose", str(recipe), "-o", str(tmp_path / "m.ode")])
+    assert result.exit_code == 0, result.output
+    assert needs_lines(result.stdout) == {
+        "ep needs: J",
+        "toy needs: cai",
+        "mechanics needs: B",
+    }
 
 
 def test_cli_compose_default_output_name(tmp_path, monkeypatch):

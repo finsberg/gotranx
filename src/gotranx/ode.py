@@ -554,9 +554,10 @@ class ODE:
         ``inputs`` and the parameters, e.g.
         ``ode.split("mechanics", inputs=["cai"], outputs=["Ta", "J_TRPN"])``. Then
         ``ode - ode.get_component("mechanics")`` needs only outputs from it, and the
-        component itself needs only the inputs. See :func:`gotranx.operations.split` for
-        the rules; every problem is reported at once in a
-        :class:`gotranx.exceptions.SplitError`.
+        component itself needs only the inputs. What moves keeps its place under the new
+        name: ``land.crossbridges`` becomes ``mechanics.crossbridges``. See
+        :func:`gotranx.operations.split` for the rules; every problem is reported at once
+        in a :class:`gotranx.exceptions.SplitError`.
         """
         from . import operations
 

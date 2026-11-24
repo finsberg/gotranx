@@ -1,24 +1,32 @@
-# The composition of toy_recipe.toml, written by hand: toy_ep.ode as component "ep",
-# and contraction_toy.ode as component "toy", with its dLambda renamed dLambda_toy and
-# every derivative multiplied by 0.001 (its seconds onto the model's milliseconds).
-# The glue's lmbda and dLambda are new parameters, Ca, SL and dSL are no longer
-# parameters but inputs, J is new, and -J is added to dcai_dt.
+# The composition of toy_recipe.toml, written by hand. Each part keeps its components,
+# under its name: toy_ep.ode's calcium and gate are ep.calcium and ep.gate, and
+# contraction_toy.ode's are toy.inputs, toy.kinetics and so on. contraction_toy.ode
+# has its dLambda renamed dLambda_toy and every derivative multiplied by 0.001 (its
+# seconds onto the model's milliseconds). The glue's lmbda and dLambda are new
+# parameters and J a new intermediate, under toy itself. Ca, SL and dSL are no longer
+# parameters but inputs, in toy.inputs, where they were, and -J is added to dcai_dt.
 
-parameters("ep",
+parameters("ep.calcium",
 k_up = 0.1,
 c_rel = 0.001
 )
 
-states("ep", cai = 0.0001, n = 0.5)
+states("ep.calcium", cai = 0.0001)
+states("ep.gate", n = 0.5)
 
-expressions("ep")
+expressions("ep.calcium")
 release = c_rel*n
 dcai_dt = release - k_up*cai - J
+
+expressions("ep.gate")
 dn_dt = 0.01*(1 - n) - 0.02*n*cai*1000
 
 parameters("toy",
 lmbda = 1.0,
-dLambda = 0.0,
+dLambda = 0.0
+)
+
+parameters("toy.kinetics",
 SL0 = ScalarParam(1.8, unit="um"),
 k_trpn = ScalarParam(100.0, unit="1/s"),
 ntrpn = 2.0,
@@ -30,18 +38,29 @@ cs = ScalarParam(10.0, unit="1/s"),
 Tref = ScalarParam(120.0, unit="kPa")
 )
 
-states("toy", CaTRPN = 0.0015974440894568689, B = 0.004, Zs = 0.0)
+states("toy.troponin", CaTRPN = 0.0015974440894568689)
+states("toy.crossbridges", B = 0.004, Zs = 0.0)
 
-expressions("toy")
+expressions("toy.inputs")
 Ca = 1000.0*cai
 SL = lmbda*SL0
 dSL = 1000.0*dLambda*SL0
+
+expressions("toy.kinematics")
 Lambda = SL / SL0
 dLambda_toy = dSL / SL0
+
+expressions("toy.troponin")
 Ca_safe = Max(Ca, 0.0)
 dCaTRPN_dt = 0.001*k_trpn * ((Ca_safe / ca50) ** ntrpn * (1.0 - CaTRPN) - CaTRPN)
 bound_ca = CaTRPN
+
+expressions("toy.crossbridges")
 dB_dt = 0.001*(kb * CaTRPN * (1.0 - B) - ku * B)
 dZs_dt = 0.001*(As * dLambda_toy - cs * Zs)
+
+expressions("toy.tension")
 Ta = Tref * Lambda * B * (Zs + 1.0)
+
+expressions("toy")
 J = 0.07*dCaTRPN_dt

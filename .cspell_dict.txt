@@ -36,6 +36,7 @@ colorbar
 conds
 cpath
 crossbridge
+crossbridges
 cstdint
 cstring
 ctypeslib

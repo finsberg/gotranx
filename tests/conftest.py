@@ -11,16 +11,15 @@ from gotranx.ode import ODE, make_ode
 
 
 def rest(ode: ODE, name: str) -> ODE:
-    """The model without component ``name``: the other half of a split"""
+    """The model without component ``name`` and the components nested under it (``ep``
+    takes ``ep.gate``): the other half of a split"""
     return ode - ode.get_component(name)
 
 
 def only(ode: ODE, name: str) -> ODE:
-    """Component ``name`` alone: the model with every other component subtracted"""
-    for component in tuple(ode.components):
-        if component.name != name:
-            ode = ode - component
-    return ode
+    """Component ``name`` alone, with the components nested under it, as a model of its
+    own: what simcardemsx makes of the mechanics half of a split"""
+    return ode.get_component(name).to_ode()
 
 
 @pytest.fixture(scope="module")
