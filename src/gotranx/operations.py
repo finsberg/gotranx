@@ -15,7 +15,7 @@ from . import atoms
 from .atoms import make_symbol
 from .codegen.ode import GotranODECodePrinter
 from .exceptions import RenameError, SplitError
-from .ode import ODE
+from .ode import ODE, in_subtree
 from .ode_component import STATE_DERIV_EXPR, Component
 
 TIME_NAMES = ("t", "time")
@@ -198,8 +198,10 @@ def rescale_time(ode: ODE, k: float, components: Iterable[str] | None = None) ->
     With ``t_new = t_old / k``, e.g. ``k = 0.001`` brings a model written in
     seconds onto a clock in milliseconds. Every state derivative in the selected
     components is multiplied by ``k`` and ``t`` is replaced by ``k * t`` in every
-    expression of those components. ``components=None`` selects all components. An
-    assignment in several components is rescaled if any of them is selected.
+    expression of those components. ``components=None`` selects all components, and a
+    name selects that component and every component nested under it (``"ep"`` selects
+    ``"ep.gate"``, see :func:`gotranx.ode.in_subtree`). An assignment in several
+    components is rescaled if any of them is selected.
 
     Raises
     ------
@@ -217,7 +219,7 @@ def rescale_time(ode: ODE, k: float, components: Iterable[str] | None = None) ->
     if components is not None:
         chosen = list(dict.fromkeys(components))
         names = [c.name for c in ode.components]
-        unknown = [c for c in chosen if c not in names]
+        unknown = [c for c in chosen if not any(in_subtree(n, c) for n in names)]
         if unknown:
             raise ValueError(
                 f"{ode.name} has no component {', '.join(unknown)}: its components are "
@@ -230,7 +232,8 @@ def rescale_time(ode: ODE, k: float, components: Iterable[str] | None = None) ->
     new_atoms: list[atoms.Atom] = []
     for atom in all_atoms(ode):
         if not isinstance(atom, atoms.Assignment) or (
-            selected is not None and not selected & set(atom.components)
+            selected is not None
+            and not any(in_subtree(c, name) for c in atom.components for name in selected)
         ):
             new_atoms.append(atom)
             continue

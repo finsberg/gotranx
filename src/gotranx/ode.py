@@ -26,6 +26,21 @@ T = TypeVar("T")
 U = TypeVar("U", bound=atoms.Assignment)
 
 
+def in_subtree(component: str, name: str) -> bool:
+    """Whether the component named ``component`` is ``name`` or nested under it.
+
+    A dot in a component name nests it under every prefix that ends before a dot:
+    ``"ep.gate"`` is under ``"ep"``, and ``"a.b.c"`` under ``"a.b"`` and ``"a"``, but
+    ``"epa"`` is not under ``"ep"``.
+    """
+    return component == name or component.startswith(name + ".")
+
+
+def top_level(component: str) -> str:
+    """The first dotted segment of a component name: ``"ep"`` for ``"ep.gate"``"""
+    return component.split(".", 1)[0]
+
+
 def check_components(components: Sequence[BaseComponent]):
     """Check if all components are complete
 
@@ -548,7 +563,10 @@ class ODE:
         return operations.split(self, name, inputs, outputs)
 
     def __sub__(self, other: BaseComponent) -> ODE:
-        new_components = [comp for comp in self.components if comp != other]
+        """The model without the component named ``other.name`` and every component nested
+        under it (see :func:`in_subtree`), matched by name. An atom that is also in a
+        component outside them stays."""
+        new_components = [comp for comp in self.components if not in_subtree(comp.name, other.name)]
         return ODE(
             components=new_components,
             t=self.t,
@@ -560,14 +578,42 @@ class ODE:
         return self._lookup[name]
 
     def get_component(self, name: str) -> BaseComponent:
-        """Get a component by name
+        """Get a component by name, with every component nested under it
+
+        A dot in a component name nests it (see :func:`in_subtree`): ``"ep"`` holds the
+        atoms of ``"ep"``, ``"ep.calcium"`` and ``"ep.gate"``. The model need not have a
+        component named ``"ep"`` itself. A component with nothing nested under it is
+        returned as it is; otherwise a new :class:`Component` holds the atoms of all of
+        them, each with its own ``components``.
 
         Parameters
         ----------
         name : str
             Name of the component
+
+        Raises
+        ------
+        KeyError
+            If the model has no component ``name`` and none nested under it
         """
-        return self._components[name]
+        members = [comp for comp in self.components if in_subtree(comp.name, name)]
+        if not members:
+            raise KeyError(name)
+        if len(members) == 1 and members[0].name == name:
+            return members[0]
+        states: set[atoms.State] = set()
+        parameters: set[atoms.Parameter] = set()
+        assignments: set[atoms.Assignment] = set()
+        for comp in members:
+            states |= comp.states
+            parameters |= comp.parameters
+            assignments |= comp.assignments
+        return Component(
+            name=name,
+            states=frozenset(states),
+            parameters=frozenset(parameters),
+            assignments=frozenset(assignments),
+        )
 
     def sorted_assignments(
         self, assignments_only: bool = True, remove_unused: bool = False

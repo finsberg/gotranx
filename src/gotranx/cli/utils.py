@@ -5,7 +5,7 @@ from pathlib import Path
 import typer
 
 from ..codegen import CodeGenerator
-from ..ode import ODE
+from ..ode import ODE, in_subtree
 from ..schemes import Scheme, get_scheme
 
 
@@ -133,12 +133,13 @@ def select_components(ode: ODE, remove: list[str] | None = None, keep: str | Non
     """The part of `ode` to generate code for: without the components in `remove`
     (`ode - ode.get_component(name)` for each), or only the component `keep`
     (`ode.get_component(keep).to_ode()`). Names the parts share become missing
-    variables of the result."""
+    variables of the result. A name takes the components nested under it too: `ep`
+    takes `ep.gate`."""
     if remove and keep is not None:
         raise typer.BadParameter("give --remove-component or --keep-component, not both")
     names = [c.name for c in ode.components]
     for name in [*(remove or []), *([keep] if keep is not None else [])]:
-        if name not in names:
+        if not any(in_subtree(n, name) for n in names):
             raise typer.BadParameter(
                 f"no component {name!r} in {ode.name}; it has {', '.join(names)}",
                 param_hint="--remove-component" if keep is None else "--keep-component",
