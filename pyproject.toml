@@ -54,6 +54,8 @@ docs = [
     "jax",
     "numba",
     "gotranx[formatters]",
+    # The split-ode example fetches its models from the odezoo registry.
+    "odezoo",
 ]
 test = [
     "pytest",

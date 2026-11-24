@@ -15,8 +15,8 @@ parts:
     chapters:
     - file: "examples/new-language/main.py"
     - file: "docs/config"
-    - file: "examples/split-ode/main.py"
     - file: "docs/composition"
+    - file: "examples/split-ode/main.py"
     - file: "examples/ufl_backend.py"
     - file: "examples/compile-c-extension/main.py"
     - file: "examples/c-single-cell/main.py"
