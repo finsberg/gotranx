@@ -40,7 +40,7 @@ def test_cli_compose_error_exit_code(tmp_path):
     recipe = tmp_path / "bad.toml"
     recipe.write_text(
         'time_unit = "ms"\nglue = "bad.glue.ode"\n'
-        f'[[parts]]\nname = "ep"\nfile = "{FILES / "toy_ep.ode"}"\ntime_unit = "ms"\n'
+        f'[[parts]]\nname = "ep"\nfile = "{(FILES / "toy_ep.ode").as_posix()}"\ntime_unit = "ms"\n'
     )
     out = tmp_path / "bad.ode"
     result = runner.invoke(app, ["compose", str(recipe), "-o", str(out)])
@@ -54,7 +54,7 @@ def test_cli_compose_warns_for_allow_missing(tmp_path):
     recipe = tmp_path / "r.toml"
     recipe.write_text(
         'time_unit = "ms"\nglue = "g.ode"\nallow_missing = true\n'
-        f'[[parts]]\nname = "ep"\nfile = "{FILES / "toy_ep.ode"}"\ntime_unit = "ms"\n'
+        f'[[parts]]\nname = "ep"\nfile = "{(FILES / "toy_ep.ode").as_posix()}"\ntime_unit = "ms"\n'
     )
     out = tmp_path / "r.ode"
     result = runner.invoke(app, ["compose", str(recipe), "-o", str(out)])

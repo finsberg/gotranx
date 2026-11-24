@@ -38,6 +38,8 @@ rename = { dLambda = "dLambda_toy" }  # the glue adds a parameter dLambda, as fo
   name: `toy_ep.ode` has two, `calcium` and `gate`, which become `ep`.
 - `file` is an `.ode` or a `.cellml` file. Relative paths are relative to the
   recipe.
+  On Windows, write paths with forward slashes, or in single quotes: inside
+  double quotes, TOML reads a backslash as the start of an escape sequence.
 - `rename` is optional. It renames a parameter, intermediate or state of that
   part everywhere it is defined or used, including a state's `d<X>_dt`.
 - `allow_missing = true` lets the glue use names that no part defines.

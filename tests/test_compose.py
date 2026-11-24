@@ -869,7 +869,7 @@ def test_recipe_and_glue_are_read_as_utf8(tmp_path, monkeypatch):
     recipe = tmp_path / "r.toml"
     recipe.write_text(
         '# Ca²⁺ in µM\ntime_unit = "ms"\nglue = "glue.ode"\n'
-        f'[[parts]]\nname = "ep"\nfile = "{TOY_EP}"\ntime_unit = "ms"\n',
+        f'[[parts]]\nname = "ep"\nfile = "{TOY_EP.as_posix()}"\ntime_unit = "ms"\n',
         encoding="utf-8",
     )
     ode = gotranx.compose(recipe)
