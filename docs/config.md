@@ -41,6 +41,7 @@ stiff_states = [
     "j",
 ]
 cse = true
+precompute_constants = false
 remove_singularities = true
 
 [tool.gotranx.python]
@@ -84,6 +85,12 @@ gotranx ode2py file.ode -c folder/pyproject.toml
   inlines them instead, which emits no temporaries at all but costs far more
   operations — worth it only on the vectorized numpy backend, where every
   temporary is a live array
+- `precompute_constants` (bool, default: `false`): C and C++ only. Compute
+  every intermediate that depends only on parameters once, in a generated
+  `init_constants(parameters, constants)`, instead of in every call of `rhs`,
+  `monitor_values` and the schemes, which then take the `constants` array as
+  an extra argument right after `parameters`. Call `init_constants` again
+  after changing a parameter. The results are bit for bit the same
 - `remove_singularities` (bool, default: `true`): Replace a small
   neighborhood of every removable singularity -- a gate rate like
   `(V + 10)/(exp((V + 10)/10) - 1)` at `V = -10`, or a GHK flux at `v = 0` --

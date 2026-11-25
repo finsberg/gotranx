@@ -138,6 +138,17 @@ GitHub, generates a model and solves it.
 ````
 `````
 
+For the C and C++ backends, `--precompute-constants` computes every intermediate that depends
+only on parameters once, instead of in every call. The header then has a function
+`init_constants(parameters, constants)`, which fills an array of `NUM_CONSTANTS` values, and
+`rhs`, `monitor_values` and the schemes take that array as an extra argument right after
+`parameters`. Call `init_constants` again whenever you change a parameter. The results are the
+same as without the option, but each call does less work, which pays off when you solve many
+cells with the same parameters.
+```shell
+python3 -m gotranx ode2cpp noble_1962.ode --scheme rush_larsen --precompute-constants
+```
+
 Let us generate some code in python
 ```{code-cell} shell
 !python3 -m gotranx ode2py noble_1962.ode
