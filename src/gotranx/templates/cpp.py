@@ -48,6 +48,24 @@ def init_parameter_values(
     )
 
 
+def init_constants(args, parameters, code, float_type="double", qualifier="inline"):
+    """The function that fills the table of parameter-only intermediates."""
+    indent_parameters = indent(parameters, "    ")
+    indent_code = indent(code, "    ")
+    return dedent(
+        f"""
+{qualifier} void init_constants({args}){{
+
+    // Assign parameters
+{indent_parameters}
+
+    // Compute the parameter-only intermediates
+{indent_code}
+}}
+""",
+    )
+
+
 def method(
     name: str,
     args: str,
