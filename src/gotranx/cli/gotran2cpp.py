@@ -59,7 +59,9 @@ def get_code(
         `init_constants(parameters, constants)`, and read it from the `constants` array,
         which `rhs`, `monitor_values` and the schemes then take right after
         `parameters`, by default False. Call `init_constants` again after changing a
-        parameter
+        parameter. The results are bit for bit the same as without the option when
+        compiled with `-ffp-contract=off`; otherwise the compiler may fuse operations
+        differently, which changes the last bits
 
     Returns
     -------

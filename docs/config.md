@@ -90,7 +90,10 @@ gotranx ode2py file.ode -c folder/pyproject.toml
   `init_constants(parameters, constants)`, instead of in every call of `rhs`,
   `monitor_values` and the schemes, which then take the `constants` array as
   an extra argument right after `parameters`. Call `init_constants` again
-  after changing a parameter. The results are bit for bit the same
+  after changing a parameter. The results are bit for bit the same when the
+  code is compiled without floating-point contraction (`-ffp-contract=off`);
+  otherwise the compiler may fuse a multiply and an add differently in the two
+  versions, which changes the last bits
 - `remove_singularities` (bool, default: `true`): Replace a small
   neighborhood of every removable singularity -- a gate rate like
   `(V + 10)/(exp((V + 10)/10) - 1)` at `V = -10`, or a GHK flux at `v = 0` --

@@ -153,7 +153,9 @@ class CCodeGenerator(CodeGenerator):
 
         Empty without `precompute_constants`. Each parameter-only intermediate is computed
         exactly as `rhs` would compute it, in the same order, so reading it from the table
-        gives the same value bit for bit.
+        gives the same value bit for bit -- as long as the compiler does not contract
+        floating-point operations across statements (`-ffp-contract=off`), since a
+        multiply computed here can no longer be fused with an add in the caller.
         """
         if not self.precompute_constants:
             return ""
