@@ -179,6 +179,14 @@ says so). `ode2julia` output does not change.
 
 ### Added
 
+- `--precompute-constants` for `ode2c` and `ode2cpp` (`precompute_constants`
+  in `get_code` and in the config file). Every intermediate that depends only
+  on parameters is computed once, in a generated
+  `init_constants(parameters, constants)`, and `rhs`, `monitor_values`, the
+  schemes and `missing_values` read it from the `constants` array, which they
+  take right after `parameters`. The results are bit for bit the same as
+  without the option (with floating-point contraction off). Off by default,
+  and the generated code is unchanged when it is off.
 - Model composition. `gotranx.compose(recipe)` builds one `ODE` from parts
   (`.ode` or `.cellml`) named in a TOML recipe and coupled by a glue file,
   which uses the `.ode` grammar plus `part.name`, `replace` and `+=` on a state

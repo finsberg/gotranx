@@ -941,3 +941,37 @@ def test_config_wins_over_cli_supertype(tmp_path):
     result, code = _cytozoo_run(tmp_path, ["--supertype", "A"], config='supertype = "B"\n')
     assert result.exit_code == 0, result.output
     assert "<: B" in code
+
+
+@pytest.mark.parametrize("command, suffix", [("ode2c", ".h"), ("ode2cpp", ".hpp")])
+def test_precompute_constants_flag(command, suffix, sharing_odefile, tmp_path):
+    for flag, expected in (("--precompute-constants", True), (None, False)):
+        outfile = tmp_path / f"model{suffix}"
+        args = [command, str(sharing_odefile), "-o", str(outfile), "--scheme", "rush_larsen"]
+        result = runner.invoke(gotranx.cli.app, args + ([flag] if flag else []))
+        assert result.exit_code == 0, result.stdout
+        assert ("init_constants" in outfile.read_text()) is expected
+
+
+def test_precompute_constants_from_config(sharing_odefile, tmp_path):
+    config = tmp_path / "pyproject.toml"
+    config.write_text("[tool.gotranx]\nprecompute_constants = true\n")
+    outfile = tmp_path / "model.h"
+    result = runner.invoke(
+        gotranx.cli.app,
+        ["ode2c", str(sharing_odefile), "-c", str(config), "-o", str(outfile)],
+    )
+    assert result.exit_code == 0, result.stdout
+    assert "init_constants" in outfile.read_text()
+
+
+@pytest.mark.parametrize("command", ["ode2c", "ode2cpp"])
+def test_non_boolean_precompute_constants_rejected(command, sharing_odefile, tmp_path):
+    config = tmp_path / "pyproject.toml"
+    config.write_text('[tool.gotranx]\nprecompute_constants = "yes"\n')
+    result = runner.invoke(
+        gotranx.cli.app,
+        [command, str(sharing_odefile), "-c", str(config), "-o", str(tmp_path / "out")],
+    )
+    assert result.exit_code != 0
+    assert "Invalid value for precompute_constants" in result.output

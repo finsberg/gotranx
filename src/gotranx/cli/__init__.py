@@ -569,6 +569,16 @@ def ode2c(
             "emitting no temporaries"
         ),
     ),
+    precompute_constants: bool = typer.Option(
+        False,
+        "--precompute-constants/--no-precompute-constants",
+        help=(
+            "Compute every intermediate that depends only on parameters once, in a "
+            "generated init_constants(parameters, constants), and read it from the "
+            "constants array, which rhs, monitor_values and the schemes then take "
+            "after parameters"
+        ),
+    ),
     format: CFormat = typer.Option(
         CFormat.clang_format,
         "--format",
@@ -584,6 +594,9 @@ def ode2c(
     delta = config_data.get("delta", delta)
     stiff_states = config_data.get("stiff_states", stiff_states)
     cse = utils.validate_cse(config_data.get("cse", cse))
+    precompute_constants = utils.validate_precompute_constants(
+        config_data.get("precompute_constants", precompute_constants)
+    )
     remove_singularities = utils.validate_remove_singularities(
         config_data.get("remove_singularities", remove_singularities)
     )
@@ -605,6 +618,7 @@ def ode2c(
         stiff_states=stiff_states,
         delta=delta,
         cse=cse,
+        precompute_constants=precompute_constants,
     )
 
 
@@ -694,6 +708,16 @@ def ode2cpp(
             "emitting no temporaries"
         ),
     ),
+    precompute_constants: bool = typer.Option(
+        False,
+        "--precompute-constants/--no-precompute-constants",
+        help=(
+            "Compute every intermediate that depends only on parameters once, in a "
+            "generated init_constants(parameters, constants), and read it from the "
+            "constants array, which rhs, monitor_values and the schemes then take "
+            "after parameters"
+        ),
+    ),
     format: CFormat = typer.Option(
         CFormat.clang_format,
         "--format",
@@ -719,6 +743,9 @@ def ode2cpp(
     delta = config_data.get("delta", delta)
     stiff_states = config_data.get("stiff_states", stiff_states)
     cse = utils.validate_cse(config_data.get("cse", cse))
+    precompute_constants = utils.validate_precompute_constants(
+        config_data.get("precompute_constants", precompute_constants)
+    )
     remove_singularities = utils.validate_remove_singularities(
         config_data.get("remove_singularities", remove_singularities)
     )
@@ -745,6 +772,7 @@ def ode2cpp(
             stiff_states=stiff_states,
             delta=delta,
             cse=cse,
+            precompute_constants=precompute_constants,
             namespace=namespace,
             float_type=float_type,
         )

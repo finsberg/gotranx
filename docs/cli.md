@@ -138,6 +138,19 @@ GitHub, generates a model and solves it.
 ````
 `````
 
+For the C and C++ backends, `--precompute-constants` computes every intermediate that depends
+only on parameters once, instead of in every call. The header then has a function
+`init_constants(parameters, constants)`, which fills an array of `NUM_CONSTANTS` values, and
+`rhs`, `monitor_values` and the schemes take that array as an extra argument right after
+`parameters`. Call `init_constants` again whenever you change a parameter. Each call does less
+work, which pays off when you solve many cells with the same parameters. The results are bit for
+bit the same as without the option when the code is compiled without floating-point contraction
+(`-ffp-contract=off`); otherwise the compiler may fuse a multiply and an add differently in the
+two versions, which changes the last bits.
+```shell
+python3 -m gotranx ode2cpp noble_1962.ode --scheme rush_larsen --precompute-constants
+```
+
 Let us generate some code in python
 ```{code-cell} shell
 !python3 -m gotranx ode2py noble_1962.ode

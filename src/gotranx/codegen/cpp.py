@@ -95,6 +95,8 @@ class CppCodeGenerator(CCodeGenerator):
     namespace defaults to the ODE's name.
     """
 
+    language_name = "C++"
+
     def __init__(
         self,
         ode: ODE,
@@ -102,10 +104,16 @@ class CppCodeGenerator(CCodeGenerator):
         remove_unused: bool = False,
         namespace: str | None = None,
         float_type: FloatType | str = FloatType.double,
+        precompute_constants: bool = False,
     ) -> None:
         # Before CCodeGenerator.__init__, which derives the type strings from it
         self.float_type = FloatType(float_type).value
-        super().__init__(ode, format=format, remove_unused=remove_unused)
+        super().__init__(
+            ode,
+            format=format,
+            remove_unused=remove_unused,
+            precompute_constants=precompute_constants,
+        )
         self._printer = GotranCppCodePrinter(float_type=self.float_type)
         name = namespace or ode.name
         if not valid_namespace(name):
@@ -127,4 +135,9 @@ class CppCodeGenerator(CCodeGenerator):
                 f"constexpr int NUM_PARAMS = {len(self.ode.parameters)};",
                 f"constexpr int NUM_MONITORED = {num_monitored};",
             ]
+            + (
+                [f"constexpr int NUM_CONSTANTS = {len(self.constant_index)};"]
+                if self.precompute_constants
+                else []
+            )
         )

@@ -25,6 +25,7 @@ def get_code(
     cse: bool = True,
     namespace: str | None = None,
     float_type: FloatType | str = FloatType.double,
+    precompute_constants: bool = False,
 ) -> str:
     """Generate the C++ code for the ODE
 
@@ -53,6 +54,14 @@ def get_code(
         The namespace of the generated code, by default the name of the ODE
     float_type : FloatType | str, optional
         The floating point type, "double" (default) or "float"
+    precompute_constants : bool, optional
+        Compute every intermediate that depends only on parameters once, in a generated
+        `init_constants(parameters, constants)`, and read it from the `constants` array,
+        which `rhs`, `monitor_values` and the schemes then take right after
+        `parameters`, by default False. Call `init_constants` again after changing a
+        parameter. The results are bit for bit the same as without the option when
+        compiled with `-ffp-contract=off`; otherwise the compiler may fuse operations
+        differently, which changes the last bits
 
     Returns
     -------
@@ -65,6 +74,7 @@ def get_code(
         format=Format.none,
         namespace=namespace,
         float_type=float_type,
+        precompute_constants=precompute_constants,
     )
     return assemble(
         codegen,
@@ -109,6 +119,7 @@ def assemble(
             codegen.missing_index(),
             codegen.initial_parameter_values(),
             codegen.initial_state_values(),
+            *([codegen.init_constants()] if codegen.precompute_constants else []),
             codegen.rhs(),
             codegen.monitor_values(),
             _missing_values,
@@ -147,6 +158,7 @@ def main(
     cse: bool = True,
     namespace: str | None = None,
     float_type: FloatType | str = FloatType.double,
+    precompute_constants: bool = False,
 ) -> None:
     loglevel = logging.DEBUG if verbose else logging.INFO
     structlog.configure(
@@ -164,6 +176,7 @@ def main(
         cse=cse,
         namespace=namespace,
         float_type=float_type,
+        precompute_constants=precompute_constants,
     )
     out = fname if outname is None else Path(outname)
     out_name = out.with_suffix(suffix=suffix)

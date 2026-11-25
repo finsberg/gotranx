@@ -22,6 +22,7 @@ def get_code(
     delta: float = 1e-8,
     stiff_states: list[str] | None = None,
     cse: bool = True,
+    precompute_constants: bool = False,
 ) -> str:
     """Generate the Python code for the ODE
 
@@ -46,13 +47,26 @@ def get_code(
         Factor out subexpressions shared by the linearized expressions in
         the rush larsen schemes, by default True. False inlines them
         instead, emitting no temporaries
+    precompute_constants : bool, optional
+        Compute every intermediate that depends only on parameters once, in a generated
+        `init_constants(parameters, constants)`, and read it from the `constants` array,
+        which `rhs`, `monitor_values` and the schemes then take right after
+        `parameters`, by default False. Call `init_constants` again after changing a
+        parameter. The results are bit for bit the same as without the option when
+        compiled with `-ffp-contract=off`; otherwise the compiler may fuse operations
+        differently, which changes the last bits
 
     Returns
     -------
     str
         The C code
     """
-    codegen = CCodeGenerator(ode, remove_unused=remove_unused, format=Format.none)
+    codegen = CCodeGenerator(
+        ode,
+        remove_unused=remove_unused,
+        format=Format.none,
+        precompute_constants=precompute_constants,
+    )
     formatter = get_formatter(format=format)
 
     if missing_values is not None:
@@ -65,12 +79,14 @@ def get_code(
         f"int NUM_STATES = {len(ode.states)};",
         f"int NUM_PARAMS = {len(ode.parameters)};",
         f"int NUM_MONITORED = {len(ode.state_derivatives) + len(ode.intermediates)};",
+        *([f"int NUM_CONSTANTS = {len(codegen.constant_index)};"] if precompute_constants else []),
         codegen.parameter_index(),
         codegen.state_index(),
         codegen.monitor_index(),
         codegen.missing_index(),
         codegen.initial_parameter_values(),
         codegen.initial_state_values(),
+        *([codegen.init_constants()] if precompute_constants else []),
         codegen.rhs(),
         codegen.monitor_values(),
         _missing_values,
@@ -104,6 +120,7 @@ def main(
     delta: float = 1e-8,
     stiff_states: list[str] | None = None,
     cse: bool = True,
+    precompute_constants: bool = False,
 ) -> None:
     loglevel = logging.DEBUG if verbose else logging.INFO
     structlog.configure(
@@ -119,6 +136,7 @@ def main(
         delta=delta,
         stiff_states=stiff_states,
         cse=cse,
+        precompute_constants=precompute_constants,
     )
     out = fname if outname is None else Path(outname)
     out_name = out.with_suffix(suffix=suffix)

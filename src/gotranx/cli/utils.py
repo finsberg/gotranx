@@ -107,6 +107,18 @@ def validate_remove_singularities(remove_singularities: Any) -> bool:
     return remove_singularities
 
 
+def validate_precompute_constants(precompute_constants: Any) -> bool:
+    """Reject a non-boolean `precompute_constants`, which can only reach here from a
+    config file -- where a string such as "false" is truthy and would silently do the
+    opposite of what it says."""
+    if not isinstance(precompute_constants, bool):
+        raise typer.BadParameter(
+            f"precompute_constants must be true or false, got {precompute_constants!r}",
+            param_hint="precompute_constants",
+        )
+    return precompute_constants
+
+
 def validate_no_potential(no_potential: Any) -> bool:
     """Reject a non-boolean `no_potential`, which can only reach here from a
     config file -- where a string such as "false" is truthy and would silently
