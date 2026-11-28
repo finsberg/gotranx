@@ -1,0 +1,10 @@
+{
+  "name": "gotranx",
+  "version": "2.11.0",
+  "description": "Turn cardiac cell models and other ODE systems into code with gotranx: it checks the environment, asks what you want, proposes alternatives (scheme, backend, how to compose models), and builds and checks the generated code",
+  "author": { "name": "Henrik Finsberg" },
+  "homepage": "https://finsberg.github.io/gotranx",
+  "repository": "https://github.com/finsberg/gotranx",
+  "license": "MIT",
+  "keywords": ["ode", "code-generation", "cellml", "cardiac", "cell-model", "rush-larsen"]
+}

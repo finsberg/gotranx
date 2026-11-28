@@ -35,6 +35,20 @@ You can also install `gotranx` using conda
 conda install -c conda-forge gotranx
 ```
 
+### AI agent skill
+
+`gotranx` ships an [agent skill](https://agentskills.io) that helps you turn cell models into code:
+it checks your environment, asks what you want (model, coupling of models, scheme, target
+language), suggests alternatives, and writes and checks the generated code for you.
+
+- **Claude Code:** `/plugin marketplace add finsberg/gotranx` then `/plugin install gotranx@gotranx`
+- **Other agents** (Codex, Gemini CLI, GitHub Copilot, Cursor, OpenCode, ...):
+  `npx skills add finsberg/gotranx --skill gotranx-odes`
+- **Manually:** copy [`plugins/gotranx/skills/gotranx-odes`](https://github.com/finsberg/gotranx/tree/main/plugins/gotranx/skills/gotranx-odes)
+  into your agent's skills directory (e.g. `~/.claude/skills/`).
+
+See the section "Using gotranx with an AI agent" below.
+
 ## Quick start
 Define your ODE in a `.ode` file, e.g `file.ode` with the content
 ```
@@ -185,6 +199,33 @@ and run
 python3 -m pytest tests/ --codspeed
 ```
 You can find more info at https://docs.codspeed.io/benchmarks/python
+
+## Using gotranx with an AI agent
+
+The `gotranx-odes` skill (installed as above) turns a coding agent into a guide for generating code
+from ODE models. It
+
+- checks that `gotranx` (and what your target needs: a C compiler, numba, JAX, Julia, odezoo) is
+  installed, and lists the ways to install what is missing;
+- asks you, one question at a time, about your goal, where the model comes from (your own `.ode`,
+  CellML, odezoo), whether several models must be coupled, the target language, and how you will
+  step the model in time;
+- proposes two or three approaches with their trade-offs (e.g. `rush_larsen_2` vs
+  `generalized_rush_larsen`, numpy vs numba vs C, one composed model vs split halves) and
+  recommends one;
+- writes the commands or script, and checks the generated code on one beat against a reference
+  solution;
+- knows the common pitfalls (a `[tool.gotranx]` table in a parent `pyproject.toml` overriding your
+  flags, a CellML model's own stimulus, unit conversions in a glue file);
+- never installs anything or starts a long run without asking.
+
+Describe what you want, for example
+
+> Couple the ToR-ORd model with the Land contraction model and generate Python code I can use in fenicsx-beat
+
+and the agent loads the skill on its own; or invoke it explicitly (`/gotranx:gotranx-odes` in Claude
+Code, `/gotranx-odes` if you copied the folder). Update it with `/plugin marketplace update gotranx`
+or `npx skills update`.
 
 ## Citing
 If you use `gotranx` in your research project we would appreciate if you could use the following citation

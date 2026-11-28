@@ -114,7 +114,8 @@ object → generate code via a `CodeGenerator` + `Template`**.
    the deprecated `convert`). Each subcommand delegates to a matching `cli/gotran2<lang>.py` module
    that loads the ODE, calls into `codegen`, and writes output. `cli/utils.py` handles reading
    defaults from a `config.toml` (`[tool.gotranx]` section — see repo-root `config.toml` for an
-   example; CLI flags override config file values).
+   example). Values found in the config file override the CLI flags, and without `--config`
+   the nearest `pyproject.toml` with a `[tool.gotranx]` table in the current directory or a parent is used.
 
 8. **Units & sympy helpers**: `units.py` wraps `pint` for parsing/validating `ScalarParam(...,
    unit=...)` declarations; `sympytools.py` holds shared `sympy` utilities (e.g. symbol/expression
@@ -141,3 +142,11 @@ object → generate code via a `CodeGenerator` + `Template`**.
 ## Repo layout notes
 - `sandbox/` is scratch/experimental content, not part of the package or docs build.
 - `demo/` has its own `pyproject.toml` and is not part of the main package's dependency tree.
+
+## Agent skill
+- `plugins/gotranx/skills/gotranx-odes/` is an agent skill (Agent Skills format, packaged as a Claude
+  Code plugin via `.claude-plugin/marketplace.json`). It names gotranx API, CLI commands/options and
+  examples; update it when you add, rename or remove one — `tests/test_agent_skill.py` fails on stale
+  names. It also names odezoo model ids, versions, commands and API, which the same test checks
+  against the installed odezoo (a test dependency). The plugin version follows the package version
+  (bump-my-version updates both).

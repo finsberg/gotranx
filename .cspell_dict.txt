@@ -7,6 +7,7 @@ arange
 archs
 Artebrant
 ascontiguousarray
+asname
 atol
 autodiff
 autouse
@@ -67,6 +68,7 @@ errstate
 evalf
 exponentials
 fenics
+fenicsx
 fgrl
 figsize
 Finsberg
