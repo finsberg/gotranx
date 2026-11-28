@@ -67,6 +67,7 @@ errstate
 evalf
 exponentials
 fenics
+fenicsx
 fgrl
 figsize
 Finsberg
