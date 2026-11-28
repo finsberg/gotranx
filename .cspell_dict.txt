@@ -7,6 +7,7 @@ arange
 archs
 Artebrant
 ascontiguousarray
+asname
 atol
 autodiff
 autouse

@@ -42,6 +42,8 @@ Real recipes used by the tests:
    mechanics solver that sets them every step.
 7. **Parameters.** Contraction-model defaults may describe another preparation (Land's defaults are
    a skinned cell; the split-ode example sets intact human-cell values). Which set do they want?
+   Set the chosen values in the glue file or at run time ([below](#changing-a-parts-parameters)),
+   never by editing the composed `.ode`.
 
 ## Alternatives to propose
 
@@ -122,6 +124,27 @@ Glue rules: in a block for part X, bare names are X's and another part's are `pa
 `name = ...` creates a new name, `replace name = ...` changes an existing one, `dX_dt += ...` adds a
 term to a state's derivative. Errors name the fix and the glue line.
 
+### Changing a part's parameters
+
+For example, Land's intact-cell values. **Never edit the composed `.ode` by hand**: `gotranx compose`
+writes it again from the recipe, and its header (the recipe and every input's sha256) would no
+longer describe the file. Instead, either
+
+- set them in the glue file. A `replace` in a `parameters` block keeps the name a parameter (it can
+  still be overridden at run time) and keeps the original unit and description:
+
+  ```
+  parameters("land",
+  replace ca50_ref = 0.805,
+  replace Tref = 120000.0
+  )
+  ```
+
+- or pass them at run time: `init_parameter_values(**land_parameters)`.
+
+Initial values of states cannot be set in a glue file ("glue files cannot declare states"): pass
+them at run time, e.g. `init_state_values(B=1.0, CaTRPN=0.0)`.
+
 Then:
 
 ```bash
@@ -164,14 +187,21 @@ Choose the split's outputs for what the consumer needs: with `outputs=["Ta"]`, L
 
 - `gotranx compose` succeeds and its "needs" lines are what you expect (contraction needs `cai`,
   EP needs the troponin flux; for one-way, EP needs nothing).
-- One beat of the composed model: the calcium transient and action potential are close to the EP
-  model alone (one-way: identical; two-way: slightly changed), active tension `Ta` rises after the
-  calcium peak and returns to baseline. **Set Land's intact-cell parameters first** (the
-  `land_parameters` dict and initial states `B = 1`, `CaTRPN = 0` in
-  [examples/split-ode/main.py](https://github.com/finsberg/gotranx/blob/main/examples/split-ode/main.py)):
-  with them peak tension is tens of kPa (≈ 60 kPa with TP06, one-way); with Land's skinned-cell
-  defaults it is below 1 kPa. With intact parameters, values off by 1000 point to a unit conversion
-  missing in the glue.
+- One beat of the composed model: active tension `Ta` rises after the calcium peak and returns to
+  baseline. **Set Land's intact-cell parameters first** (the `land_parameters` dict and initial
+  states `B = 1`, `CaTRPN = 0` in
+  [examples/split-ode/main.py](https://github.com/finsberg/gotranx/blob/main/examples/split-ode/main.py),
+  applied as in [Changing a part's parameters](#changing-a-parts-parameters)): with them peak tension
+  is tens of kPa (≈ 60 kPa with TP06, one-way); with Land's skinned-cell defaults it is below 1 kPa.
+  With intact parameters, values off by 1000 point to a unit conversion missing in the glue.
+- Compare the calcium transient and action potential with the EP model alone. One-way coupling:
+  identical (the EP model does not see contraction). Two-way coupling changes them, and **not
+  slightly**: the tests' ToR-ORd + Land recipe with intact Land parameters, at steady state (200
+  beats at 1 Hz, `hybrid_rush_larsen_2` at 0.01 ms), gives APD90 379 ms against 351 ms for ToR-ORd
+  alone (+8 %), and the calcium transient peaks at 6 ms instead of 35 ms (similar height). The glue
+  above has the units right (the composed model uses the rescaled `dCaTRPN_dt`), so this is the
+  coupling, not a unit error. Report the size of the change to the user and let them judge it
+  against the literature they rely on.
 - For alternative B, compare the split halves against the composed model at the same `dt` (the
   split-ode example does this).
 
@@ -188,7 +218,8 @@ Choose the split's outputs for what the consumer needs: with `outputs=["Ta"]`, L
   none (one-way only, unless the model is changed deliberately).
 - **Double-counted troponin** in two-way coupling unless the EP buffering term is replaced.
 - **Skinned-cell defaults.** Land's default `ca50_ref` (2.5 µM) and `Tref` (40.5 kPa) are for a
-  skinned cell; for an intact human cell use the values in the split-ode example.
+  skinned cell; for an intact human cell use the values in the split-ode example, set in the glue
+  or at run time ([Changing a part's parameters](#changing-a-parts-parameters)).
 - **Parameter and state overrides per half.** After a split, each half has only its own parameters
   and states; `init_parameter_values(**overrides)` / `init_state_values(**overrides)` raise
   `KeyError` for a name the half does not have — filter the overrides per half

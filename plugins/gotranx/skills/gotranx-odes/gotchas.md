@@ -44,16 +44,29 @@ Keep singularity removal on: without it numba crashes on 0/0 at the removable po
 warns.
 <!-- verified: examples/run-python/main_numba.py text -->
 
-## Automatic gating detection exponentiates states you did not expect
+## Automatic gating detection breaks Markov chains, and the error grows every beat
 
-**What happens:** `rush_larsen`/`rush_larsen_2` treat Markov-chain states (ToR-ORd IKr `C1`, `C2`,
-`C3`, …) and some concentrations (ToR-ORd `cansr`) as gating states; their sum / conservation is no
-longer exact.
-**Why:** the detection is structural (states whose derivative is linear in themselves), not physical.
-**Do instead:** print `gotranx.linearization.gating_states(ode)` and, if it matters for the study,
-use `hybrid_rush_larsen_2` with an explicit `--stiff-states` list, or check the invariant over the
-run at the chosen `dt`.
-<!-- verified: gating_states on ToRORd_dynCl_mid -->
+**What happens:** with `rush_larsen`/`rush_larsen_2`, a model with a Markov chain (ToR-ORd's IKr:
+`C1`, `C2`, `C3`, `O_`, `I_`) loses the chain's sum-to-one over many beats, and the action potential
+changes with it. ToR-ORd with `rush_larsen_2` at 0.05 ms, 200 beats at 1 Hz: sum 0.78, APD90
+350 → 416 ms (converged: 351 ms). The first beat is fine, so a one-beat check passes.
+**Why:** the detection is structural (states whose derivative is linear in themselves), not
+physical. Each chain state gets its own exponential update, which does not keep their sum.
+**Do instead:** print `gotranx.linearization.gating_states(ode)`. If a chain is in it, use
+`hybrid_rush_larsen_2` with the detected states minus the chain (for ToR-ORd stable at
+`dt` ≤ 0.025 ms, NaN at 0.04 ms), or `rush_larsen_2` at `dt` ≤ 0.01 ms (APD90 +3 ms after 200
+beats). Check APD90 and the sum over 50+ beats ([schemes.md](schemes.md)).
+<!-- verified: ToRORd_dynCl_mid, 200 beats of generated C at several dt, for rush_larsen_2, generalized_rush_larsen and hybrid_rush_larsen_2 -->
+
+## `hybrid_rush_larsen_2` NaN after leaving states out
+
+**What happens:** NaN within the first beat after removing states (e.g. a Markov chain) from the
+`--stiff-states` list.
+**Why:** every state not listed is stepped with forward Euler, and a stiff one is then unstable at
+the `dt` that worked before. ToR-ORd's IKr chain needs `dt` ≤ 0.025 ms this way.
+**Do instead:** lower `dt` until one beat is finite and close to the reference, or keep the state in
+the list.
+<!-- verified: ToRORd_dynCl_mid, hybrid_rush_larsen_2 without the chain: NaN at 0.04 and 0.05 ms, stable at 0.025 ms -->
 
 ## `hybrid_rush_larsen` without stiff states is forward Euler
 
@@ -63,26 +76,41 @@ run at the chosen `dt`.
 Before gotranx 2.10, `get_scheme("rush_larsen")` returned this hybrid scheme — upgrade.
 <!-- verified: CHANGELOG; v2.9.0 schemes.get_scheme maps rush_larsen to hybrid_rush_larsen -->
 
-## `generalized_rush_larsen` is robust but not conservative
+## `generalized_rush_larsen` is robust, but less accurate and not conservative either
 
-**What happens:** linear invariants (total ion content, Markov occupancies summing to 1) drift over
-many beats.
-**Why:** every state gets its own exponential update; the update is exact for linear decoupled
-equations, but it breaks linear combinations that explicit schemes keep.
-**Do instead:** for long pacing runs prefer `rush_larsen_2` (fenicsx-beat's default) at a `dt` where it
-is stable; use GRL when stability at large `dt` matters more.
-<!-- unverified: drift magnitude per model; from the fenicsx-beat 0.14 defaults study -->
+**What happens:** larger errors than `rush_larsen_2` at the same `dt` (action-potential peak
++4.6 mV for TP06 + Land and +4 mV for ToR-ORd at 0.05 ms, +8 mV for ORdmm_Land at 0.1 ms), and
+linear invariants drift over many beats (ToR-ORd's IKr Markov sum 1.10 after 200 beats at 0.05 ms,
+APD90 351 → 330 ms). Ion concentrations stay within about 1 % of the reference after 100 beats.
+**Why:** every state gets its own exponential update: exact for a linear, decoupled equation, but
+it breaks linear combinations of states.
+**Do instead:** use GRL when stability at a large `dt` matters most, and compare against a smaller
+`dt`. Switching to `rush_larsen_2` does not fix the drift for a model with a Markov chain: it is
+worse there (entry above).
+<!-- verified: TP06 + Land and ORdmm_Land, one beat against a fine reference; ToRORd_dynCl_mid, 100 and 200 beats of generated C -->
 
 ## Regenerated code differs from code generated with an older gotranx
 
 **What happens:** results change slightly after regenerating, especially near `v = 0` and for GHK
 fluxes.
-**Why:** removable singularities are guarded by default (since 2.9; the guards were extended to
-the right-hand side and conditionals later); older code could have a wrong, even growing, linearization near the pole.
+**Why:** removable singularities are guarded by default since 2.1, in the right-hand side and in
+the Rush–Larsen linearization (and inside `Conditional` branches since 2.6). Code generated before
+could have a wrong, even growing, linearization near the pole.
 **Do instead:** keep the guards (default). Use `--no-remove-singularities` only to reproduce old
-output exactly. Warnings such as "Dropping a guard whose replacement failed its numeric check" mean
-that particular expression is emitted as written.
-<!-- verified: CHANGELOG; warnings seen when composing ToR-ORd + Land. unverified: that those dropped guards are harmless -->
+output exactly.
+<!-- verified: git tags (d9f215c "guard removable singularities ... by default" first in v2.1.0; 8ba543c "guard a pole inside a conditional" first in v2.6.0) -->
+
+## "Dropping a guard whose replacement failed its numeric check"
+
+**What happens:** this warning when loading or generating ToR-ORd (`var=nai`, `ki`, `cli`, `clss`),
+ORdmm_Land (`nai`, `ki`) or a model composed from them.
+**Why:** the candidates are Nernst potentials, `R*T/(z*F)*log(c_o/c_i)` at `c_i = 0`: a logarithmic
+singularity, not a removable pole, so no guard exists and the numeric check rightly rejects one. The
+expression is kept as written, and concentrations never reach 0. It is harmless.
+**Do instead:** tell the user what it means; do not hide it. For a variable that is not a
+concentration inside a `log`, read the expression (`grep -n "<var>" model.ode`): it stays unguarded
+at that value, so check that the model cannot reach it.
+<!-- verified: printed the rejected expressions from singularities._pole_at for ToRORd_dynCl_mid; same warnings for ORdmm_Land -->
 
 ## A stale version number after `pip install -e`
 

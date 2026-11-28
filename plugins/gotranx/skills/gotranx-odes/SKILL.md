@@ -75,7 +75,8 @@ problem before proposing fixes. Topics, in order:
 4. **Time stepping** — a generated one-step scheme with a fixed `dt`, or only the right-hand side for
    an adaptive solver (scipy `solve_ivp` with BDF/LSODA, Julia's solvers). For a scheme: how
    accurate (first or second order — second order pays off only with Strang splitting downstream),
-   and which `dt` they plan. See [schemes.md](schemes.md).
+   which `dt` they plan, and how long they pace (a few beats, or many beats to a steady state: errors
+   that grow every beat matter only then). See [schemes.md](schemes.md).
 5. **Downstream details** — where the stimulus is applied (the model's own stimulus, or the tissue
    solver's), which parameters they will vary (pass them via `init_parameter_values`), which
    intermediate values they need to read (currents, active tension: monitored values), and whether
@@ -88,10 +89,13 @@ problem before proposing fixes. Topics, in order:
 Present **2–3 approaches with trade-offs and a recommendation**. Typical axes:
 
 - **Scheme**: `rush_larsen_2` (second order, gating states exponential; fenicsx-beat's default) vs
-  `generalized_rush_larsen` (every state exponential, most robust at large `dt`, but breaks linear
-  invariants such as Markov-chain occupancies summing to 1) vs `explicit_euler` (cheapest, needs a
-  small `dt`) vs right-hand side + an adaptive stiff solver (reference quality, slow, not for
-  tissue). Details: [schemes.md](schemes.md).
+  `generalized_rush_larsen` (every state exponential, most robust at large `dt`, less accurate at
+  the same `dt`) vs `explicit_euler` (cheapest per step, needs a small `dt`) vs right-hand side + an
+  adaptive stiff solver (reference quality, slow, not for tissue). **A model with a Markov chain
+  (ToR-ORd's IKr) paced for many beats** drifts with both Rush–Larsen defaults at 0.05 ms (APD90
+  +65 ms with `rush_larsen_2`, −21 ms with GRL after 200 beats); offer `hybrid_rush_larsen_2`
+  without the chain at `dt` ≤ 0.025 ms, or `rush_larsen_2` at `dt` ≤ 0.01 ms. Details:
+  [schemes.md](schemes.md#markov-chains-and-automatic-gating-detection).
 - **Backend**: plain numpy (simple, vectorized over cells) vs numba (fast loops, needs
   `--shape single`) vs a C extension (fastest on CPU, needs a compiler) vs CUDA (many cells on a
   GPU). Details: [targets.md](targets.md).
@@ -138,9 +142,10 @@ Before using a gotranx function, read its signature in the installed version
 `gotranx ode2py --help`) — options change between versions.
 
 Generating code for a large model takes a while: ToR-ORd (45 states) takes ~15 s for `ode2py`, most
-of it in sympy; `--format none` skips the formatter. Warnings like "Dropping a guard whose replacement
-failed its numeric check" are expected for some models (the expression is kept as written) — tell the
-user, do not hide them ([gotchas.md](gotchas.md)).
+of it in sympy; `--format none` skips the formatter. Warnings "Dropping a guard whose replacement
+failed its numeric check" for `nai`, `ki`, `cli` or `clss` come from Nernst potentials
+(`log(c_o/c_i)` at `c_i = 0`, a logarithmic singularity that cannot be guarded) and are harmless —
+tell the user what they mean, do not hide them ([gotchas.md](gotchas.md)).
 
 Find the names you will need in the generated module, not by guessing:
 
@@ -162,7 +167,9 @@ When adapting a gotranx example:
   and use absolute paths;
 - its end time and plotting are cut for the docs build — set them for the user's goal;
 - parameter values it sets (e.g. Land's intact-cell parameters in the split-ode example) are part of
-  the physics — keep them or replace them knowingly.
+  the physics — keep them or replace them knowingly. Set them in a glue file or at run time, never by
+  editing a generated or composed `.ode` by hand: regenerating it loses the edit
+  ([composition.md](composition.md)).
 
 ## Step 5: Check, then hand over
 
@@ -182,10 +189,17 @@ When adapting a gotranx example:
    resting value (the value at the end of the beat). If the run at the user's `dt` gives NaN (typical
    for `explicit_euler` through the upstroke), compare the candidate schemes at that `dt` against the
    adaptive reference instead of against `dt/4`.
-2. For composed models, also check the coupled outputs (e.g. active tension rises after the calcium
+2. **Multi-beat check** when the model will be paced for more than a few beats (tissue, steady
+   state, drug studies): run 50–100 beats at the chosen `dt` and with a reference (`dt/10`, or a
+   scheme that keeps the model's invariants), compare APD90 at the last beat, and track linear
+   invariants such as a Markov chain's occupancies summing to 1. A first beat that matches does not
+   rule out an error that grows every beat: ToR-ORd with `rush_larsen_2` at 0.05 ms is within 1 ms
+   on beat 1 and 65 ms off after 200 beats ([schemes.md](schemes.md#markov-chains-and-automatic-gating-detection)).
+   A ToR-ORd beat takes a few seconds in generated numpy code, so ask before starting this run.
+3. For composed models, also check the coupled outputs (e.g. active tension rises after the calcium
    transient and returns to baseline) and print what each part needs from the others
    (`gotranx compose` prints it; in Python, `missing_variables` of each half).
-3. **Hand over**: the exact commands or script, the generated files and their API (which function to
+4. **Hand over**: the exact commands or script, the generated files and their API (which function to
    call with which argument order, [targets.md](targets.md)), the `dt` it was checked at, and how
    to regenerate after editing the model.
 
@@ -217,5 +231,5 @@ Use a related skill if it is available; if not, follow the link.
   concentration units (mM vs µM) before coupling or choosing `dt`.
 - Top pitfalls (all in [gotchas.md](gotchas.md)): a `[tool.gotranx]` table in a parent
   `pyproject.toml` overriding flags; a CellML model's own stimulus firing in a tissue simulation;
-  numba needing `--shape single`; automatic gating detection exponentiating Markov-chain states;
-  units and double-counted troponin when composing.
+  numba needing `--shape single`; automatic gating detection breaking Markov chains, which makes the
+  action potential drift over many beats; units and double-counted troponin when composing.

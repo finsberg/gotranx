@@ -1,8 +1,10 @@
 # Backends: command, generated API, how to call it
 
-All generators accept `--scheme` (repeatable), `--remove-unused`, `--no-remove-singularities`,
-`-o/--outname` and `-c/--config`; check the rest with `gotranx <command> --help`. The CLI guide:
-https://finsberg.github.io/gotranx/docs/cli.html.
+The code generators `ode2py`, `ode2c`, `ode2cpp`, `ode2cuda`, `ode2julia` and `ode2ufl` accept
+`--scheme` (repeatable), `--remove-unused`, `--no-remove-singularities`, `-o/--outname` and
+`-c/--config`. `ode2mtk` and `ode2cytozoo` generate no scheme (no `--scheme`), and `ode2md` has
+neither `--remove-unused` nor `-c/--config`. Check the rest with `gotranx <command> --help`. The CLI
+guide: https://finsberg.github.io/gotranx/docs/cli.html.
 
 ## Python (numpy) — `gotranx ode2py`
 
