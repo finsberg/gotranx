@@ -1,0 +1,12 @@
+{
+  "name": "gotranx",
+  "owner": { "name": "Henrik Finsberg" },
+  "description": "Agent skills for gotranx, a translator from ODE models (.ode, CellML) to code in many languages",
+  "plugins": [
+    {
+      "name": "gotranx",
+      "source": "./plugins/gotranx",
+      "description": "Turn cardiac cell models and other ODEs into code with gotranx: models, composition, schemes, backends"
+    }
+  ]
+}
