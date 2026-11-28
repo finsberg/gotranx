@@ -47,7 +47,7 @@ language), suggests alternatives, and writes and checks the generated code for y
 - **Manually:** copy [`plugins/gotranx/skills/gotranx-odes`](https://github.com/finsberg/gotranx/tree/main/plugins/gotranx/skills/gotranx-odes)
   into your agent's skills directory (e.g. `~/.claude/skills/`).
 
-See [Using gotranx with an AI agent](#using-gotranx-with-an-ai-agent) below.
+See the section "Using gotranx with an AI agent" below.
 
 ## Quick start
 Define your ODE in a `.ode` file, e.g `file.ode` with the content
