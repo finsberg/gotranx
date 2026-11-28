@@ -1,6 +1,6 @@
 """The agent skill in plugins/gotranx: manifests, portability, and that everything the skill names
 exists (gotranx objects and their arguments, repository links, CLI commands, options and option
-values, scheme names, and the API of the generated code)."""
+values, scheme names, the API of the generated code, and the odezoo models and commands)."""
 
 import ast
 import enum
@@ -677,3 +677,133 @@ def test_skill_generated_c_api(generated):
         if re.fullmatch(r"[A-Z][A-Z_]+", span) and not re.search(rf"\b{span}\b", source):
             bad.append(f"`{span}` is not in the generated C")
     assert not bad, f"documented generated C API differs: {bad}"
+
+
+# --- odezoo: model ids, versions, commands and API that the skill names ---
+
+ODEZOO_PROG = "odezoo"
+
+
+def _odezoo_check_model(id: str, version: str | None, format: str | None) -> str | None:
+    import odezoo
+
+    try:
+        model = odezoo.model(id)
+    except odezoo.ModelNotFound:
+        return f"no odezoo model {id!r}"
+    versions = {v.id: v.format for v in model.versions}
+    if version is not None and version not in versions:
+        return f"odezoo model {id!r} has no version {version!r} (has {sorted(versions)})"
+    if format is not None and format not in versions.values():
+        return f"odezoo model {id!r} has no {format} version"
+    return None
+
+
+def _odezoo_invocations(text: str) -> list[list[str]]:
+    """Token lists after `odezoo` where it is the command being run; a placeholder (`<id>`) or a
+    shell substitution ends the list."""
+    start = r"(?:^|&&|\|\||[;|(]|\$\()\s*"
+    out = []
+    for span in _code_spans(text):
+        for line in span.splitlines():
+            line = line.split(" #", 1)[0].strip()
+            for m in re.finditer(rf"{start}{ODEZOO_PROG}((?:[ \t]+[^\s;&|)]+)+)", line):
+                tokens = []
+                for token in m.group(1).split():
+                    if token.startswith(("<", "$", "`")):
+                        break
+                    tokens.append(token)
+                out.append(tokens)
+    return out
+
+
+def test_skill_odezoo_invocations_exist():
+    pytest.importorskip("odezoo")
+    import contextlib
+    import io
+
+    from odezoo.cli import build_parser
+
+    invocations = _odezoo_invocations(_skill_text())
+    assert invocations, "the skill should show odezoo commands"
+    bad = []
+    for tokens in invocations:
+        if tokens and tokens[0] in ("info", "fetch") and len(tokens) == 1:
+            continue  # `odezoo info <id>`: the id was a placeholder
+        stderr = io.StringIO()
+        try:
+            with contextlib.redirect_stderr(stderr):
+                args = build_parser().parse_args(tokens)
+        except SystemExit:
+            bad.append(f"odezoo {' '.join(tokens)}: {stderr.getvalue().strip().splitlines()[-1]}")
+            continue
+        ids = {"fetch": getattr(args, "ids", []), "info": [getattr(args, "id", None)]}
+        for id in ids.get(args.command, []):
+            problem = _odezoo_check_model(
+                id, getattr(args, "version", None), getattr(args, "format", None)
+            )
+            if problem:
+                bad.append(f"odezoo {' '.join(tokens)}: {problem}")
+    assert not bad, "odezoo commands that do not work:\n" + "\n".join(bad)
+
+
+def _odezoo_calls(source: str) -> list[ast.Call]:
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return []
+    return [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and isinstance(node.func.value, ast.Name)
+        and node.func.value.id == ODEZOO_PROG
+    ]
+
+
+def test_skill_odezoo_api_exists():
+    odezoo = pytest.importorskip("odezoo")
+    sources = []
+    for path in _skill_files():
+        text = path.read_text(encoding="utf-8")
+        sources += [body for lang, body in _fenced(text) if lang == "python"]
+        sources += [span for span in _inline(text) if f"{ODEZOO_PROG}." in span]
+    calls = [call for source in sources for call in _odezoo_calls(source)]
+    assert calls, "the skill should show odezoo calls"
+    bad = []
+    for call in calls:
+        where = ast.unparse(call)
+        func = getattr(odezoo, call.func.attr, None)  # type: ignore[attr-defined]
+        if not callable(func):
+            bad.append(f"{where}: odezoo has no function {call.func.attr}")  # type: ignore[attr-defined]
+            continue
+        parameters = inspect.signature(func).parameters
+        consts = {}
+        for keyword in call.keywords:
+            if keyword.arg is not None and keyword.arg not in parameters:
+                bad.append(f"{where}: no keyword argument {keyword.arg}")
+            if keyword.arg and isinstance(keyword.value, ast.Constant):
+                consts[keyword.arg] = keyword.value.value
+        first = call.args[0] if call.args else None
+        if call.func.attr in ("get", "model") and isinstance(first, ast.Constant):  # type: ignore[attr-defined]
+            if not isinstance(first.value, str):
+                continue
+            problem = _odezoo_check_model(first.value, consts.get("version"), consts.get("format"))
+            if problem:
+                bad.append(f"{where}: {problem}")
+    assert not bad, "unknown odezoo API in the skill:\n" + "\n".join(bad)
+
+
+def test_skill_odezoo_id_table():
+    """Every id in the `odezoo id` column of the skill's tables is a model."""
+    pytest.importorskip("odezoo")
+    table = re.compile(r"^(\|.*odezoo id.*\|)\n\|[-| ]+\|\n((?:\|.*\|\n?)+)", re.M)
+    ids = []
+    for header, rows in table.findall(_skill_text()):
+        column = [c.strip() for c in header.split("|")[1:-1]].index("odezoo id")
+        for row in rows.splitlines():
+            ids += re.findall(r"`([^`]+)`", row.split("|")[1:-1][column])
+    assert ids, "the skill should have a table of odezoo ids"
+    bad = [p for p in (_odezoo_check_model(id, None, None) for id in ids) if p]
+    assert not bad, "\n".join(bad)

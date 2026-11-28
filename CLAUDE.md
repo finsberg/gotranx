@@ -147,4 +147,6 @@ object → generate code via a `CodeGenerator` + `Template`**.
 - `plugins/gotranx/skills/gotranx-odes/` is an agent skill (Agent Skills format, packaged as a Claude
   Code plugin via `.claude-plugin/marketplace.json`). It names gotranx API, CLI commands/options and
   examples; update it when you add, rename or remove one — `tests/test_agent_skill.py` fails on stale
-  names. The plugin version follows the package version (bump-my-version updates both).
+  names. It also names odezoo model ids, versions, commands and API, which the same test checks
+  against the installed odezoo (a test dependency). The plugin version follows the package version
+  (bump-my-version updates both).

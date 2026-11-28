@@ -64,7 +64,36 @@ one-way experiment with an already-generated contraction model.
 Orthogonal choice — **recipe as TOML + `gotranx compose`** (reproducible, the written `.ode` has a
 header with the recipe and every input file's sha256; good for sharing and for downstream packages
 that read `.ode` files) vs **recipe as a Python dict + `gotranx.compose`** (paths from
-`odezoo.get(...)`, no files written; good inside a script).
+`odezoo.get(...)`, no files written; good inside a script). A dict recipe with odezoo parts and
+the tests' glue file:
+
+```python
+import gotranx
+import odezoo
+
+recipe = {
+    "time_unit": "ms",
+    "glue": "torord_land.glue.ode",  # from gotranx's tests/compose_files (link above)
+    "parts": [
+        {
+            "name": "ep",
+            "file": str(odezoo.get("torord_dyn_cl", version="github-11e463d")),
+            "time_unit": "ms",
+        },
+        {
+            "name": "land",
+            "file": str(odezoo.get("land_2017", version="github-6e5a5aa")),
+            "time_unit": "s",
+            "rename": {"a": "a_land", "h": "h_land", "dLambda": "dLambda_land"},
+        },
+    ],
+}
+# relative paths resolve against base_dir=, by default the current directory
+ode = gotranx.compose(recipe)
+```
+
+odezoo's ToR-ORd is the endocardial file, not the tests' mid-myocardial one
+([models.md](models.md#the-odezoo-registry)).
 
 ## Building
 
